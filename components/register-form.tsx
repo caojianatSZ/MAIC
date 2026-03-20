@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 
 interface RegisterFormData {
   name: string;
@@ -83,7 +83,7 @@ export default function RegisterForm() {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
 
     // 清除之前的错误和成功消息
