@@ -11,7 +11,7 @@ interface ConversionCardProps {
   shareToken: string;
 }
 
-export function ConversionCard({ organizationId, classroomId, shareToken }: ConversionCardProps) {
+export function ConversionCard({ organizationId: _organizationId, classroomId: _classroomId, shareToken }: ConversionCardProps) {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -30,7 +30,7 @@ export function ConversionCard({ organizationId, classroomId, shareToken }: Conv
     return /^[1][3-9]\d{9}$/.test(phone);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
 
     // Validate phone
