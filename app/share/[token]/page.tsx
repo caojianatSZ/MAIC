@@ -92,7 +92,7 @@ export default function SharePage() {
     <div className="h-screen flex flex-col overflow-hidden">
       <ShareHeader organization={organization} />
       <div className="flex-1 overflow-hidden">
-        <Stage />
+        <Stage shareToken={token} />
       </div>
 
       {/* Conversion card will be added in Task 14 */}
