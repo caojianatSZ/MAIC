@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
 import { organizationClassrooms, organizations } from '@/drizzle/schema';
 import { eq } from 'drizzle-orm';
-import { apiSuccess, apiError } from '@/lib/server/api-response';
+import { apiSuccess, apiError, API_ERROR_CODES } from '@/lib/server/api-response';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     // Verify organization exists
     const [org] = await db.select().from(organizations).where(eq(organizations.id, organizationId));
     if (!org) {
-      return apiError('机构不存在', 404);
+      return apiError(API_ERROR_CODES.INVALID_REQUEST, 404, '机构不存在');
     }
 
     // Generate unique token
@@ -34,6 +34,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Association error:', error);
-    return apiError('创建失败', 500);
+    return apiError(API_ERROR_CODES.INTERNAL_ERROR, 500, '创建失败');
   }
 }
