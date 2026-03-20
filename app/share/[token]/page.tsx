@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import ShareHeader from '@/components/share-header';
-import Stage from '@/components/stage';
+import { ShareHeader } from '@/components/share-header';
+import { Stage } from '@/components/stage';
 import { useStageStore } from '@/lib/store';
 import { createLogger } from '@/lib/logger';
 // import { ConversionCard } from '@/components/conversion-card';
@@ -18,12 +18,6 @@ interface Organization {
   phone?: string;
 }
 
-interface Classroom {
-  id: string;
-  stage: any;
-  scenes: any[];
-}
-
 export default function SharePage() {
   const params = useParams();
   const token = params?.token as string;
@@ -31,7 +25,6 @@ export default function SharePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
-  const [classroomId, setClassroomId] = useState<string | null>(null);
 
   const { loadFromStorage } = useStageStore();
 
@@ -50,7 +43,6 @@ export default function SharePage() {
 
         const { classroom, organization: orgData } = json.data;
         setOrganization(orgData);
-        setClassroomId(classroom.id);
 
         // Load classroom data into store
         await loadFromStorage(classroom.id);
