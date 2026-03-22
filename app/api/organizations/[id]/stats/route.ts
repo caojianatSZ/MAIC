@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { organizations, organizationClassrooms, classroomViews, classroomConversions } from '@/drizzle/schema';
-import { eq, count, and, sql, inArray } from 'drizzle-orm';
+import { eq, count, and, inArray } from 'drizzle-orm';
 import { apiSuccess, apiError, API_ERROR_CODES } from '@/lib/server/api-response';
 
 export async function GET(
