@@ -224,24 +224,26 @@ async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTS
 
   // Use voice_id for cloned voices, otherwise use preset voice
   const requestBody: Record<string, unknown> = {
+    model: 'glm-tts',
     input: text,
     speed: config.speed || 1.0,
     volume: 1.0,
     response_format: 'wav',
   };
 
-  // Use voice_id if provided (cloned voice), otherwise use voice (preset)
-  if (config.voiceId) {
-    // CRITICAL: When using cloned voice, must use glm-tts-clone model
-    requestBody.model = 'glm-tts-clone';
-    requestBody.voice_id = config.voiceId;
-    console.log('🎤🎤🎤 GLM TTS: Using CLONED voice_id:', config.voiceId, 'with model: glm-tts-clone');
-  } else {
-    // When using preset voice, use glm-tts model with voice parameter
-    requestBody.model = 'glm-tts';
-    requestBody.voice = config.voice;
-    console.log('🔊 GLM TTS: Using PRESET voice:', config.voice, 'with model: glm-tts');
-  }
+  // TEMPORARY: Always use preset voice until voice_id is verified working
+  // TODO: Investigate why GLM API ignores voice_id parameter
+  // if (config.voiceId) {
+  //   requestBody.voice_id = config.voiceId;
+  //   console.log('🎤🎤🎤 GLM TTS: Using CLONED voice_id:', config.voiceId);
+  // } else {
+  //   requestBody.voice = config.voice;
+  //   console.log('🔊 GLM TTS: Using PRESET voice:', config.voice);
+  // }
+
+  // Always use preset voice for now
+  requestBody.voice = config.voice;
+  console.log('🔊 GLM TTS: Using PRESET voice:', config.voice, '(voice_id temporarily disabled)');
 
   console.log('🎤 GLM TTS Request body:', JSON.stringify(requestBody, null, 2));
 
