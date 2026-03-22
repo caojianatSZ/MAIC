@@ -273,6 +273,8 @@ function GenerationPreviewContent() {
         };
         setSession(updatedSession);
         sessionStorage.setItem('generationSession', JSON.stringify(updatedSession));
+        // Update local variable to reflect the new session state
+        currentSession = updatedSession;
 
         // Truncation warnings
         const warnings: string[] = [];
@@ -547,6 +549,8 @@ function GenerationPreviewContent() {
         const updatedSession = { ...currentSession, sceneOutlines: outlines };
         setSession(updatedSession);
         sessionStorage.setItem('generationSession', JSON.stringify(updatedSession));
+        // Update local variable to reflect the new session state
+        currentSession = updatedSession;
 
         // Outline generation succeeded — clear homepage draft cache
         try {
@@ -659,6 +663,11 @@ function GenerationPreviewContent() {
           const audioId = `tts_${action.id}`;
           action.audioId = audioId;
           try {
+            // Get latest session to access clonedVoiceId
+            const latestSession = session;
+            console.log('=== TTS Generation ===');
+            console.log('Session clonedVoiceId:', latestSession.clonedVoiceId);
+            console.log('Sending voiceId to TTS API:', latestSession.clonedVoiceId || undefined);
             const resp = await fetch('/api/generate/tts', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -670,6 +679,7 @@ function GenerationPreviewContent() {
                 ttsSpeed: settings.ttsSpeed,
                 ttsApiKey: ttsProviderConfig?.apiKey || undefined,
                 ttsBaseUrl: ttsProviderConfig?.baseUrl || undefined,
+                voiceId: latestSession.clonedVoiceId || undefined, // Pass cloned voice ID from latest session
               }),
               signal,
             });
