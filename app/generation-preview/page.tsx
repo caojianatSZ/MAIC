@@ -652,18 +652,19 @@ function GenerationPreviewContent() {
       }
 
       // Generate TTS for first scene (part of actions step — blocking)
-      console.log('=== Checking TTS settings ===');
-      console.log('TTS Enabled:', settings.ttsEnabled);
-      console.log('TTS Provider ID:', settings.ttsProviderId);
-      console.log('Session clonedVoiceId:', session.clonedVoiceId);
+      console.log('🔊🔊🔊 === TTS PHASE START ===');
+      console.log('🔊 TTS Enabled:', settings.ttsEnabled);
+      console.log('🔊 TTS Provider ID:', settings.ttsProviderId);
+      console.log('🔊 Session clonedVoiceId:', session.clonedVoiceId);
+      console.log('🔊 Is browser-native-tts:', settings.ttsProviderId === 'browser-native-tts');
 
       if (settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
-        console.log('✓ TTS is enabled, proceeding with generation');
+        console.log('✅✅✅ TTS is ENABLED and using server provider');
         const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
         const speechActions = (data.scene.actions || []).filter(
           (a: { type: string; text?: string }) => a.type === 'speech' && a.text,
         );
-        console.log('Found speech actions:', speechActions.length);
+        console.log('✅ Found speech actions:', speechActions.length);
 
         let ttsFailCount = 0;
         for (const action of speechActions) {
@@ -672,10 +673,12 @@ function GenerationPreviewContent() {
           try {
             // Get latest session to access clonedVoiceId
             const latestSession = session;
-            console.log('=== TTS Generation for action ===');
-            console.log('Action text:', action.text?.substring(0, 50) + '...');
-            console.log('Session clonedVoiceId:', latestSession.clonedVoiceId);
-            console.log('Sending voiceId to TTS API:', latestSession.clonedVoiceId || undefined);
+            console.log('🎤🎤🎤 Generating TTS for action ===');
+            console.log('🎤 Action text:', action.text?.substring(0, 50) + '...');
+            console.log('🎤 Session clonedVoiceId:', latestSession.clonedVoiceId);
+            console.log('🎤 Sending voiceId to TTS API:', latestSession.clonedVoiceId || 'undefined');
+            console.log('🎤 TTS Provider:', settings.ttsProviderId);
+            console.log('🎤 TTS Voice:', settings.ttsVoice);
             const resp = await fetch('/api/generate/tts', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -711,14 +714,21 @@ function GenerationPreviewContent() {
               createdAt: Date.now(),
             });
           } catch (err) {
+            console.error('❌ TTS Failed for', audioId, ':', err);
             log.warn(`[TTS] Failed for ${audioId}:`, err);
             ttsFailCount++;
           }
         }
 
+        console.log('🔊 TTS generation complete. Failures:', ttsFailCount, '/', speechActions.length);
+
         if (ttsFailCount > 0 && speechActions.length > 0) {
           throw new Error(t('generation.speechFailed'));
         }
+      } else {
+        console.log('⚠️⚠️⚠️ TTS is DISABLED or using browser-native-tts');
+        console.log('⚠️ ttsEnabled:', settings.ttsEnabled);
+        console.log('⚠️ ttsProviderId:', settings.ttsProviderId);
       }
 
       // Add scene to store and navigate
