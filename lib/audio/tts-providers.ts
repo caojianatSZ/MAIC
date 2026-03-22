@@ -224,7 +224,6 @@ async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTS
 
   // Use voice_id for cloned voices, otherwise use preset voice
   const requestBody: Record<string, unknown> = {
-    model: 'glm-tts',
     input: text,
     speed: config.speed || 1.0,
     volume: 1.0,
@@ -233,11 +232,15 @@ async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTS
 
   // Use voice_id if provided (cloned voice), otherwise use voice (preset)
   if (config.voiceId) {
+    // CRITICAL: When using cloned voice, must use glm-tts-clone model
+    requestBody.model = 'glm-tts-clone';
     requestBody.voice_id = config.voiceId;
-    console.log('🎤🎤🎤 GLM TTS: Using CLONED voice_id:', config.voiceId);
+    console.log('🎤🎤🎤 GLM TTS: Using CLONED voice_id:', config.voiceId, 'with model: glm-tts-clone');
   } else {
+    // When using preset voice, use glm-tts model with voice parameter
+    requestBody.model = 'glm-tts';
     requestBody.voice = config.voice;
-    console.log('🔊 GLM TTS: Using PRESET voice:', config.voice);
+    console.log('🔊 GLM TTS: Using PRESET voice:', config.voice, 'with model: glm-tts');
   }
 
   console.log('🎤 GLM TTS Request body:', JSON.stringify(requestBody, null, 2));
@@ -253,6 +256,7 @@ async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTS
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
+    console.error('❌ GLM TTS API Error Response:', errorText);
     let errorMessage = `GLM TTS API error: ${errorText}`;
     try {
       const errorJson = JSON.parse(errorText);
@@ -264,6 +268,9 @@ async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTS
     }
     throw new Error(errorMessage);
   }
+
+  // Log response status for debugging
+  console.log('✅ GLM TTS Response Status:', response.status, response.statusText);
 
   const arrayBuffer = await response.arrayBuffer();
   return {
