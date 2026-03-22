@@ -731,6 +731,47 @@ function GenerationPreviewContent() {
         }),
       );
 
+      // Store generation params for classroom to continue generation
+      sessionStorage.setItem(
+        'generationParams',
+        JSON.stringify({
+          pdfImages: currentSession.pdfImages,
+          agents,
+          userProfile,
+        }),
+      );
+
+      // Associate classroom with organization if applicable
+      const organizationId = currentSession.organizationId;
+      if (organizationId) {
+        try {
+          console.log(`Associating classroom ${stage.id} with organization ${organizationId}`);
+          const associateResp = await fetch('/api/organization-classrooms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              organizationId,
+              classroomId: stage.id,
+              subject: undefined, // Could be extracted from requirements
+              grade: undefined,
+            }),
+          });
+
+          if (associateResp.ok) {
+            const associateData = await associateResp.json();
+            if (associateData.success) {
+              console.log('✓ Classroom associated with organization:', associateData);
+            } else {
+              console.warn('Failed to associate classroom with organization:', associateData.error);
+            }
+          } else {
+            console.warn('Failed to associate classroom with organization:', await associateResp.text());
+          }
+        } catch (err) {
+          console.error('Error associating classroom with organization:', err);
+        }
+      }
+
       sessionStorage.removeItem('generationSession');
       await store.saveToStorage();
       router.push(`/classroom/${stage.id}`);
