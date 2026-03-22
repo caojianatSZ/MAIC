@@ -217,10 +217,30 @@ async function generateAzureTTS(
 }
 
 /**
- * GLM TTS implementation (GLM API)
+ * GLM TTS implementation (GLM API with voice cloning support)
  */
 async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTSGenerationResult> {
   const baseUrl = config.baseUrl || TTS_PROVIDERS['glm-tts'].defaultBaseUrl;
+
+  // Use voice_id for cloned voices, otherwise use preset voice
+  const requestBody: Record<string, unknown> = {
+    model: 'glm-tts',
+    input: text,
+    speed: config.speed || 1.0,
+    volume: 1.0,
+    response_format: 'wav',
+  };
+
+  // Use voice_id if provided (cloned voice), otherwise use voice (preset)
+  if (config.voiceId) {
+    requestBody.voice_id = config.voiceId;
+    console.log('🎤🎤🎤 GLM TTS: Using CLONED voice_id:', config.voiceId);
+  } else {
+    requestBody.voice = config.voice;
+    console.log('🔊 GLM TTS: Using PRESET voice:', config.voice);
+  }
+
+  console.log('🎤 GLM TTS Request body:', JSON.stringify(requestBody, null, 2));
 
   const response = await fetch(`${baseUrl}/audio/speech`, {
     method: 'POST',
@@ -228,14 +248,7 @@ async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTS
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json; charset=utf-8',
     },
-    body: JSON.stringify({
-      model: 'glm-tts',
-      input: text,
-      voice: config.voice,
-      speed: config.speed || 1.0,
-      volume: 1.0,
-      response_format: 'wav',
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
