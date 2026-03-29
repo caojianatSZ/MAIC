@@ -95,7 +95,10 @@ export async function GET(req: NextRequest) {
       validation: {
         scenesMatch: (fileContent.scenes?.length || 0) === dbMetadata.scenesCount,
         hasKnowledgePoints: dbMetadata.knowledgePointUris.length > 0,
-        hasKeywords: dbMetadata.keywords && dbMetadata.keywords.length > 0,
+        hasMediaFiles:
+          dbMetadata.audioFiles.length > 0 ||
+          dbMetadata.imageFiles.length > 0 ||
+          dbMetadata.videoFiles.length > 0,
       },
     });
   } catch (error) {
