@@ -27,7 +27,13 @@
       "Bash(git branch:*)",
       "Bash(git worktree:*)",
       "Bash(bun drizzle-kit:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(psql:*)",
+      "Bash(echo $DATABASE_URL)",
+      "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -f drizzle/0003_redesign_classrooms_table.sql)",
+      "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -c \"\n-- 修复索引：为text[]类型添加operator class\nDROP INDEX IF EXISTS idx_classrooms_knowledge_points;\nCREATE INDEX idx_classrooms_knowledge_points ON classrooms USING gin\\(knowledge_point_uris gin__int_ops\\);\n\")",
+      "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -c \"\\\\d classrooms\")",
+      "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -c \"\\\\dt classroom*\")"
     ]
   }
 }

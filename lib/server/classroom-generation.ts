@@ -29,6 +29,9 @@ import {
 } from '@/lib/server/classroom-media-generation';
 import type { UserRequirements } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
+import { persistClassroomToDB } from '@/lib/server/classroom-db';
+import { extractKnowledgePointsFromClassroom, extractKeywords } from '@/lib/server/classroom-knowledge-extractor';
+import { extractMediaPaths } from '@/lib/server/classroom-media-tracker';
 
 const log = createLogger('Classroom');
 
@@ -446,6 +449,9 @@ ${requirement}`;
 
   log.info(`Classroom persisted: ${persisted.id}, URL: ${persisted.url}`);
 
+  // ⭐ 保存元数据到数据库（双写）
+  await saveClassroomMetadata(stageId, stage, scenes, input);
+
   // Auto-associate classroom with organization if organizationId is provided
   if (input.organizationId) {
     try {
@@ -499,4 +505,86 @@ ${requirement}`;
     scenesCount: scenes.length,
     createdAt: persisted.createdAt,
   };
+}
+
+// ============================================
+// 辅助函数：保存元数据到数据库
+// ============================================
+
+/**
+ * 保存课程元数据到数据库（双写）
+ */
+async function saveClassroomMetadata(
+  classroomId: string,
+  stage: Stage,
+  scenes: Scene[],
+  input: GenerateClassroomInput
+): Promise<void> {
+  try {
+    log.info(`Saving metadata for classroom: ${classroomId}`);
+
+    // 1. 提取知识点
+    const { knowledgePoints, primaryKnowledgePoint } =
+      await extractKnowledgePointsFromClassroom(stage, scenes, {
+        subject: input.subject,
+        gradeLevel: input.grade,
+        maxPoints: 10,
+      });
+
+    // 2. 提取关键词
+    const keywords = await extractKeywords(stage, scenes, {
+      maxKeywords: 10,
+    });
+
+    // 3. 提取媒体路径
+    const mediaPaths = extractMediaPaths(scenes);
+
+    // 4. 计算时长
+    const durationMinutes = scenes.length * 5; // 每个场景平均5分钟
+
+    // 5. 保存到数据库
+    await persistClassroomToDB({
+      id: classroomId,
+      title: stage.name,
+      description: stage.description,
+      requirement: input.requirement,
+      subject: input.subject,
+      gradeLevel: input.grade,
+      difficulty: 'intermediate', // TODO: 从内容推断
+      generationConfig: {
+        language: input.language,
+        enableWebSearch: input.enableWebSearch,
+        enableImageGeneration: input.enableImageGeneration,
+        enableVideoGeneration: input.enableVideoGeneration,
+        enableTTS: input.enableTTS,
+        agentMode: input.agentMode,
+        organizationId: input.organizationId,
+        clonedVoiceId: input.clonedVoiceId,
+      },
+      stage,
+      scenes,
+      metadata: {
+        title: stage.name,
+        knowledgePointUris: knowledgePoints.map(kp => kp.uri),
+        primaryKnowledgePoint,
+        keywords,
+        tags: [], // TODO: 从内容生成标签
+        durationMinutes,
+        audioFiles: mediaPaths.audioFiles,
+        imageFiles: mediaPaths.imageFiles,
+        videoFiles: mediaPaths.videoFiles,
+      },
+    });
+
+    // 6. 保存知识点详细信息到classroom_knowledge_points表
+    // TODO: 实现知识点详细信息的保存
+
+    log.info(`✅ Metadata saved for classroom: ${classroomId}`);
+    log.info(`   - Knowledge points: ${knowledgePoints.length}`);
+    log.info(`   - Keywords: ${keywords.length}`);
+    log.info(`   - Media files: ${mediaPaths.audioFiles.length + mediaPaths.imageFiles.length + mediaPaths.videoFiles.length}`);
+  } catch (error) {
+    // 元数据保存失败不应影响主流程
+    log.warn('Failed to save classroom metadata:', error);
+  }
 }
