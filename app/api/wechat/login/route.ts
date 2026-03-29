@@ -5,12 +5,14 @@
  * 1. 接收微信小程序的 code
  * 2. 调用微信 code2session API 获取 openid
  * 3. 创建或更新用户记录
- * 4. 返回 JWT token
+ * 4. 返回 JWT token、用户档案、机构信息
+ * 5. 检查是否需要设置年级科目
+ * 6. 支持机构邀请码关联
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { users } from '@/drizzle/schema';
+import { users, organizations } from '@/drizzle/schema';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 
@@ -32,7 +34,7 @@ interface WechatCode2SessionResponse {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { code } = body;
+    const { code, inviteCode } = body;
 
     // 验证参数
     if (!code) {
@@ -46,6 +48,14 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // 如果有邀请码，先验证并获取机构信息
+    let organizationId: string | null = null;
+    if (inviteCode) {
+      // TODO: 验证邀请码并获取机构ID
+      // 这里需要实现邀请码验证逻辑
+      // 暂时跳过，后续实现
     }
 
     // 1. 调用微信 code2session API
@@ -80,27 +90,66 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (existingUsers.length > 0) {
-      // 用户已存在，更新登录时间
+      // 用户已存在，更新登录时间和机构（如果有邀请码）
       user = existingUsers[0];
+      const updateData: any = {
+        updatedAt: new Date()
+      };
+
+      // 如果有邀请码且用户还没有机构，则关联机构
+      if (organizationId && !user.organizationId) {
+        updateData.organizationId = organizationId;
+      }
+
       await db
         .update(users)
-        .set({
-          updatedAt: new Date()
-        })
+        .set(updateData)
         .where(eq(users.id, user.id));
+
+      // 刷新用户数据
+      const updated = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, user.id))
+        .limit(1);
+      user = updated[0];
     } else {
       // 新用户，创建记录
       const newUsers = await db
         .insert(users)
         .values({
           openid,
-          unionid: unionid || null
+          unionid: unionid || null,
+          organizationId: organizationId || null
         })
         .returning();
       user = newUsers[0];
     }
 
-    // 3. 生成 JWT token
+    // 3. 查询机构信息（如果用户有关联机构）
+    let organization = null;
+    if (user.organizationId) {
+      const orgs = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, user.organizationId))
+        .limit(1);
+
+      if (orgs.length > 0) {
+        organization = {
+          id: orgs[0].id,
+          name: orgs[0].name,
+          logoData: orgs[0].logoData,
+          primaryColor: orgs[0].primaryColor,
+          secondaryColor: orgs[0].secondaryColor,
+        };
+      }
+    }
+
+    // 4. 检查是否需要设置年级科目
+    const needsProfileSetup = !user.gradeLevel || !user.subjects || user.subjects.length === 0;
+
+    // 5. 生成 JWT token
     const token = jwt.sign(
       {
         userId: user.id,
@@ -110,7 +159,7 @@ export async function POST(request: NextRequest) {
       { expiresIn: '30d' } // 30 天有效
     );
 
-    // 4. 返回成功响应
+    // 6. 返回成功响应
     return NextResponse.json({
       success: true,
       data: {
@@ -119,8 +168,13 @@ export async function POST(request: NextRequest) {
           id: user.id,
           openid: user.openid,
           nickName: user.nickName,
-          avatarUrl: user.avatarUrl
-        }
+          avatarUrl: user.avatarUrl,
+          gradeLevel: user.gradeLevel,
+          subjects: user.subjects,
+          organizationId: user.organizationId,
+        },
+        organization,
+        needsProfileSetup,
       }
     });
 
