@@ -32,6 +32,9 @@ import type { Scene, Stage } from '@/lib/types/stage';
 import { persistClassroomToDB } from '@/lib/server/classroom-db';
 import { extractKnowledgePointsFromClassroom, extractKeywords } from '@/lib/server/classroom-knowledge-extractor';
 import { extractMediaPaths } from '@/lib/server/classroom-media-tracker';
+import { db } from '@/lib/db';
+import * as schema from '@/drizzle/schema';
+import type { KnowledgePoint } from '@/lib/server/classroom-knowledge-extractor';
 
 const log = createLogger('Classroom');
 
@@ -577,7 +580,7 @@ async function saveClassroomMetadata(
     });
 
     // 6. 保存知识点详细信息到classroom_knowledge_points表
-    // TODO: 实现知识点详细信息的保存
+    await saveKnowledgePointsToDatabase(classroomId, knowledgePoints);
 
     log.info(`✅ Metadata saved for classroom: ${classroomId}`);
     log.info(`   - Knowledge points: ${knowledgePoints.length}`);
@@ -586,5 +589,29 @@ async function saveClassroomMetadata(
   } catch (error) {
     // 元数据保存失败不应影响主流程
     log.warn('Failed to save classroom metadata:', error);
+  }
+}
+
+/**
+ * 保存知识点详细信息到数据库
+ */
+async function saveKnowledgePointsToDatabase(
+  classroomId: string,
+  knowledgePoints: KnowledgePoint[]
+): Promise<void> {
+  try {
+    for (const kp of knowledgePoints) {
+      await db.insert(schema.classroomKnowledgePoints).values({
+        classroomId,
+        edukgUri: kp.uri,
+        knowledgePointName: kp.name,
+        isPrimary: kp.isPrimary,
+        relevanceScore: String(kp.relevanceScore), // 转换为text
+      }).onConflictDoNothing(); // 如果已存在则跳过
+    }
+
+    log.info(`✅ Saved ${knowledgePoints.length} knowledge points to database`);
+  } catch (error) {
+    log.warn('Failed to save knowledge points to database:', error);
   }
 }
