@@ -138,56 +138,48 @@ export const practiceQuestions = pgTable('practice_questions', {
 }));
 
 // ============================================
-// 课程数据库化 - 存储课程内容到数据库
+// 课程数据库化 - 只存元数据和知识点
 // ============================================
 
-// 课程主表 - 替代文件系统存储
+// 课程主表 - 只存储元数据，完整内容在文件系统
 export const classrooms = pgTable('classrooms', {
   id: uuid('id').defaultRandom().primaryKey(),
 
   // 基本信息
   title: text('title').notNull(),
   description: text('description'),
-  language: text('language').default('zh-CN'),
+  requirement: text('requirement').notNull(), // 原始需求
 
   // 分类信息
   subject: text('subject'), // math/chinese/english...
   gradeLevel: text('grade_level'), // PRIMARY_1~6, MIDDLE_1~3, HIGH_1~3
   difficulty: text('difficulty'), // beginner/intermediate/advanced
 
-  // 生成参数
-  requirement: text('requirement').notNull(),
-  generationConfig: jsonb('generation_config').$type<{
-    language?: string;
-    enableWebSearch?: boolean;
-    enableImageGeneration?: boolean;
-    enableVideoGeneration?: boolean;
-    enableTTS?: boolean;
-    agentMode?: 'default' | 'generate';
-    organizationId?: string;
-    clonedVoiceId?: string;
-  }>(),
+  // ⭐ 核心字段：知识点（用于搜索、推荐、重用）
+  knowledgePointUris: text('knowledge_point_uris').array().notNull(), // EduKG URI数组
+  primaryKnowledgePoint: text('primary_knowledge_point'), // 主要知识点（冗余，提升查询性能）
 
-  // 课程内容（JSONB存储）
-  stageData: jsonb('stage_data').notNull(),
-  scenesData: jsonb('scenes_data').notNull(),
-  mediaResources: jsonb('media_resources'),
-
-  // 内容统计
-  scenesCount: integer('scenes_count'),
+  // 内容统计（不存完整内容）
+  scenesCount: integer('scenes_count').notNull(),
   durationMinutes: integer('duration_minutes'),
+
+  // 场景类型标记
   hasSlides: boolean('has_slides').default(false),
   hasQuiz: boolean('has_quiz').default(false),
   hasInteractive: boolean('has_interactive').default(false),
   hasPBL: boolean('has_pbl').default(false),
   hasTTS: boolean('has_tts').default(false),
-  hasImageGeneration: boolean('has_image_generation').default(false),
-  hasVideoGeneration: boolean('has_video_generation').default(false),
+
+  // 媒体资源清单（文件路径引用，不存实际内容）
+  mainJsonFile: text('main_json_file').notNull(), // data/classrooms/{id}.json
+  audioFiles: text('audio_files').array(), // 音频文件路径数组
+  imageFiles: text('image_files').array(), // 图片文件路径数组
+  videoFiles: text('video_files').array(), // 视频文件路径数组
 
   // 搜索优化
-  keywords: jsonb('keywords').$type<string[]>(),
-  tags: jsonb('tags').$type<string[]>(),
-  searchVector: text('search_vector'),
+  keywords: text('keywords').array(),
+  tags: text('tags').array(),
+  searchVector: text('search_vector'), // PostgreSQL tsvector
 
   // 所属机构
   organizationId: uuid('organization_id').references(() => organizations.id),
@@ -207,6 +199,10 @@ export const classrooms = pgTable('classrooms', {
   difficultyIdx: index('idx_classrooms_difficulty').on(table.difficulty),
   statusIdx: index('idx_classrooms_status').on(table.status),
   createdAtIdx: index('idx_classrooms_created').on(table.createdAt),
+
+  // 索引：知识点搜索（核心！）
+  knowledgePointsIdx: index('idx_classrooms_knowledge_points').on(table.knowledgePointUris),
+  primaryKnowledgePointIdx: index('idx_classrooms_primary_kp').on(table.primaryKnowledgePoint),
 }));
 
 // 课程知识点关联表（多对多）

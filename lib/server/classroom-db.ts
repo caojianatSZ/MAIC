@@ -1,4 +1,4 @@
-// 课程数据库操作服务
+// 课程数据库操作服务 - 只存储元数据
 import { db } from '@/lib/db';
 import * as schema from '@/drizzle/schema';
 import { eq } from 'drizzle-orm';
@@ -13,6 +13,11 @@ export interface ClassroomMetadata {
   keywords?: string[];
   tags?: string[];
   durationMinutes?: number;
+  knowledgePointUris?: string[]; // ⭐ 知识点URI数组
+  primaryKnowledgePoint?: string; // ⭐ 主要知识点
+  audioFiles?: string[];
+  imageFiles?: string[];
+  videoFiles?: string[];
 }
 
 export interface PersistClassroomToDBInput {
@@ -33,13 +38,14 @@ export interface PersistClassroomToDBInput {
     organizationId?: string;
     clonedVoiceId?: string;
   };
-  stage: Stage;
-  scenes: Scene[];
+  stage: Stage; // 保留，用于知识点提取和媒体追踪
+  scenes: Scene[]; // 保留，用于知识点提取和媒体追踪
   metadata?: ClassroomMetadata;
 }
 
 /**
- * 保存课程到数据库
+ * 保存课程元数据到数据库
+ * 注意：只保存元数据，完整内容仍在文件系统
  */
 export async function persistClassroomToDB(
   input: PersistClassroomToDBInput
@@ -51,20 +57,15 @@ export async function persistClassroomToDB(
     const hasQuiz = input.scenes.some(s => s.type === 'quiz');
     const hasInteractive = input.scenes.some(s => s.type === 'interactive');
     const hasPBL = input.scenes.some(s => s.type === 'pbl');
-
-    // 检查是否包含TTS
     const hasTTS = input.scenes.some(s =>
       s.actions?.some(a => a.type === 'speech')
     );
 
-    // 检查是否包含AI生成媒体
-    // 注意：Action类型中没有image和video，这些可能通过其他方式实现
-    // 这里暂时设置为false，后续可以根据实际Action类型调整
-    const hasImageGeneration = false;
-    const hasVideoGeneration = false;
-
     // 估算时长（每个场景平均5分钟）
     const durationMinutes = input.metadata?.durationMinutes || scenesCount * 5;
+
+    // 主JSON文件路径
+    const mainJsonFile = `data/classrooms/${input.id}.json`;
 
     await db.insert(schema.classrooms).values({
       id: input.id,
@@ -74,36 +75,60 @@ export async function persistClassroomToDB(
       subject: input.subject,
       gradeLevel: input.gradeLevel,
       difficulty: input.difficulty || 'intermediate',
-      generationConfig: input.generationConfig as any,
-      stageData: input.stage as any,
-      scenesData: input.scenes as any,
-      keywords: input.metadata?.keywords || [],
-      tags: input.metadata?.tags || [],
-      organizationId: input.generationConfig.organizationId,
-      hasTTS,
-      hasImageGeneration,
-      hasVideoGeneration,
+      knowledgePointUris: input.metadata?.knowledgePointUris || [],
+      primaryKnowledgePoint: input.metadata?.primaryKnowledgePoint,
       scenesCount,
       durationMinutes,
       hasSlides,
       hasQuiz,
       hasInteractive,
       hasPBL,
+      hasTTS,
+      mainJsonFile,
+      audioFiles: input.metadata?.audioFiles || [],
+      imageFiles: input.metadata?.imageFiles || [],
+      videoFiles: input.metadata?.videoFiles || [],
+      keywords: input.metadata?.keywords || [],
+      tags: input.metadata?.tags || [],
+      organizationId: input.generationConfig.organizationId,
     });
 
-    console.log(`✅ Classroom saved to database: ${input.id}`);
+    console.log(`✅ Classroom metadata saved to database: ${input.id}`);
   } catch (error) {
-    console.error(`❌ Failed to save classroom to database:`, error);
+    console.error(`❌ Failed to save classroom metadata to database:`, error);
     throw error;
   }
 }
 
 /**
- * 从数据库读取课程
+ * 从数据库读取课程元数据
+ * 注意：只读取元数据，完整内容需要从文件系统读取
  */
-export async function readClassroomFromDB(
+export async function readClassroomMetadataFromDB(
   id: string
-): Promise<{ id: string; stage: Stage; scenes: Scene[]; createdAt: string } | null> {
+): Promise<{
+  id: string;
+  title: string;
+  description: string | null;
+  requirement: string;
+  subject: string | null;
+  gradeLevel: string | null;
+  difficulty: string | null;
+  knowledgePointUris: string[];
+  primaryKnowledgePoint: string | null;
+  scenesCount: number;
+  durationMinutes: number | null;
+  hasSlides: boolean;
+  hasQuiz: boolean;
+  hasInteractive: boolean;
+  hasPBL: boolean;
+  hasTTS: boolean;
+  mainJsonFile: string;
+  audioFiles: string[];
+  imageFiles: string[];
+  videoFiles: string[];
+  createdAt: Date;
+} | null> {
   try {
     const classroom = await db.query.classrooms.findFirst({
       where: eq(schema.classrooms.id, id),
@@ -113,18 +138,35 @@ export async function readClassroomFromDB(
 
     return {
       id: classroom.id,
-      stage: classroom.stageData as Stage,
-      scenes: classroom.scenesData as Scene[],
-      createdAt: (classroom.createdAt || new Date()).toISOString(),
+      title: classroom.title,
+      description: classroom.description,
+      requirement: classroom.requirement,
+      subject: classroom.subject,
+      gradeLevel: classroom.gradeLevel,
+      difficulty: classroom.difficulty,
+      knowledgePointUris: classroom.knowledgePointUris || [],
+      primaryKnowledgePoint: classroom.primaryKnowledgePoint,
+      scenesCount: classroom.scenesCount,
+      durationMinutes: classroom.durationMinutes,
+      hasSlides: classroom.hasSlides || false,
+      hasQuiz: classroom.hasQuiz || false,
+      hasInteractive: classroom.hasInteractive || false,
+      hasPBL: classroom.hasPBL || false,
+      hasTTS: classroom.hasTTS || false,
+      mainJsonFile: classroom.mainJsonFile,
+      audioFiles: classroom.audioFiles || [],
+      imageFiles: classroom.imageFiles || [],
+      videoFiles: classroom.videoFiles || [],
+      createdAt: classroom.createdAt || new Date(),
     };
   } catch (error) {
-    console.error(`❌ Failed to read classroom from database:`, error);
+    console.error(`❌ Failed to read classroom metadata from database:`, error);
     return null;
   }
 }
 
 /**
- * 获取课程元数据
+ * 获取课程元数据（简化版）
  */
 export async function getClassroomMetadata(
   id: string
@@ -134,7 +176,7 @@ export async function getClassroomMetadata(
   subject: string | null;
   gradeLevel: string | null;
   difficulty: string | null;
-  scenesCount: number | null;
+  scenesCount: number;
   durationMinutes: number | null;
   createdAt: Date;
 } | null> {
@@ -156,8 +198,14 @@ export async function getClassroomMetadata(
     if (!classroom) return null;
 
     return {
-      ...classroom,
-      createdAt: classroom.createdAt || new Date(), // 确保createdAt不为null
+      title: classroom.title,
+      description: classroom.description,
+      subject: classroom.subject,
+      gradeLevel: classroom.gradeLevel,
+      difficulty: classroom.difficulty,
+      scenesCount: classroom.scenesCount,
+      durationMinutes: classroom.durationMinutes,
+      createdAt: classroom.createdAt || new Date(),
     };
   } catch (error) {
     console.error(`❌ Failed to get classroom metadata:`, error);
