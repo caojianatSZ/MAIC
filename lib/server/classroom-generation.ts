@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { callLLM } from '@/lib/ai/llm';
 import { createStageAPI } from '@/lib/api/stage-api';
 import type { StageStore } from '@/lib/api/stage-api-types';
+import { eq } from 'drizzle-orm';
 import {
   applyOutlineFallbacks,
   generateSceneOutlinesFromRequirements,
@@ -40,6 +41,15 @@ export interface GenerateClassroomInput {
   enableVideoGeneration?: boolean;
   enableTTS?: boolean;
   agentMode?: 'default' | 'generate';
+  organizationId?: string;
+  organization?: {
+    id: string;
+    name: string;
+    phone: string;
+  };
+  subject?: string;
+  grade?: string;
+  clonedVoiceId?: string; // Cloned voice ID for GLM-TTS
 }
 
 export type ClassroomGenerationStep =
@@ -204,8 +214,26 @@ export async function generateClassroom(
   };
 
   const lang = normalizeLanguage(input.language);
+
+  // Inject brand information if organization is provided
+  let enhancedRequirement = requirement;
+  if (input.organization) {
+    const { name, phone } = input.organization;
+    const subject = input.subject || '';
+    const grade = input.grade || '';
+
+    enhancedRequirement = `请为【${name}】的 ${grade}${subject} 课程设计内容。
+
+机构联系方式：${phone}
+
+在课程结尾，请提醒家长"如果您觉得这个课程有帮助，欢迎联系 ${name} 获取更多学习资料"。
+
+原始需求：
+${requirement}`;
+  }
+
   const requirements: UserRequirements = {
-    requirement,
+    requirement: enhancedRequirement,
     language: lang,
   };
   const pdfText = pdfContent?.text || undefined;
@@ -392,7 +420,7 @@ export async function generateClassroom(
     });
 
     try {
-      await generateTTSForClassroom(scenes, stageId, options.baseUrl);
+      await generateTTSForClassroom(scenes, stageId, options.baseUrl, input.clonedVoiceId);
       log.info('TTS generation complete');
     } catch (err) {
       log.warn('TTS generation phase failed, continuing:', err);
@@ -417,6 +445,43 @@ export async function generateClassroom(
   );
 
   log.info(`Classroom persisted: ${persisted.id}, URL: ${persisted.url}`);
+
+  // Auto-associate classroom with organization if organizationId is provided
+  if (input.organizationId) {
+    try {
+      const { db } = await import('@/lib/db');
+      const { organizationClassrooms } = await import('@/drizzle/schema');
+      const { nanoid } = await import('nanoid');
+
+      // Generate unique share token
+      const shareToken = nanoid(16);
+
+      // Check if classroom already exists for this organization
+      const existing = await db
+        .select()
+        .from(organizationClassrooms)
+        .where(eq(organizationClassrooms.classroomId, stageId))
+        .limit(1);
+
+      if (existing.length === 0) {
+        // Create new organization-classroom association
+        await db.insert(organizationClassrooms).values({
+          organizationId: input.organizationId,
+          classroomId: stageId,
+          shareToken: shareToken,
+          subject: input.subject || null,
+          grade: input.grade || null,
+        });
+
+        log.info(`Classroom ${stageId} associated with organization ${input.organizationId}, share token: ${shareToken}`);
+      } else {
+        log.info(`Classroom ${stageId} already associated with organization ${input.organizationId}`);
+      }
+    } catch (err) {
+      // Log error but don't fail the generation
+      log.warn('Failed to associate classroom with organization:', err);
+    }
+  }
 
   await options.onProgress?.({
     step: 'completed',

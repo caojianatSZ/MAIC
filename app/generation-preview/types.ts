@@ -25,6 +25,15 @@ export interface GenerationSessionState {
   // Web search context
   researchContext?: string;
   researchSources?: Array<{ title: string; url: string }>;
+  // Organization (for B2B)
+  organizationId?: string;
+  organization?: {
+    id: string;
+    name: string;
+    phone: string;
+  };
+  // Cloned voice ID for TTS
+  clonedVoiceId?: string;
 }
 
 export type GenerationStep = {

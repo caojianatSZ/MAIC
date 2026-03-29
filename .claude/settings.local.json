@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_claude-mem_mcp-search__smart_search",
+      "mcp__plugin_claude-mem_mcp-search__smart_outline",
+      "Bash(wc:*)",
+      "mcp__plugin_claude-mem_mcp-search__smart_unfold",
+      "mcp__web-search-prime__web_search_prime",
+      "WebSearch",
+      "Bash(pnpm:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(npm run:*)",
+      "Bash(find /Users/caojian/Projects/OpenMAIC -name *.db -o -name schema.sql -o -name migrations -type d)",
+      "Bash(grep:*)",
+      "Bash(git commit:*)",
+      "Bash(~/.claude/skills/gstack/browse/dist/browse screenshot:*)",
+      "Bash(~/.claude/skills/gstack/browse/dist/browse snapshot:*)",
+      "Bash(~/.claude/skills/gstack/browse/dist/browse click:*)",
+      "Bash(~/.claude/skills/gstack/browse/dist/browse reload:*)",
+      "Bash(~/.claude/skills/gstack/browse/dist/browse goto:*)",
+      "Bash(~/.claude/skills/gstack/browse/dist/browse js:*)",
+      "Bash(~/.claude/skills/gstack/browse/dist/browse console:*)",
+      "Bash(bunx drizzle-kit:*)",
+      "Bash(curl -s \"http://localhost:3000/api/organization-classrooms/bFEo1sP83BfDFw_Q\")",
+      "Bash(curl -s \"http://localhost:3000/organization/098df3de-51e4-4d23-82a3-165b5acb5a27/classrooms\")",
+      "Bash(git branch:*)",
+      "Bash(git worktree:*)",
+      "Bash(bun drizzle-kit:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

@@ -114,6 +114,7 @@ export async function GET(
         const classConversionRate = views > 0 ? (conversions / views) * 100 : 0;
 
         return {
+          id: orgClassroom.id,
           classroomId: orgClassroom.classroomId,
           shareToken: orgClassroom.shareToken,
           subject: orgClassroom.subject,

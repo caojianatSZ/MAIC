@@ -764,14 +764,19 @@ function GenerationPreviewContent() {
       if (organizationId) {
         try {
           console.log(`Associating classroom ${stage.id} with organization ${organizationId}`);
+
+          // Extract subject from requirement (first sentence or first 30 chars)
+          const requirement = currentSession.requirements.requirement || '';
+          const subject = requirement.slice(0, 50).trim() + (requirement.length > 50 ? '...' : '');
+
           const associateResp = await fetch('/api/organization-classrooms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               organizationId,
               classroomId: stage.id,
-              subject: undefined, // Could be extracted from requirements
-              grade: undefined,
+              subject,
+              grade: null, // Can be added later if needed
             }),
           });
 

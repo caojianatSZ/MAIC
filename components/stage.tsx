@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AlertTriangle } from 'lucide-react';
 import { VisuallyHidden } from 'radix-ui';
+import { getSessionId } from '@/lib/tracking/session';
 
 /**
  * Stage Component
@@ -39,8 +40,10 @@ import { VisuallyHidden } from 'radix-ui';
  */
 export function Stage({
   onRetryOutline,
+  shareToken,
 }: {
   onRetryOutline?: (outlineId: string) => Promise<void>;
+  shareToken?: string;
 }) {
   const { t } = useI18n();
   const { mode, getCurrentScene, scenes, currentSceneId, setCurrentSceneId, generatingOutlines } =
@@ -136,6 +139,8 @@ export function Stage({
   const sceneEpochRef = useRef(0);
   // When true, the next engine init will auto-start playback (for auto-play scene advance)
   const autoStartRef = useRef(false);
+  // Track playback start time for duration calculation
+  const playbackStartTimeRef = useRef<number | null>(null);
 
   /**
    * Soft-pause: interrupt current agent stream but keep the session active.
@@ -360,6 +365,9 @@ export function Stage({
         // effect handles the reset.
         setPlaybackCompleted(true);
 
+        // Track completion when all scenes are finished
+        trackCompletion();
+
         // End lecture session on playback complete
         if (lectureSessionIdRef.current) {
           chatAreaRef.current?.endSession(lectureSessionIdRef.current);
@@ -435,6 +443,20 @@ export function Stage({
       }
     };
   }, []);
+
+  // Track view on mount if shareToken is provided
+  useEffect(() => {
+    if (shareToken) {
+      const sessionId = getSessionId();
+      fetch('/api/track/view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareToken, sessionId }),
+      }).catch(() => {
+        // Silent failure - tracking shouldn't break the app
+      });
+    }
+  }, [shareToken]);
 
   // Sync mute state from settings store to audioPlayer
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
@@ -559,6 +581,25 @@ export function Stage({
     setPendingSceneId(null);
   }, []);
 
+  /** Track completion when course finishes */
+  const trackCompletion = useCallback(() => {
+    if (shareToken && playbackStartTimeRef.current !== null) {
+      const durationSeconds = Math.floor((Date.now() - playbackStartTimeRef.current) / 1000);
+      const sessionId = getSessionId();
+      fetch('/api/track/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shareToken,
+          sessionId,
+          durationSeconds,
+        }),
+      }).catch(() => {
+        // Silent failure - tracking shouldn't break the app
+      });
+    }
+  }, [shareToken]);
+
   // play/pause toggle
   const handlePlayPause = async () => {
     const engine = engineRef.current;
@@ -588,9 +629,13 @@ export function Stage({
       if (wasCompleted) {
         // Restart from beginning (user clicked restart after completion)
         lectureActionCounterRef.current = 0;
+        playbackStartTimeRef.current = Date.now();
         engine.start();
       } else {
         // Continue from current position (e.g. after discussion end)
+        if (playbackStartTimeRef.current === null) {
+          playbackStartTimeRef.current = Date.now();
+        }
         engine.continuePlayback();
       }
     }

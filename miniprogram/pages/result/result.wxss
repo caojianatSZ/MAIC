@@ -1,0 +1,191 @@
+/* pages/result/result.wxss */
+
+.header {
+  text-align: center;
+  padding: 32rpx 0;
+  margin-bottom: 24rpx;
+}
+
+.header .title {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.card {
+  background-color: var(--card-background);
+  border-radius: 16rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.card-title {
+  margin-bottom: 24rpx;
+  display: flex;
+  align-items: center;
+}
+
+.title-text {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.subtitle-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-left: 8rpx;
+}
+
+.card-body {
+  color: var(--text-primary);
+}
+
+.question-text {
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+/* 音频播放器 */
+.audio-player {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background-color: var(--background-color);
+  border-radius: 8rpx;
+  margin-bottom: 24rpx;
+}
+
+.btn-play {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--primary-color);
+  border-radius: 50%;
+  color: #FFFFFF;
+  font-size: 32rpx;
+  margin-right: 24rpx;
+}
+
+.audio-info {
+  flex: 1;
+}
+
+.audio-text {
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+/* 讲解内容 */
+.explanation-text {
+  padding: 24rpx;
+  background-color: var(--background-color);
+  border-radius: 8rpx;
+}
+
+.text-content {
+  font-size: 28rpx;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+/* 练习题列表 */
+.practice-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.practice-item {
+  margin-bottom: 32rpx;
+}
+
+.practice-item:last-child {
+  margin-bottom: 0;
+}
+
+.question-header {
+  margin-bottom: 16rpx;
+}
+
+.question-number {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.question-content {
+  margin-bottom: 24rpx;
+}
+
+.options-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  background-color: var(--background-color);
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.option-item:last-child {
+  margin-bottom: 0;
+}
+
+.option-letter {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+  border-radius: 50%;
+  font-size: 24rpx;
+  font-weight: 500;
+  margin-right: 16rpx;
+}
+
+.option-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+/* 操作按钮 */
+.action-section {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 48rpx;
+}
+
+.action-section button {
+  flex: 1;
+}
+
+.btn-primary,
+.btn-secondary {
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  text-align: center;
+  border: none;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--primary-color);
+  border: 2rpx solid var(--primary-color);
+}

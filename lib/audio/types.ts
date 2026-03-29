@@ -127,6 +127,7 @@ export interface TTSModelConfig {
   apiKey?: string;
   baseUrl?: string;
   voice: string;
+  voiceId?: string; // Cloned voice ID for GLM-TTS-Clone
   speed?: number;
   format?: string;
 }

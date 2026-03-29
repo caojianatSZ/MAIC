@@ -205,6 +205,7 @@ export async function generateTTSForClassroom(
   scenes: Scene[],
   classroomId: string,
   baseUrl: string,
+  clonedVoiceId?: string,
 ): Promise<void> {
   const audioDir = path.join(CLASSROOMS_DIR, classroomId, 'audio');
   await ensureDir(audioDir);
@@ -225,7 +226,21 @@ export async function generateTTSForClassroom(
     return;
   }
   const ttsBaseUrl = resolveTTSBaseUrl(providerId) || TTS_PROVIDERS[providerId]?.defaultBaseUrl;
-  const voice = DEFAULT_TTS_VOICES[providerId] || 'default';
+
+  // Use cloned voice if provided, otherwise use default voice
+  const voice = clonedVoiceId || DEFAULT_TTS_VOICES[providerId] || 'default';
+
+  // Log if using cloned voice
+  if (clonedVoiceId) {
+    log.info(`🎤🎤🎤 USING CLONED VOICE ID: ${clonedVoiceId}`);
+    log.info(`🎤 This will override default voice setting`);
+  } else {
+    log.warn(`⚠️⚠️ No cloned voice ID provided, using default voice: ${voice}`);
+    log.warn(`⚠️⚠️ Check if voiceId was correctly passed from frontend`);
+  }
+
+  log.info(`TTS Provider: ${providerId}, Default Voice: ${voice}, Cloned Voice ID: ${clonedVoiceId || 'none'}`);
+
   const format = TTS_PROVIDERS[providerId]?.supportedFormats?.[0] || 'mp3';
 
   for (const scene of scenes) {
@@ -241,10 +256,23 @@ export async function generateTTSForClassroom(
       const audioId = `tts_${action.id}`;
 
       try {
-        const result = await generateTTS(
-          { providerId, apiKey, baseUrl: ttsBaseUrl, voice, speed: speechAction.speed },
-          speechAction.text,
-        );
+        const ttsConfig = {
+          providerId,
+          apiKey,
+          baseUrl: ttsBaseUrl,
+          voice,
+          voiceId: clonedVoiceId, // Pass cloned voice ID for GLM-TTS
+          speed: speechAction.speed,
+        };
+
+        log.info(`Calling generateTTS for action ${action.id}:`, {
+          providerId,
+          voice: ttsConfig.voice,
+          voiceId: ttsConfig.voiceId || 'none',
+          textLength: speechAction.text.length,
+        });
+
+        const result = await generateTTS(ttsConfig, speechAction.text);
 
         const filename = `${audioId}.${format}`;
         await fs.writeFile(path.join(audioDir, filename), result.audio);

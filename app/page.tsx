@@ -46,6 +46,10 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
+import { OrganizationSelector } from '@/components/organization-selector';
+import type { Organization } from '@/components/organization-selector';
+import VoiceRecorder from '@/components/voice-recorder';
+import VoiceSelector from '@/components/voice-selector';
 
 const log = createLogger('Home');
 
@@ -76,6 +80,13 @@ function HomePage() {
   const [settingsSection, setSettingsSection] = useState<
     import('@/lib/types/settings').SettingsSection | undefined
   >(undefined);
+  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
+
+  // Voice cloning state
+  const [voiceCloningEnabled, setVoiceCloningEnabled] = useState(false);
+  const [voiceId, setVoiceId] = useState<string | null>(null);
+  const [showVoiceSelector, setShowVoiceSelector] = useState(false);
+  const [enableTTS, setEnableTTS] = useState(true); // TTS is enabled by default when voice is cloned
 
   // Draft cache for requirement text
   const { cachedValue: cachedRequirement, updateCache: updateRequirementCache } =
@@ -279,6 +290,33 @@ function HomePage() {
         }
       }
 
+      // Fetch organization details if selected
+      let organization: { id: string; name: string; phone: string } | undefined = undefined;
+      if (selectedOrganization) {
+        try {
+          const orgRes = await fetch(`/api/organizations/${selectedOrganization.id}/branding`);
+          if (orgRes.ok) {
+            const orgData = await orgRes.json();
+            if (orgData.success) {
+              organization = {
+                id: orgData.organizationId,
+                name: orgData.organizationName,
+                phone: '', // Will be fetched later if needed
+              };
+
+              // Save to localStorage for future use
+              const saved = JSON.parse(localStorage.getItem('userOrganizations') || '[]');
+              if (!saved.find((o: Organization) => o.id === organization?.id)) {
+                saved.push({ id: organization.id, name: organization.name });
+                localStorage.setItem('userOrganizations', JSON.stringify(saved));
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch organization details:', error);
+        }
+      }
+
       const sessionState = {
         sessionId: nanoid(),
         requirements,
@@ -291,6 +329,9 @@ function HomePage() {
         pdfProviderConfig,
         sceneOutlines: null,
         currentStep: 'generating' as const,
+        organizationId: selectedOrganization?.id,
+        organization,
+        clonedVoiceId: voiceId || undefined, // Pass cloned voice ID for TTS
       };
       sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
 
@@ -314,6 +355,14 @@ function HomePage() {
   };
 
   const canGenerate = !!form.requirement.trim();
+
+  // Handle voice recording complete (audio uploaded and cloned)
+  const handleVoiceUploadComplete = async (voiceId: string, _fileName: string) => {
+    // VoiceRecorder component already handles the cloning process
+    // We just receive the final voiceId here
+    setVoiceId(voiceId);
+    toast.success('语音克隆成功！将在生成课程时使用此声音。');
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -543,6 +592,113 @@ function HomePage() {
               onKeyDown={handleKeyDown}
               rows={4}
             />
+
+            {/* Organization selector */}
+            <div className="px-4 pb-2">
+              <OrganizationSelector
+                selectedOrganization={selectedOrganization}
+                onOrganizationChange={setSelectedOrganization}
+              />
+            </div>
+
+            {/* Voice cloning option */}
+            <div className="px-4 pb-2">
+              <button
+                type="button"
+                onClick={() => setVoiceCloningEnabled(!voiceCloningEnabled)}
+                className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                  voiceCloningEnabled
+                    ? 'bg-blue-600 border-blue-600'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}>
+                  {voiceId && <Check className="w-3 h-3 text-white" />}
+                </div>
+                <label className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex-1 text-left">
+                  使用自定义教师声音（语音克隆）
+                </label>
+                {voiceId && (
+                  <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    已选择
+                  </span>
+                )}
+              </button>
+
+              {voiceCloningEnabled && (
+                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  {voiceId ? (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-green-600 dark:text-green-400">
+                        ✓ 当前音色已选择，生成课程时将使用您的声音。
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setVoiceId(null)}
+                        className="text-xs text-gray-600 hover:text-gray-800 underline"
+                      >
+                        更换音色
+                      </button>
+                    </div>
+                  ) : showVoiceSelector ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          选择已保存的音色
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowVoiceSelector(false)}
+                          className="text-xs text-blue-600 hover:text-blue-700"
+                        >
+                          ← 返回
+                        </button>
+                      </div>
+                      <VoiceSelector
+                        selectedVoiceId={voiceId}
+                        onVoiceSelect={(id) => {
+                          setVoiceId(id);
+                          if (id) {
+                            toast.success('音色已选择');
+                          }
+                        }}
+                        onNewVoice={() => setShowVoiceSelector(false)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        选择克隆方式：
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {/* VoiceRecorder已显示在下方 */}}
+                          className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors opacity-50 cursor-not-allowed"
+                          disabled
+                        >
+                          克隆新音色（下方）
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowVoiceSelector(true)}
+                          className="flex-1 py-2 px-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm transition-colors"
+                        >
+                          选择已保存音色
+                        </button>
+                      </div>
+                      <div className="border-t border-gray-300 dark:border-gray-600 pt-3">
+                        <VoiceRecorder
+                          onUploadComplete={handleVoiceUploadComplete}
+                          maxDuration={3}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Toolbar row */}
             <div className="px-3 pb-3 flex items-end gap-2">

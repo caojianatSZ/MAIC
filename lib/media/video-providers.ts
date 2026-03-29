@@ -9,9 +9,6 @@ import type {
   VideoGenerationResult,
   VideoProviderConfig,
 } from './types';
-import { generateWithSeedance, testSeedanceConnectivity } from './adapters/seedance-adapter';
-import { generateWithKling, testKlingConnectivity } from './adapters/kling-adapter';
-import { generateWithVeo, testVeoConnectivity } from './adapters/veo-adapter';
 
 export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
   seedance: {
@@ -79,13 +76,20 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
 export async function testVideoConnectivity(
   config: VideoGenerationConfig,
 ): Promise<{ success: boolean; message: string }> {
+  // Dynamic imports to avoid loading server-only modules on client
   switch (config.providerId) {
-    case 'seedance':
+    case 'seedance': {
+      const { testSeedanceConnectivity } = await import('./adapters/seedance-adapter');
       return testSeedanceConnectivity(config);
-    case 'kling':
+    }
+    case 'kling': {
+      const { testKlingConnectivity } = await import('./adapters/kling-adapter');
       return testKlingConnectivity(config);
-    case 'veo':
+    }
+    case 'veo': {
+      const { testVeoConnectivity } = await import('./adapters/veo-adapter');
       return testVeoConnectivity(config);
+    }
     default:
       return {
         success: false,
@@ -142,13 +146,20 @@ export async function generateVideo(
   config: VideoGenerationConfig,
   options: VideoGenerationOptions,
 ): Promise<VideoGenerationResult> {
+  // Dynamic imports to avoid loading server-only modules on client
   switch (config.providerId) {
-    case 'seedance':
+    case 'seedance': {
+      const { generateWithSeedance } = await import('./adapters/seedance-adapter');
       return generateWithSeedance(config, options);
-    case 'kling':
+    }
+    case 'kling': {
+      const { generateWithKling } = await import('./adapters/kling-adapter');
       return generateWithKling(config, options);
-    case 'veo':
+    }
+    case 'veo': {
+      const { generateWithVeo } = await import('./adapters/veo-adapter');
       return generateWithVeo(config, options);
+    }
     default:
       throw new Error(`Unsupported video provider: ${config.providerId}`);
   }

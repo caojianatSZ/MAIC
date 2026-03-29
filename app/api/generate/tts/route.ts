@@ -22,7 +22,7 @@ export const maxDuration = 30;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { text, audioId, ttsProviderId, ttsVoice, ttsSpeed, ttsApiKey, ttsBaseUrl } = body as {
+    const { text, audioId, ttsProviderId, ttsVoice, ttsSpeed, ttsApiKey, ttsBaseUrl, voiceId } = body as {
       text: string;
       audioId: string;
       ttsProviderId: TTSProviderId;
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       ttsSpeed?: number;
       ttsApiKey?: string;
       ttsBaseUrl?: string;
+      voiceId?: string; // Cloned voice ID for GLM-TTS
     };
 
     // Validate required fields
@@ -65,13 +66,19 @@ export async function POST(req: NextRequest) {
     const config = {
       providerId: ttsProviderId,
       voice: ttsVoice,
+      voiceId: voiceId, // Pass cloned voice ID
       speed: ttsSpeed ?? 1.0,
       apiKey,
       baseUrl,
     };
 
+    // Log if using cloned voice
+    if (voiceId) {
+      log.info(`🎤 Using CLONED voice ID: ${voiceId}`);
+    }
+
     log.info(
-      `Generating TTS: provider=${ttsProviderId}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
+      `Generating TTS: provider=${ttsProviderId}, voice=${ttsVoice}, voiceId=${voiceId || 'none'}, audioId=${audioId}, textLen=${text.length}`,
     );
 
     // Generate audio

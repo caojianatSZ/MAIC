@@ -17,7 +17,6 @@
  * API docs: https://docs.klingai.com/api
  */
 
-import crypto from 'crypto';
 import type {
   VideoGenerationConfig,
   VideoGenerationOptions,
@@ -31,32 +30,59 @@ const MAX_POLL_ATTEMPTS = 120; // 10 minutes max
 const JWT_EXPIRY_SECS = 1800; // 30 minutes
 
 // ---------------------------------------------------------------------------
-// JWT helper (HS256, no external deps)
+// JWT helper (HS256, browser-compatible using Web Crypto API)
 // ---------------------------------------------------------------------------
 
-function base64url(data: Buffer | string): string {
-  const buf = Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf-8');
-  return buf.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+function base64url(data: ArrayBuffer | Uint8Array | string): string {
+  let bytes: Uint8Array;
+  if (typeof data === 'string') {
+    bytes = new TextEncoder().encode(data);
+  } else if (data instanceof ArrayBuffer) {
+    bytes = new Uint8Array(data);
+  } else {
+    bytes = data;
+  }
+
+  // Convert bytes to binary string, then to base64
+  const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
+  return btoa(binary)
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 }
 
-function generateJWT(accessKey: string, secretKey: string): string {
+async function generateJWT(accessKey: string, secretKey: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
 
-  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = base64url(
-    JSON.stringify({
-      iss: accessKey,
-      exp: now + JWT_EXPIRY_SECS,
-      nbf: now - 5,
-      iat: now,
-    }),
+  const header = JSON.stringify({ alg: 'HS256', typ: 'JWT' });
+  const payload = JSON.stringify({
+    iss: accessKey,
+    exp: now + JWT_EXPIRY_SECS,
+    nbf: now - 5,
+    iat: now,
+  });
+
+  const encodedHeader = base64url(header);
+  const encodedPayload = base64url(payload);
+  const data = `${encodedHeader}.${encodedPayload}`;
+
+  // Use Web Crypto API for HMAC-SHA256
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secretKey);
+  const messageData = encoder.encode(data);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
   );
 
-  const signature = base64url(
-    crypto.createHmac('sha256', secretKey).update(`${header}.${payload}`).digest(),
-  );
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const encodedSignature = base64url(signature);
 
-  return `${header}.${payload}.${signature}`;
+  return `${data}.${encodedSignature}`;
 }
 
 function parseApiKey(apiKey: string): { accessKey: string; secretKey: string } {
@@ -130,7 +156,7 @@ export async function testKlingConnectivity(
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
   try {
     const { accessKey, secretKey } = parseApiKey(config.apiKey);
-    const token = generateJWT(accessKey, secretKey);
+    const token = await generateJWT(accessKey, secretKey);
     // Use a GET to a non-existent task to validate auth
     const response = await fetch(`${baseUrl}/v1/videos/text2video/connectivity-test`, {
       method: 'GET',
@@ -232,7 +258,7 @@ export async function generateWithKling(
   const model = config.model || DEFAULT_MODEL;
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
   const { accessKey, secretKey } = parseApiKey(config.apiKey);
-  const token = generateJWT(accessKey, secretKey);
+  const token = await generateJWT(accessKey, secretKey);
 
   // 1. Submit
   const taskId = await submitTask(baseUrl, token, model, options);

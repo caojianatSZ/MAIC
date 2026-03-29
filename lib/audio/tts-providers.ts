@@ -231,19 +231,15 @@ async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTS
     response_format: 'wav',
   };
 
-  // TEMPORARY: Always use preset voice until voice_id is verified working
-  // TODO: Investigate why GLM API ignores voice_id parameter
-  // if (config.voiceId) {
-  //   requestBody.voice_id = config.voiceId;
-  //   console.log('🎤🎤🎤 GLM TTS: Using CLONED voice_id:', config.voiceId);
-  // } else {
-  //   requestBody.voice = config.voice;
-  //   console.log('🔊 GLM TTS: Using PRESET voice:', config.voice);
-  // }
-
-  // Always use preset voice for now
-  requestBody.voice = config.voice;
-  console.log('🔊 GLM TTS: Using PRESET voice:', config.voice, '(voice_id temporarily disabled)');
+  // KEY FIX: Use 'voice' parameter for cloned voice IDs, not 'voice_id'
+  // According to GLM-TTS docs, cloned voice IDs should be passed via the 'voice' parameter
+  if (config.voiceId) {
+    requestBody.voice = config.voiceId;  // Use cloned voice ID as voice parameter
+    console.log('🎤🎤🎤 GLM TTS: Using CLONED voice:', config.voiceId, '(passed via voice parameter)');
+  } else {
+    requestBody.voice = config.voice;  // Use preset voice
+    console.log('🔊 GLM TTS: Using PRESET voice:', config.voice);
+  }
 
   console.log('🎤 GLM TTS Request body:', JSON.stringify(requestBody, null, 2));
 

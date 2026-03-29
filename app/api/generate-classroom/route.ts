@@ -24,6 +24,11 @@ export async function POST(req: NextRequest) {
         : {}),
       ...(rawBody.enableTTS != null ? { enableTTS: rawBody.enableTTS } : {}),
       ...(rawBody.agentMode ? { agentMode: rawBody.agentMode } : {}),
+      ...(rawBody.organizationId ? { organizationId: rawBody.organizationId } : {}),
+      ...(rawBody.organization ? { organization: rawBody.organization } : {}),
+      ...(rawBody.subject ? { subject: rawBody.subject } : {}),
+      ...(rawBody.grade ? { grade: rawBody.grade } : {}),
+      ...(rawBody.clonedVoiceId ? { clonedVoiceId: rawBody.clonedVoiceId } : {}),
     };
     const { requirement } = body;
 

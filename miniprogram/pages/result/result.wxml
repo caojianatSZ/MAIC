@@ -1,0 +1,89 @@
+<!--pages/result/result.wxml-->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="header">
+    <text class="title">讲解结果</text>
+  </view>
+
+  <!-- 题目内容 -->
+  <view class="card">
+    <view class="card-title">
+      <text class="title-text">题目内容</text>
+    </view>
+    <view class="card-body">
+      <text class="question-text">{{question}}</text>
+    </view>
+  </view>
+
+  <!-- 讲解内容 -->
+  <view class="card">
+    <view class="card-title">
+      <text class="title-text">老师讲解</text>
+    </view>
+    <view class="card-body">
+      <!-- 音频播放器 -->
+      <view class="audio-player" wx:if="{{audioUrl}}">
+        <button class="btn-play" bindtap="onPlayAudio">
+          <text>{{isPlaying ? '⏸' : '▶'}}</text>
+        </button>
+        <view class="audio-info">
+          <text class="audio-text">点击播放语音讲解</text>
+        </view>
+      </view>
+
+      <!-- 文字讲解 -->
+      <view class="explanation-text">
+        <text class="text-content">{{explanation}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 练习题区域 -->
+  <view class="card">
+    <view class="card-title">
+      <text class="title-text">练习题</text>
+      <text class="subtitle-text">（共 3 道）</text>
+    </view>
+    <view class="card-body">
+      <view class="practice-list">
+        <view
+          class="practice-item"
+          wx:for="{{practiceQuestions}}"
+          wx:key="id"
+        >
+          <view class="question-header">
+            <text class="question-number">题目 {{item.questionNumber}}</text>
+          </view>
+          <view class="question-content">
+            <text class="question-text">{{item.questionText}}</text>
+          </view>
+          <view class="options-list">
+            <view
+              class="option-item"
+              wx:for="{{item.options}}"
+              wx:for-item="option"
+              wx:for-index="optionIndex"
+              wx:key="*this"
+              bindtap="onSelectOption"
+              data-question-index="{{index}}"
+              data-option-index="{{optionIndex}}"
+            >
+              <text class="option-letter">{{optionLetter(optionIndex)}}</text>
+              <text class="option-text">{{option}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-section">
+    <button class="btn-secondary" bindtap="onRegenerate">
+      重新生成
+    </button>
+    <button class="btn-primary" bindtap="onBackHome">
+      返回首页
+    </button>
+  </view>
+</view>

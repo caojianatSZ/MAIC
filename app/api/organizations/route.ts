@@ -3,6 +3,45 @@ import { db } from '@/lib/db';
 import { organizations } from '@/drizzle/schema';
 import { apiSuccess, apiError, API_ERROR_CODES } from '@/lib/server/api-response';
 
+// GET: 获取所有机构列表（用于机构选择器）
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search');
+
+    // 获取所有机构的基本信息
+    let orgs = await db
+      .select({
+        id: organizations.id,
+        name: organizations.name,
+      })
+      .from(organizations)
+      .orderBy(organizations.createdAt);
+
+    // 如果有搜索关键词，过滤结果
+    if (search) {
+      const searchLower = search.toLowerCase();
+      orgs = orgs.filter((org) =>
+        org.name.toLowerCase().includes(searchLower) ||
+        org.id.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return apiSuccess({
+      organizations: orgs,
+      total: orgs.length,
+    });
+  } catch (error) {
+    console.error('Get organizations error:', error);
+    return apiError(
+      API_ERROR_CODES.INTERNAL_ERROR,
+      500,
+      '获取机构列表失败'
+    );
+  }
+}
+
+// POST: 注册新机构
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
