@@ -87,11 +87,19 @@ export const users = pgTable('users', {
   unionid: text('unionid'), // 微信 unionid（开放平台唯一标识）
   nickName: text('nick_name'), // 昵称
   avatarUrl: text('avatar_url'), // 头像URL
+
+  // 用户档案
+  gradeLevel: text('grade_level'), // 年级：PRIMARY_1~6, MIDDLE_1~3, HIGH_1~3
+  subjects: text('subjects').array(), // 科目：math, chinese, english, physics, chemistry, biology, history, geography, politics
+  organizationId: uuid('organization_id').references(() => organizations.id), // 所属机构
+
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({
   // 索引：按 openid 查询用户
   openidIdx: index('idx_users_openid').on(table.openid),
+  // 索引：按机构查询用户
+  orgIdx: index('idx_users_org').on(table.organizationId),
 }));
 
 // 作业提交表 - 家长提交的作业题目
@@ -288,4 +296,162 @@ export const classroomTemplates = pgTable('classroom_templates', {
   usageIdx: index('idx_classroom_templates_usage').on(table.usageCount),
   // 索引：按创建时间排序
   createdAtIdx: index('idx_classroom_templates_created').on(table.created_at),
+}));
+
+// ============================================
+// 微信小程序增强 - 用户学习系统
+// ============================================
+
+// 用户知识点掌握情况表
+export const userKnowledgeMastery = pgTable('user_knowledge_mastery', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  edukgUri: text('edukg_uri').notNull(), // EduKG实体URI
+  knowledgePointName: text('knowledge_point_name').notNull(), // 知识点名称（冗余，提升性能）
+  subject: text('subject').notNull(), // 科目：math, chinese, english等
+
+  // 掌握程度
+  masteryLevel: text('mastery_level').notNull(), // unknown(未知) | learning(学习中) | familiar(熟悉) | mastered(已掌握)
+  practiceCount: integer('practice_count').default(0), // 练习次数
+  correctCount: integer('correct_count').default(0), // 正确次数
+  wrongCount: integer('wrong_count').default(0), // 错误次数
+
+  // 时间追踪
+  firstPracticedAt: timestamp('first_practiced_at'), // 首次练习时间
+  lastPracticedAt: timestamp('last_practiced_at'), // 最后练习时间
+  masteredAt: timestamp('mastered_at'), // 掌握时间
+
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  // 唯一约束：同一用户+知识点只能有一条记录
+  uniqueUserKp: unique('unique_user_kp').on(table.userId, table.edukgUri),
+  // 索引：按用户查询知识点掌握情况
+  userIdx: index('idx_user_knowledge_mastery_user').on(table.userId),
+  // 索引：按知识点查询掌握情况
+  uriIdx: index('idx_user_knowledge_mastery_uri').on(table.edukgUri),
+  // 索引：按科目查询
+  subjectIdx: index('idx_user_knowledge_mastery_subject').on(table.subject),
+  // 索引：按掌握程度查询
+  masteryIdx: index('idx_user_knowledge_mastery_mastery').on(table.masteryLevel),
+}));
+
+// 用户学习记录表
+export const userLearningRecords = pgTable('user_learning_records', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // 学习内容
+  recordType: text('record_type').notNull(), // homework(作业) | classroom(课程) | practice_question(练习题) | wrong_question(错题)
+  contentType: text('content_type'), // 当type是classroom时：slide/quiz/interactive/pbl
+  contentId: text('content_id'), // 内容ID：homework_submission_id, classroom_id, practice_question_id等
+
+  // 知识点关联
+  edukgUris: text('edukg_uris').array(), // 相关的知识点URIs
+
+  // 学习行为
+  action: text('action').notNull(), // view(浏览) | practice(练习) | complete(完成) | review(复习)
+  durationSeconds: integer('duration_seconds'), // 学习时长（秒）
+  completionRate: text('completion_rate'), // 完成率（存储为text）
+
+  // 结果
+  isCorrect: boolean('is_correct'), // 是否正确（练习题）
+  score: text('score'), // 得分（存储为text）
+
+  // 时间
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  // 索引：按用户查询学习记录
+  userIdx: index('idx_user_learning_records_user').on(table.userId),
+  // 索引：按内容ID查询
+  contentIdx: index('idx_user_learning_records_content').on(table.contentId),
+  // 索引：按知识点查询
+  uriIdx: index('idx_user_learning_records_uri').on(table.edukgUris),
+  // 索引：按创建时间倒序
+  createdAtIdx: index('idx_user_learning_records_created').on(table.createdAt),
+}));
+
+// 错题本表
+export const userWrongQuestions = pgTable('user_wrong_questions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // 题目信息
+  questionText: text('question_text').notNull(), // 题目内容
+  questionImageUrl: text('question_image_url'), // 题目图片
+  myAnswer: text('my_answer'), // 我的答案
+  correctAnswer: text('correct_answer'), // 正确答案
+  explanation: text('explanation'), // AI讲解
+
+  // 题目元数据
+  subject: text('subject'), // 科目
+  gradeLevel: text('grade_level'), // 年级
+  difficulty: text('difficulty'), // 难度
+
+  // 知识点关联
+  edukgUri: text('edukg_uri'), // 主知识点（EduKG URI）
+  edukgUris: text('edukg_uris').array(), // 所有相关知识点
+
+  // 错误追踪
+  wrongCount: integer('wrong_count').default(1), // 错误次数
+  practiceCount: integer('practice_count').default(0), // 练习次数（错题本练习）
+  lastPracticedAt: timestamp('last_practiced_at'), // 最后练习时间
+
+  // 状态
+  isMastered: boolean('is_mastered').default(false), // 是否已掌握
+  masteredAt: timestamp('mastered_at'), // 掌握时间
+
+  // 来源
+  sourceType: text('source_type').notNull(), // homework(作业) | classroom(课程) | practice(练习)
+  sourceId: text('source_id'), // 来源ID
+
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  // 索引：按用户查询错题
+  userIdx: index('idx_user_wrong_questions_user').on(table.userId),
+  // 索引：按知识点查询错题
+  uriIdx: index('idx_user_wrong_questions_uri').on(table.edukgUri),
+  // 索引：按科目查询
+  subjectIdx: index('idx_user_wrong_questions_subject').on(table.subject),
+  // 索引：按年级查询
+  gradeIdx: index('idx_user_wrong_questions_grade').on(table.gradeLevel),
+  // 索引：按掌握状态查询
+  masteredIdx: index('idx_user_wrong_questions_mastered').on(table.isMastered),
+}));
+
+// 分享记录表
+export const shareRecords = pgTable('share_records', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+
+  // 分享内容
+  shareType: text('share_type').notNull(), // homework(作业讲解) | classroom(课程)
+  contentId: text('content_id').notNull(), // 内容ID：homework_result_id, classroom_id
+
+  // 分享元数据
+  title: text('title').notNull(), // 分享标题
+  summary: text('summary'), // 分享摘要
+  imageUrl: text('image_url'), // 分享图片
+
+  // 机构信息（用于品牌化）
+  organizationId: uuid('organization_id').references(() => organizations.id),
+
+  // 统计
+  viewCount: integer('view_count').default(0), // 浏览次数
+  shareCount: integer('share_count').default(0), // 被二次分享次数
+
+  // 过期时间（可选）
+  expiresAt: timestamp('expires_at'),
+
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  // 索引：按用户查询分享记录
+  userIdx: index('idx_share_records_user').on(table.userId),
+  // 索引：按机构查询分享记录
+  orgIdx: index('idx_share_records_org').on(table.organizationId),
+  // 索引：按内容ID查询
+  contentIdx: index('idx_share_records_content').on(table.contentId),
+  // 索引：按创建时间倒序
+  createdAtIdx: index('idx_share_records_created').on(table.createdAt),
 }));
