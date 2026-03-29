@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import * as schema from '@/drizzle/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 /**
  * 基于模板生成课程
@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    // 2. 解析模板结构
-    const outlineStructure = JSON.parse(template.outlineStructure);
-    const sceneTemplates = JSON.parse(template.sceneTemplates);
+    // 2. 模板结构（Drizzle自动解析jsonb）
+    const outlineStructure = template.outlineStructure;
+    const sceneTemplates = template.sceneTemplates;
 
     // 3. 使用模板生成课程
     // TODO: 集成到现有的课程生成流程中
@@ -56,8 +56,8 @@ export async function POST(req: NextRequest) {
         name: template.name,
         description: template.description,
         outlineStructure,
-        sceneTemplates,
-        sceneCount: sceneTemplates.length,
+        sceneTemplates: sceneTemplates || [],
+        sceneCount: sceneTemplates?.length || 0,
       },
       requirement,
       message: 'Template loaded successfully. Use /api/generate-classroom with this template structure.',

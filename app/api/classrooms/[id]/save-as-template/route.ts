@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import * as schema from '@/drizzle/schema';
-import { eq, desc, asc } from 'drizzle-orm';
+import { eq, desc, asc, and } from 'drizzle-orm';
 
 /**
  * 保存课程为模板
@@ -11,9 +11,9 @@ import { eq, desc, asc } from 'drizzle-orm';
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const classroomId = params.id;
+  const { id: classroomId } = await params;
   const body = await req.json();
 
   const { name, description, category } = body;
@@ -48,26 +48,30 @@ export async function POST(
       }, { status: 404 });
     }
 
-    // 3. 提取结构（只保存outline，不保存具体内容）
-    const outlineStructure = content.stage;
+    // 3. 提取结构（只保存基本信息，不保存具体内容）
+    const outlineStructure = {
+      name: content.stage.name,
+      description: content.stage.description,
+      language: content.stage.language,
+      style: content.stage.style,
+    };
+
     const sceneTemplates = content.scenes.map((scene) => ({
       type: scene.type,
       title: scene.title,
-      outline: scene.outline,
+      order: scene.order,
       // 不包含具体的content和actions
     }));
 
     // 4. 保存模板
-    const templateId = crypto.randomUUID();
-    await db.insert(schema.classroomTemplates).values({
-      id: templateId,
+    const templateResult = await db.insert(schema.classroomTemplates).values({
       organizationId: classroom.organizationId,
       name,
       description,
       category: category || 'custom',
-      outlineStructure: JSON.stringify(outlineStructure),
-      sceneTemplates: JSON.stringify(sceneTemplates),
-      agentConfiguration: JSON.stringify({}), // TODO: 提取agent配置
+      outlineStructure: outlineStructure,
+      sceneTemplates: sceneTemplates,
+      agentConfiguration: {}, // TODO: 提取agent配置
       applicableSubjects: classroom.subject ? [classroom.subject] : [],
       applicableGrades: classroom.gradeLevel ? [classroom.gradeLevel] : [],
       difficulty: classroom.difficulty || 'intermediate',
@@ -75,7 +79,9 @@ export async function POST(
       isDefault: false,
       usageCount: 0,
       isActive: true,
-    });
+    }).returning({ id: schema.classroomTemplates.id });
+
+    const templateId = templateResult[0].id;
 
     return NextResponse.json({
       success: true,
@@ -120,7 +126,7 @@ export async function GET(req: NextRequest) {
     // 查询模板
     const templates = await db.query.classroomTemplates.findMany({
       where,
-      orderBy: [desc(schema.classroomTemplates.usageCount), desc(schema.classroomTemplates.createdAt)],
+      orderBy: [desc(schema.classroomTemplates.usageCount), desc(schema.classroomTemplates.created_at)],
     });
 
     return NextResponse.json({
@@ -134,7 +140,7 @@ export async function GET(req: NextRequest) {
         applicableGrades: t.applicableGrades,
         difficulty: t.difficulty,
         usageCount: t.usageCount,
-        createdAt: t.createdAt,
+        createdAt: t.created_at,
       })),
     });
   } catch (error) {

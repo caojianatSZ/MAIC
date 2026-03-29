@@ -14,9 +14,9 @@ import { eq, sql, desc, and } from 'drizzle-orm';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const classroomId = params.id;
+  const { id: classroomId } = await params;
   const limit = parseInt(req.nextUrl.searchParams.get('limit') || '10');
 
   try {
@@ -25,6 +25,7 @@ export async function GET(
       where: eq(schema.classrooms.id, classroomId),
       columns: {
         id: true,
+        title: true,
         knowledgePointUris: true,
         subject: true,
         gradeLevel: true,

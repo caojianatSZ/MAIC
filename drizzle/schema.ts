@@ -260,3 +260,32 @@ export const classroomStats = pgTable('classroom_stats', {
   viewsIdx: index('idx_classroom_stats_views').on(table.viewCount),
   ratingIdx: index('idx_classroom_stats_rating').on(table.avgRating),
 }));
+
+// 课程模板表 - 保存可重用的课程结构
+export const classroomTemplates = pgTable('classroom_templates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id').references(() => organizations.id),
+  createdById: uuid('created_by_id'),
+  name: text('name').notNull(),
+  description: text('description'),
+  category: text('category'),
+  outlineStructure: jsonb('outline_structure').$type<any>(),
+  sceneTemplates: jsonb('scene_templates').$type<any[]>(),
+  agentConfiguration: jsonb('agent_configuration').$type<any>(),
+  applicableSubjects: text('applicable_subjects').array(),
+  applicableGrades: text('applicable_grades').array(),
+  difficulty: text('difficulty'),
+  usageCount: integer('usage_count').default(0),
+  isPublic: boolean('is_public').default(false),
+  isDefault: boolean('is_default').default(false),
+  isActive: boolean('is_active').default(true),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  // 索引：按组织查询模板
+  orgIdx: index('idx_classroom_templates_org').on(table.organizationId),
+  // 索引：按使用次数排序
+  usageIdx: index('idx_classroom_templates_usage').on(table.usageCount),
+  // 索引：按创建时间排序
+  createdAtIdx: index('idx_classroom_templates_created').on(table.created_at),
+}));
