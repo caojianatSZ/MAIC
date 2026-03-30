@@ -72,7 +72,7 @@ export async function PATCH(
   try {
     const { token } = await params;
     const body = await req.json();
-    const { subject, grade } = body;
+    const { subject, subjectCategory, grade, knowledgePoints } = body;
 
     // Check if classroom exists
     const [existing] = await db
@@ -84,13 +84,19 @@ export async function PATCH(
       return apiError(API_ERROR_CODES.INVALID_REQUEST, 404, '课程不存在');
     }
 
+    // Build update object
+    const updateData: any = {};
+    if (subject !== undefined) updateData.subject = subject;
+    if (subjectCategory !== undefined) updateData.subjectCategory = subjectCategory;
+    if (grade !== undefined) updateData.grade = grade;
+    if (knowledgePoints !== undefined && Array.isArray(knowledgePoints)) {
+      updateData.knowledgePoints = knowledgePoints;
+    }
+
     // Update classroom
     const [updated] = await db
       .update(organizationClassrooms)
-      .set({
-        ...(subject !== undefined && { subject }),
-        ...(grade !== undefined && { grade }),
-      })
+      .set(updateData)
       .where(eq(organizationClassrooms.shareToken, token))
       .returning();
 
@@ -98,7 +104,9 @@ export async function PATCH(
       id: updated.id,
       shareToken: updated.shareToken,
       subject: updated.subject,
+      subjectCategory: updated.subjectCategory,
       grade: updated.grade,
+      knowledgePoints: updated.knowledgePoints,
     });
   } catch (error) {
     console.error('Update classroom error:', error);

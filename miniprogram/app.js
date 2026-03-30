@@ -50,6 +50,6 @@ App({
   globalData: {
     userInfo: null,
     token: null,
-    baseUrl: 'http://localhost:3000/api' // 开发环境 API 地址
+    baseUrl: 'http://localhost:3000' // 开发环境 API 地址（不包含/api后缀）
   }
 })

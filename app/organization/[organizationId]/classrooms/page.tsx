@@ -34,10 +34,17 @@ interface ClassroomStats {
   shareToken: string;
   subject?: string;
   grade?: string;
+  subjectCategory?: string; // 科目分类
   views: number;
   conversions: number;
   conversionRate: number;
   lastView?: string;
+  knowledgePoints?: Array<{
+    uri: string;
+    name: string;
+    isPrimary: boolean;
+    relevanceScore: number;
+  }>;
 }
 
 export default function OrganizationClassroomsPage() {
@@ -50,7 +57,9 @@ export default function OrganizationClassroomsPage() {
   const [classrooms, setClassrooms] = useState<ClassroomStats[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editSubject, setEditSubject] = useState('');
+  const [editSubjectCategory, setEditSubjectCategory] = useState('');
   const [editGrade, setEditGrade] = useState('');
+  const [editKnowledgePoints, setEditKnowledgePoints] = useState<string>('');
 
   useEffect(() => {
     async function loadData() {
@@ -79,9 +88,11 @@ export default function OrganizationClassroomsPage() {
               shareToken: stat.shareToken,
               subject: stat.subject,
               grade: stat.grade,
+              subjectCategory: stat.subjectCategory,
               views: stat.views,
               conversions: stat.conversions,
               conversionRate: stat.conversionRate,
+              knowledgePoints: stat.knowledgePoints || [],
             }));
             setClassrooms(classroomStats);
           }
@@ -108,21 +119,47 @@ export default function OrganizationClassroomsPage() {
   const startEditing = (classroom: ClassroomStats) => {
     setEditingId(classroom.shareToken);
     setEditSubject(classroom.subject || '');
+    setEditSubjectCategory(classroom.subjectCategory || '');
     setEditGrade(classroom.grade || '');
+    // 将知识点数组转换为逗号分隔的字符串
+    setEditKnowledgePoints(
+      classroom.knowledgePoints?.map((kp) => kp.name).join(', ') || ''
+    );
   };
 
   const cancelEditing = () => {
     setEditingId(null);
     setEditSubject('');
+    setEditSubjectCategory('');
     setEditGrade('');
+    setEditKnowledgePoints('');
   };
 
   const saveEdit = async (shareToken: string) => {
     try {
+      // 解析知识点字符串为数组
+      const knowledgePointsArray = editKnowledgePoints
+        .split(/[,，]/) // 支持中英文逗号
+        .map((kp) => kp.trim())
+        .filter((kp) => kp.length > 0);
+
+      // 构建知识点对象数组
+      const knowledgePoints = knowledgePointsArray.map((name, idx) => ({
+        uri: `temp:edu/kg/custom:${encodeURIComponent(name)}`,
+        name,
+        isPrimary: idx === 0, // 第一个作为主要知识点
+        relevanceScore: 100 - idx * 10, // 递减的相关度分数
+      }));
+
       const res = await fetch(`/api/organization-classrooms/${shareToken}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject: editSubject, grade: editGrade || null }),
+        body: JSON.stringify({
+          subject: editSubject,
+          subjectCategory: editSubjectCategory || null,
+          grade: editGrade || null,
+          knowledgePoints: knowledgePoints.length > 0 ? knowledgePoints : null,
+        }),
       });
 
       if (res.ok) {
@@ -130,7 +167,13 @@ export default function OrganizationClassroomsPage() {
         if (data.success) {
           // Update local state
           setClassrooms(prev => prev.map(c =>
-            c.shareToken === shareToken ? { ...c, subject: data.data.subject, grade: data.data.grade } : c
+            c.shareToken === shareToken ? {
+              ...c,
+              subject: data.data.subject,
+              subjectCategory: data.data.subjectCategory,
+              grade: data.data.grade,
+              knowledgePoints: knowledgePoints.length > 0 ? knowledgePoints : c.knowledgePoints,
+            } : c
           ));
           toast.success('课程信息已更新');
           cancelEditing();
@@ -219,7 +262,7 @@ export default function OrganizationClassroomsPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       {editingId === classroom.shareToken ? (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           <input
                             type="text"
                             value={editSubject}
@@ -228,11 +271,27 @@ export default function OrganizationClassroomsPage() {
                             className="w-full px-3 py-2 border rounded-md text-sm"
                             autoFocus
                           />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={editSubjectCategory}
+                              onChange={(e) => setEditSubjectCategory(e.target.value)}
+                              placeholder="科目（如：数学、语文）"
+                              className="w-full px-3 py-2 border rounded-md text-sm"
+                            />
+                            <input
+                              type="text"
+                              value={editGrade}
+                              onChange={(e) => setEditGrade(e.target.value)}
+                              placeholder="年级（如：三年级）"
+                              className="w-full px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
                           <input
                             type="text"
-                            value={editGrade}
-                            onChange={(e) => setEditGrade(e.target.value)}
-                            placeholder="年级（可选）"
+                            value={editKnowledgePoints}
+                            onChange={(e) => setEditKnowledgePoints(e.target.value)}
+                            placeholder="知识点（用逗号分隔，如：分数, 加法）"
                             className="w-full px-3 py-2 border rounded-md text-sm"
                           />
                           <div className="flex gap-2">
@@ -267,6 +326,31 @@ export default function OrganizationClassroomsPage() {
                           <CardDescription className="mt-1">
                             分享令牌: {classroom.shareToken}
                           </CardDescription>
+                          {/* 知识点标签 */}
+                          {classroom.knowledgePoints && classroom.knowledgePoints.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {classroom.knowledgePoints.slice(0, 5).map((kp, idx) => (
+                                <span
+                                  key={idx}
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    kp.isPrimary
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : 'bg-gray-100 text-gray-700'
+                                  }`}
+                                >
+                                  {kp.name}
+                                  {kp.isPrimary && (
+                                    <span className="ml-1 text-blue-600">★</span>
+                                  )}
+                                </span>
+                              ))}
+                              {classroom.knowledgePoints.length > 5 && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-500">
+                                  +{classroom.knowledgePoints.length - 5}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

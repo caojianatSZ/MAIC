@@ -1,39 +1,40 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/result/result",
+    "pages/player/player",
+    "pages/progress/progress",
     "pages/profile/profile"
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#4A90E2",
+    "navigationBarBackgroundColor": "#FFFFFF",
     "navigationBarTitleText": "作业辅导助手",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#F5F5F5"
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F9FAFB"
   },
   "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#4A90E2",
+    "color": "#6B7280",
+    "selectedColor": "#6366F1",
     "backgroundColor": "#FFFFFF",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",
         "text": "首页",
-        "iconPath": "images/home.png",
-        "selectedIconPath": "images/home-active.png"
+        "iconPath": "images/tab-home.png",
+        "selectedIconPath": "images/tab-home-active.png"
       },
       {
-        "pagePath": "pages/result/result",
-        "text": "结果",
-        "iconPath": "images/result.png",
-        "selectedIconPath": "images/result-active.png"
+        "pagePath": "pages/progress/progress",
+        "text": "进度",
+        "iconPath": "images/tab-progress.png",
+        "selectedIconPath": "images/tab-progress-active.png"
       },
       {
         "pagePath": "pages/profile/profile",
         "text": "我的",
-        "iconPath": "images/profile.png",
-        "selectedIconPath": "images/profile-active.png"
+        "iconPath": "images/tab-profile.png",
+        "selectedIconPath": "images/tab-profile-active.png"
       }
     ]
   },

@@ -33,7 +33,14 @@
       "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -f drizzle/0003_redesign_classrooms_table.sql)",
       "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -c \"\n-- 修复索引：为text[]类型添加operator class\nDROP INDEX IF EXISTS idx_classrooms_knowledge_points;\nCREATE INDEX idx_classrooms_knowledge_points ON classrooms USING gin\\(knowledge_point_uris gin__int_ops\\);\n\")",
       "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -c \"\\\\d classrooms\")",
-      "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -c \"\\\\dt classroom*\")"
+      "Bash(PGPASSWORD='' psql -h localhost -U caojian -d openmaic -c \"\\\\dt classroom*\")",
+      "Bash(curl -s http://localhost:3000/api/organizations/098df3de-51e4-4d23-82a3-165b5acb5a27/branding)",
+      "Bash(curl -s http://localhost:3000/api/organizations/098df3de-51e4-4d23-82a3-165b5acb5a27/stats)",
+      "Bash(find data:*)",
+      "Bash(find . -name *.json -path */classrooms/*)",
+      "Bash(curl -s \"http://localhost:3000/api/classroom?id=C4ipu-iiOG\")",
+      "Bash(curl -s \"http://localhost:3000/api/classroom?id=r-HhRdxRu6\")",
+      "Bash(curl -s \"http://localhost:3000/api/organization-classrooms/LN8AAtymomhkFFJR\")"
     ]
   }
 }

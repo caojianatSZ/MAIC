@@ -1,0 +1,247 @@
+<!--pages/progress/progress.wxml-->
+<view class="container-no-padding">
+  <!-- 顶部统计卡片 -->
+  <view class="stats-header">
+    <view class="stats-gradient-bg"></view>
+
+    <view class="stats-content">
+      <view class="stats-title">
+        <text class="title">📊 学习进度</text>
+        <text class="subtitle">坚持就是胜利</text>
+      </view>
+
+      <!-- 学习统计 -->
+      <view class="learning-stats">
+        <view class="stat-card">
+          <text class="stat-value">{{stats.totalCourses || 0}}</text>
+          <text class="stat-label">已完成课程</text>
+        </view>
+
+        <view class="stat-card">
+          <text class="stat-value">{{stats.totalScenes || 0}}</text>
+          <text class="stat-label">完成章节</text>
+        </view>
+
+        <view class="stat-card">
+          <text class="stat-value">{{stats.studyMinutes || 0}}</text>
+          <text class="stat-label">学习分钟</text>
+        </view>
+      </view>
+
+      <!-- 本周学习 -->
+      <view class="weekly-section">
+        <view class="weekly-header">
+          <text class="weekly-title">📅 本周学习</text>
+          <text class="weekly-count">{{stats.weeklyCount || 0}} 节课</text>
+        </view>
+
+        <view class="weekly-chart">
+          <view class="chart-bar" wx:for="{{weeklyData}}" wx:key="day">
+            <view class="bar-wrapper">
+              <view class="bar-fill" style="height: {{item.percentage}}%">
+                <view class="bar-tooltip">{{item.count}}节</view>
+              </view>
+            </view>
+            <text class="bar-label">{{item.day}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 主内容区 -->
+  <view class="content-wrapper">
+    <!-- 学习历史 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">📚 最近学习</text>
+        <view class="filter-btn" bindtap="onFilter">
+          <text class="filter-text">筛选</text>
+          <text class="filter-arrow">▼</text>
+        </view>
+      </view>
+
+      <!-- 课程列表 -->
+      <view class="course-list" wx:if="{{learningHistory.length > 0}}">
+        <view
+          class="course-card"
+          wx:for="{{learningHistory}}"
+          wx:key="id"
+          bindtap="onCourseDetail"
+          data-id="{{item.id}}"
+          data-token="{{item.shareToken}}"
+        >
+          <!-- 课程封面 -->
+          <view class="course-cover">
+            <image
+              class="cover-image"
+              src="{{item.poster || '/images/default-cover.png'}}"
+              mode="aspectFill"
+            />
+            <view class="cover-overlay">
+              <text class="play-icon">▶</text>
+            </view>
+            <view class="progress-badge">
+              <text class="progress-text">{{item.progress}}%</text>
+            </view>
+          </view>
+
+          <!-- 课程信息 -->
+          <view class="course-info">
+            <view class="course-header">
+              <text class="course-title">{{item.title}}</text>
+              <view class="status-badge {{item.completed ? 'completed' : 'learning'}}">
+                <text>{{item.completed ? '已完成' : '学习中'}}</text>
+              </view>
+            </view>
+
+            <text class="course-desc">{{item.description}}</text>
+
+            <!-- 知识点标签 -->
+            <view class="knowledge-tags" wx:if="{{item.knowledgePoints && item.knowledgePoints.length > 0}}">
+              <view class="kptag" wx:for="{{item.knowledgePoints.slice(0, 3)}}" wx:key="*this">
+                <text>{{item}}</text>
+              </view>
+              <text class="kptag more" wx:if="{{item.knowledgePoints.length > 3}}">
+                +{{item.knowledgePoints.length - 3}}
+              </text>
+            </view>
+
+            <!-- 学习时间 -->
+            <view class="course-meta">
+              <text class="meta-item">
+                <text class="meta-icon">📅</text>
+                <text class="meta-text">{{item.lastStudyTime}}</text>
+              </text>
+              <text class="meta-item">
+                <text class="meta-icon">⏱️</text>
+                <text class="meta-text">{{item.duration}}</text>
+              </text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 空状态 -->
+      <view class="empty-state" wx:else>
+        <text class="empty-icon">📚</text>
+        <text class="empty-title">还没有学习记录</text>
+        <text class="empty-desc">去首页提交你的第一道题目吧！</text>
+        <view class="empty-action" bindtap="onGoHome">
+          <text class="action-btn">开始学习</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 错题快速入口 -->
+    <view class="section" wx:if="{{wrongQuestions.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">❌ 错题本</text>
+        <view class="more-btn" bindtap="onViewWrongQuestions">
+          <text class="more-text">查看全部</text>
+          <text class="more-arrow">›</text>
+        </view>
+      </view>
+
+      <scroll-view class="wrong-questions-scroll" scroll-x="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view class="wrong-list">
+          <view
+            class="wrong-card"
+            wx:for="{{wrongQuestions}}"
+            wx:key="id"
+            bindtap="onWrongQuestionDetail"
+            data-id="{{item.id}}"
+          >
+            <view class="wrong-icon">❌</view>
+            <view class="wrong-content">
+              <text class="wrong-title">{{item.title}}</text>
+              <text class="wrong-subject">{{item.subject}}</text>
+            </view>
+            <view class="wrong-meta">
+              <text class="meta-text">错误{{item.wrongCount}}次</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 学习成就 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">🏆 学习成就</text>
+      </view>
+
+      <view class="achievements-grid">
+        <view class="achievement-item {{item.unlocked ? 'unlocked' : 'locked'}}" wx:for="{{achievements}}" wx:key="id">
+          <text class="achievement-icon">{{item.icon}}</text>
+          <text class="achievement-title">{{item.title}}</text>
+          <text class="achievement-desc">{{item.description}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 知识点图谱 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">🧠 知识图谱</text>
+        <view class="view-toggle" bindtap="onToggleKnowledgeView">
+          <text class="toggle-text">{{knowledgeViewMode === 'grid' ? '网格' : '图谱'}}</text>
+        </view>
+      </view>
+
+      <!-- 知识点统计卡片 -->
+      <view class="knowledge-stats-card">
+        <view class="kstat-item">
+          <text class="kstat-value">{{knowledgeData.totalPoints}}</text>
+          <text class="kstat-label">总知识点</text>
+        </view>
+        <view class="kstat-divider"></view>
+        <view class="kstat-item">
+          <text class="kstat-value">{{knowledgeData.masteredPoints}}</text>
+          <text class="kstat-label">已掌握</text>
+        </view>
+        <view class="kstat-divider"></view>
+        <view class="kstat-item">
+          <text class="kstat-value">{{knowledgeData.totalPoints > 0 ? ((knowledgeData.masteredPoints / knowledgeData.totalPoints) * 100).toFixed(0) : 0}}%</text>
+          <text class="kstat-label">掌握率</text>
+        </view>
+      </view>
+
+      <!-- 知识点分类 -->
+      <view class="knowledge-categories">
+        <view class="kcategory-item" wx:for="{{knowledgeData.categories}}" wx:key="name">
+          <view class="kcategory-header">
+            <view class="kcategory-info">
+              <text class="kcategory-name">{{item.name}}</text>
+              <text class="kcategory-count">{{item.mastered}}/{{item.count}}</text>
+            </view>
+            <text class="kcategory-percent">{{item.count > 0 ? ((item.mastered / item.count) * 100).toFixed(0) : 0}}%</text>
+          </view>
+          <view class="kcategory-progress">
+            <view class="kprogress-fill" style="width: {{item.count > 0 ? (item.mastered / item.count) * 100 : 0}}%; background-color: {{item.color}}"></view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 热门知识点 -->
+      <view class="hot-knowledge-section">
+        <view class="hot-knowledge-title">
+          <text class="title-text">🔥 热门知识点</text>
+          <text class="title-desc">最近学习的知识点</text>
+        </view>
+        <view class="hot-knowledge-grid">
+          <view class="hkpoint-item {{item.mastered ? 'mastered' : ''}}" wx:for="{{knowledgeData.hotPoints}}" wx:key="name">
+            <view class="hkpoint-icon">{{item.mastered ? '✓' : '○'}}</view>
+            <view class="hkpoint-content">
+              <text class="hkpoint-name">{{item.name}}</text>
+              <text class="hkpoint-count">学习{{item.studyCount}}次</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部安全区 -->
+  <view class="safe-area-bottom"></view>
+</view>

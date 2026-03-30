@@ -22,7 +22,14 @@ export const organizationClassrooms = pgTable('organization_classrooms', {
   classroomId: text('classroom_id').notNull(),
   shareToken: text('share_token').notNull().unique(),
   subject: text('subject'),
+  subjectCategory: text('subject_category'), // 科目分类：math, chinese, english等
   grade: text('grade'),
+  knowledgePoints: jsonb('knowledge_points').$type<{
+    uri: string;
+    name: string;
+    isPrimary: boolean;
+    relevanceScore: number;
+  }[]>().default([]),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => ({
   // 索引：按组织ID查询课堂

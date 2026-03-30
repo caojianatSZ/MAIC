@@ -1,0 +1,134 @@
+<!--pages/player/player.wxml-->
+<view class="container-no-padding">
+  <!-- 视频播放区域 -->
+  <view class="video-wrapper">
+    <video
+      id="classroomVideo"
+      class="video-player"
+      src="{{currentVideoUrl}}"
+      poster="{{currentPoster}}"
+      controls="{{true}}"
+      autoplay="{{false}}"
+      show-center-play-btn="{{true}}"
+      enable-progress-gesture="{{true}}"
+      object-fit="contain"
+      bindplay="onVideoPlay"
+      bindpause="onVideoPause"
+      bindended="onVideoEnd"
+      binderror="onVideoError"
+      bindtimeupdate="onTimeUpdate"
+    />
+
+    <!-- 播放遮罩 - 显示课程信息 -->
+    <view class="video-overlay" wx:if="{{showOverlay}}">
+      <view class="overlay-content">
+        <text class="overlay-title">{{classroomInfo.title || '课程标题'}}</text>
+        <text class="overlay-subtitle">{{classroomInfo.description || '课程描述'}}</text>
+      </view>
+    </view>
+
+    <!-- 播放按钮 -->
+    <view class="play-button-wrapper" wx:if="{{!isPlaying}}" bindtap="onPlayToggle">
+      <view class="play-button">
+        <text class="play-icon">▶</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 场景导航 -->
+  <view class="scenes-section">
+    <view class="scenes-header">
+      <text class="section-title">📚 课程章节</text>
+      <text class="scenes-count">{{scenes.length}} 节</text>
+    </view>
+
+    <!-- 场景列表 -->
+    <scroll-view class="scenes-scroll" scroll-x="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+      <view class="scenes-list">
+        <view
+          class="scene-item {{currentSceneIndex === index ? 'active' : ''}} {{scene.completed ? 'completed' : ''}}"
+          wx:for="{{scenes}}"
+          wx:key="id"
+          bindtap="onSceneSelect"
+          data-index="{{index}}"
+        >
+          <view class="scene-number">
+            <text>{{index + 1}}</text>
+          </view>
+          <view class="scene-content">
+            <text class="scene-title">{{item.title}}</text>
+            <text class="scene-duration">{{item.duration || '1:30'}}</text>
+          </view>
+          <view class="scene-status">
+            <text wx:if="{{currentSceneIndex === index}}">▶</text>
+            <text wx:elif="{{scene.completed}}">✓</text>
+            <text wx:else></text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 当前场景内容 -->
+  <view class="scene-content-section">
+    <view class="content-card">
+      <!-- 场景标题 -->
+      <view class="scene-header">
+        <text class="scene-main-title">{{currentScene.title || '章节标题'}}</text>
+        <view class="scene-badges">
+          <view class="badge badge-primary" wx:if="{{currentScene.knowledgePoints}}">
+            <text>🎯 {{currentScene.knowledgePoints[0] || '知识点'}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 场景文本内容 -->
+      <view class="scene-text" wx:if="{{currentScene.content}}">
+        <text class="text-content">{{currentScene.content.text || '暂无内容'}}</text>
+      </view>
+
+      <!-- 知识点标签 -->
+      <view class="knowledge-points" wx:if="{{currentScene.knowledgePoints && currentScene.knowledgePoints.length > 0}}">
+        <view class="kp-tag" wx:for="{{currentScene.knowledgePoints}}" wx:key="*this" wx:for-item="kp">
+          <text class="kp-icon">🏷️</text>
+          <text class="kp-text">{{kp}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 课程信息卡片 -->
+  <view class="course-info-section">
+    <view class="info-card">
+      <view class="info-header">
+        <text class="info-title">📖 课程信息</text>
+      </view>
+
+      <view class="info-row">
+        <text class="info-label">科目</text>
+        <text class="info-value">{{classroomInfo.subject || '未分类'}}</text>
+      </view>
+
+      <view class="info-row">
+        <text class="info-label">年级</text>
+        <text class="info-value">{{classroomInfo.grade || '通用'}}</text>
+      </view>
+
+      <view class="info-row">
+        <text class="info-label">时长</text>
+        <text class="info-value">{{classroomInfo.duration || '10分钟'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="actions-section">
+    <button class="action-btn primary" bindtap="onCompleteCourse" disabled="{{allCompleted}}">
+      <text class="btn-icon">✓</text>
+      <text class="btn-text">{{allCompleted ? '已完成' : '标记完成'}}</text>
+    </button>
+  </view>
+
+  <!-- 底部安全区 -->
+  <view class="safe-area-bottom"></view>
+</view>

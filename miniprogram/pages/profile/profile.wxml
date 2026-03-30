@@ -1,87 +1,171 @@
 <!--pages/profile/profile.wxml-->
-<view class="container">
-  <!-- 用户信息卡片 -->
-  <view class="user-card">
-    <view class="user-avatar">
-      <image
-        class="avatar-img"
-        src="{{userInfo.avatarUrl || '/images/default-avatar.png'}}"
-        mode="aspectFill"
-      />
-    </view>
-    <view class="user-info">
-      <text class="user-name">{{userInfo.nickName || '未登录'}}</text>
-      <text class="user-status">免费用户</text>
-    </view>
-  </view>
+<view class="container-no-padding">
+  <!-- 顶部用户信息卡片 -->
+  <view class="profile-header">
+    <view class="header-bg"></view>
 
-  <!-- 使用统计 -->
-  <view class="card">
-    <view class="card-title">
-      <text class="title-text">使用统计</text>
-    </view>
-    <view class="card-body">
-      <view class="stats-grid">
-        <view class="stat-item">
-          <text class="stat-value">{{stats.totalCount}}</text>
-          <text class="stat-label">总使用次数</text>
-        </view>
-        <view class="stat-divider"></view>
-        <view class="stat-item">
-          <text class="stat-value">{{stats.todayCount}}</text>
-          <text class="stat-label">今日使用</text>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 历史记录 -->
-  <view class="card">
-    <view class="card-title">
-      <text class="title-text">历史记录</text>
-    </view>
-    <view class="card-body">
-      <view class="history-list" wx:if="{{historyList.length > 0}}">
-        <view
-          class="history-item"
-          wx:for="{{historyList}}"
-          wx:key="id"
-          bindtap="onViewHistory"
-          data-id="{{item.id}}"
-        >
-          <view class="history-header">
-            <text class="history-question">{{item.question}}</text>
-            <text class="history-time">{{item.createdAt}}</text>
+    <view class="user-card-wrapper">
+      <view class="user-card">
+        <view class="user-avatar-section" bindtap="onChangeAvatar">
+          <image
+            class="user-avatar"
+            src="{{userInfo.avatarUrl || '/images/default-avatar.png'}}"
+            mode="aspectFill"
+          />
+          <view class="avatar-badge">
+            <text class="badge-icon">📷</text>
           </view>
-          <view class="history-footer">
-            <text class="history-status">已完成</text>
+        </view>
+
+        <view class="user-info-section">
+          <text class="user-name">{{userInfo.nickName || '点击登录'}}</text>
+          <view class="user-tags">
+            <view class="user-tag">
+              <text class="tag-icon">⭐</text>
+              <text class="tag-text">VIP用户</text>
+            </view>
           </view>
         </view>
       </view>
-      <view class="empty-state" wx:else>
-        <text class="empty-text">暂无历史记录</text>
-        <text class="empty-hint">去首页提交作业吧</text>
+    </view>
+
+    <!-- 快速统计 -->
+    <view class="quick-stats">
+      <view class="stat-item" bindtap="onViewHistory">
+        <text class="stat-value">{{stats.totalCount}}</text>
+        <text class="stat-label">总辅导</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item" bindtap="onViewToday">
+        <text class="stat-value">{{stats.todayCount}}</text>
+        <text class="stat-label">今日</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item" bindtap="onViewWrong">
+        <text class="stat-value">{{stats.wrongCount || 0}}</text>
+        <text class="stat-label">错题</text>
       </view>
     </view>
   </view>
 
-  <!-- 功能列表 -->
-  <view class="card">
-    <view class="card-body">
+  <!-- 主内容区 -->
+  <view class="content-wrapper">
+    <!-- 学习档案 -->
+    <view class="card">
+      <view class="card-header">
+        <text class="section-title">📚 学习档案</text>
+        <view class="edit-btn" bindtap="onEditProfile">
+          <text class="edit-text">编辑</text>
+          <text class="edit-arrow">›</text>
+        </view>
+      </view>
+
+      <view class="profile-info" wx:if="{{profile.grade || profile.subjects}}">
+        <view class="info-row" wx:if="{{profile.grade}}">
+          <text class="info-label">年级</text>
+          <text class="info-value">{{profile.grade}}</text>
+        </view>
+        <view class="info-row" wx:if="{{profile.subjects && profile.subjects.length > 0}}">
+          <text class="info-label">科目</text>
+          <view class="subjects-tags">
+            <view class="subject-tag" wx:for="{{profile.subjects}}" wx:key="*this">
+              <text>{{item}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="empty-profile" wx:else>
+        <text class="empty-text">还未设置学习档案</text>
+        <view class="setup-btn" bindtap="onEditProfile">
+          <text>立即设置</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 功能菜单 -->
+    <view class="card">
       <view class="menu-list">
-        <view class="menu-item" bindtap="onAbout">
+        <view class="menu-item" bindtap="onViewHistory" hover-class="menu-item-hover">
+          <view class="menu-icon">📖</view>
+          <view class="menu-content">
+            <text class="menu-title">学习记录</text>
+            <text class="menu-desc">查看所有辅导记录</text>
+          </view>
+          <view class="menu-arrow">
+            <text class="arrow-icon">›</text>
+          </view>
+        </view>
+
+        <view class="menu-divider"></view>
+
+        <view class="menu-item" bindtap="onWrongQuestions" hover-class="menu-item-hover">
+          <view class="menu-icon">❌</view>
+          <view class="menu-content">
+            <text class="menu-title">错题本</text>
+            <text class="menu-desc">巩固错题，举一反三</text>
+          </view>
+          <view class="menu-badge">
+            <text class="badge-count">{{stats.wrongCount || 0}}</text>
+          </view>
+          <view class="menu-arrow">
+            <text class="arrow-icon">›</text>
+          </view>
+        </view>
+
+        <view class="menu-divider"></view>
+
+        <view class="menu-item" bindtap="onAchievements" hover-class="menu-item-hover">
+          <view class="menu-icon">🏆</view>
+          <view class="menu-content">
+            <text class="menu-title">学习成就</text>
+            <text class="menu-desc">查看你的学习进度</text>
+          </view>
+          <view class="menu-arrow">
+            <text class="arrow-icon">›</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 其他功能 -->
+    <view class="card">
+      <view class="menu-list">
+        <view class="menu-item" bindtap="onAbout" hover-class="menu-item-hover">
+          <view class="menu-icon">ℹ️</view>
           <text class="menu-text">关于我们</text>
           <text class="menu-arrow">›</text>
         </view>
-        <view class="menu-item" bindtap="onFeedback">
+
+        <view class="menu-divider"></view>
+
+        <view class="menu-item" bindtap="onFeedback" hover-class="menu-item-hover">
+          <view class="menu-icon">💬</view>
           <text class="menu-text">意见反馈</text>
           <text class="menu-arrow">›</text>
         </view>
-        <view class="menu-item" bindtap="onHelp">
+
+        <view class="menu-divider"></view>
+
+        <view class="menu-item" bindtap="onHelp" hover-class="menu-item-hover">
+          <view class="menu-icon">❓</view>
           <text class="menu-text">使用帮助</text>
           <text class="menu-arrow">›</text>
         </view>
+
+        <view class="menu-divider"></view>
+
+        <view class="menu-item" bindtap="onSettings" hover-class="menu-item-hover">
+          <view class="menu-icon">⚙️</view>
+          <text class="menu-text">设置</text>
+          <text class="menu-arrow">›</text>
+        </view>
       </view>
+    </view>
+
+    <!-- 底部版本信息 -->
+    <view class="footer">
+      <text class="footer-text">作业辅导助手 v1.0.0</text>
     </view>
   </view>
 </view>

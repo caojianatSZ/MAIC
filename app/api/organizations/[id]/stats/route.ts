@@ -113,16 +113,21 @@ export async function GET(
         // 计算该课堂的转化率
         const classConversionRate = views > 0 ? (conversions / views) * 100 : 0;
 
+        // 获取知识点（从organizationClassrooms.knowledgePoints字段）
+        const knowledgePoints = orgClassroom.knowledgePoints || [];
+
         return {
           id: orgClassroom.id,
           classroomId: orgClassroom.classroomId,
           shareToken: orgClassroom.shareToken,
           subject: orgClassroom.subject,
+          subjectCategory: orgClassroom.subjectCategory,
           grade: orgClassroom.grade,
           views,
           completions,
           conversions,
           conversionRate: Number(classConversionRate.toFixed(2)),
+          knowledgePoints,
         };
       })
     );
