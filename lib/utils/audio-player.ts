@@ -20,6 +20,7 @@ export class AudioPlayer {
   private muted: boolean = false;
   private volume: number = 1;
   private playbackRate: number = 1;
+  private playPromise: Promise<void> | null = null; // 追踪当前播放请求
 
   /**
    * Play audio (from URL or IndexedDB pre-generated cache)
@@ -41,7 +42,10 @@ export class AudioPlayer {
         this.audio.addEventListener('ended', () => {
           this.onEndedCallback?.();
         });
-        await this.audio.play();
+        // 保存播放promise以便追踪
+        this.playPromise = this.audio.play();
+        await this.playPromise;
+        this.playPromise = null; // 清除promise引用
         this.audio.playbackRate = this.playbackRate;
         return true;
       }
@@ -77,11 +81,23 @@ export class AudioPlayer {
       });
 
       // Play
-      await this.audio.play();
+      this.playPromise = this.audio.play();
+      await this.playPromise;
+      this.playPromise = null; // 清除promise引用
       // Re-apply after play() — some browsers reset during load
       this.audio.playbackRate = this.playbackRate;
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      this.playPromise = null; // 确保清除promise引用
+
+      // 忽略播放中断错误（用户交互或快速切换导致）
+      if (error.name === 'AbortError' ||
+          error.message?.includes('interrupted') ||
+          error.message?.includes('pause')) {
+        log.debug('Audio playback interrupted (this is normal)');
+        return false;
+      }
+
       log.error('Failed to play audio:', error);
       throw error;
     }
@@ -100,11 +116,14 @@ export class AudioPlayer {
    * Stop playback
    */
   public stop(): void {
+    // 如果有正在进行的播放请求，先暂停音频（会触发中断）
     if (this.audio) {
       this.audio.pause();
       this.audio.currentTime = 0;
       this.audio = null;
     }
+    // 清除播放promise引用
+    this.playPromise = null;
     // Note: onEndedCallback intentionally NOT cleared here because play()
     // calls stop() internally — clearing would break the callback chain.
     // Stale callbacks are harmless: engine mode check prevents processNext().
