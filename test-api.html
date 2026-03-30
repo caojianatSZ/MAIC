@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微信小程序API测试</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+    .test-section {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .test-section h2 {
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+      color: #333;
+    }
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .test-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+      transition: all 0.3s;
+    }
+    .test-card:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    .test-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      color: #667eea;
+    }
+    .test-card p {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 12px;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .test-button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .test-button:hover {
+      background: #5568d3;
+      transform: scale(1.05);
+    }
+    .test-button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .results {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.85rem;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .results pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    .stat-card .number {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .stat-card .label {
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎓 微信小程序API测试</h1>
+      <p>MVP阶段核心功能测试</p>
+    </div>
+
+    <!-- 数据库统计 -->
+    <div class="test-section">
+      <h2>📊 数据统计</h2>
+      <div class="stats" id="stats">
+        <div class="stat-card">
+          <div class="number" id="stat-courses">0</div>
+          <div class="label">课程</div>
+        </div>
+        <div class="stat-card">
+          <div class="number" id="stat-templates">0</div>
+          <div class="label">课程模板</div>
+        </div>
+        <div class="stat-card">
+          <div class="number" id="stat-users">0</div>
+          <div class="label">用户</div>
+        </div>
+        <div class="stat-card">
+          <div class="number" id="stat-wrong-questions">0</div>
+          <div class="label">错题</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API测试 -->
+    <div class="test-section">
+      <h2>🔧 API功能测试</h2>
+      <div class="test-grid">
+        <div class="test-card">
+          <h3>课程搜索</h3>
+          <p>测试课程搜索API，支持按科目、年级、知识点筛选</p>
+          <span class="status success">✓ 已实现</span>
+        </div>
+        <div class="test-card">
+          <h3>相似课程推荐</h3>
+          <p>基于知识点重叠度推荐相关课程</p>
+          <span class="status success">✓ 已实现</span>
+        </div>
+        <div class="test-card">
+          <h3>课程模板</h3>
+          <p>保存课程为模板，从模板生成新课程</p>
+          <span class="status success">✓ 已实现</span>
+        </div>
+        <div class="test-card">
+          <h3>EduKG知识图谱</h3>
+          <p>集成清华大学K-12教育知识图谱</p>
+          <span class="status success">✓ 已实现</span>
+        </div>
+        <div class="test-card">
+          <h3>OCR图片识别</h3>
+          <p>支持MinerU和Google Vision API</p>
+          <span class="status pending">⚠ 需配置</span>
+        </div>
+        <div class="test-card">
+          <h3>批量作业提交</h3>
+          <p>支持最多9个题目并行处理</p>
+          <span class="status success">✓ 已实现</span>
+        </div>
+        <div class="test-card">
+          <h3>AI识别知识点</h3>
+          <p>自动识别题目对应的知识点</p>
+          <span class="status success">✓ 已实现</span>
+        </div>
+        <div class="test-card">
+          <h3>错题本</h3>
+          <p>自动收集、按知识点分类、掌握追踪</p>
+          <span class="status success">✓ 已实现</span>
+        </div>
+        <div class="test-card">
+          <h3>用户档案管理</h3>
+          <p>年级、科目设置和查询</p>
+          <span class="status success">✓ 已实现</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速测试 -->
+    <div class="test-section">
+      <h2>🚀 快速测试</h2>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button class="test-button" onclick="testCourseSearch()">测试课程搜索</button>
+        <button class="test-button" onclick="testEduKG()">测试EduKG搜索</button>
+        <button class="test-button" onclick="refreshStats()">刷新统计数据</button>
+      </div>
+      <div class="results" id="results" style="display: none;">
+        <pre id="results-content"></pre>
+      </div>
+    </div>
+
+    <!-- API文档 -->
+    <div class="test-section">
+      <h2>📚 API文档</h2>
+      <div style="font-size: 0.9rem; line-height: 1.6;">
+        <h3 style="color: #667eea;">用户认证与档案</h3>
+        <ul style="margin-left: 20px; margin-bottom: 16px;">
+          <li><code>POST /api/wechat/login</code> - 微信登录</li>
+          <li><code>GET /api/miniprogram/user/profile</code> - 获取档案</li>
+          <li><code>POST /api/miniprogram/user/profile</code> - 设置档案</li>
+          <li><code>PUT /api/miniprogram/user/profile</code> - 更新档案</li>
+        </ul>
+
+        <h3 style="color: #667eea;">快速答疑</h3>
+        <ul style="margin-left: 20px; margin-bottom: 16px;">
+          <li><code>POST /api/miniprogram/ocr</code> - 图片识别</li>
+          <li><code>POST /api/miniprogram/batch-submit</code> - 批量提交</li>
+          <li><code>GET /api/miniprogram/batch-submit?jobId={id}</code> - 查询进度</li>
+        </ul>
+
+        <h3 style="color: #667eea;">知识点识别</h3>
+        <ul style="margin-left: 20px; margin-bottom: 16px;">
+          <li><code>POST /api/miniprogram/ai/recognize-knowledge-point</code> - AI识别</li>
+        </ul>
+
+        <h3 style="color: #667eea;">错题本</h3>
+        <ul style="margin-left: 20px; margin-bottom: 16px;">
+          <li><code>GET /api/miniprogram/wrong-questions</code> - 获取列表</li>
+          <li><code>POST /api/miniprogram/wrong-questions/{id}</code> - 练习/掌握</li>
+          <li><code>POST /api/miniprogram/wrong-questions/collect</code> - 自动收集</li>
+        </ul>
+
+        <h3 style="color: #667eea;">课程搜索</h3>
+        <ul style="margin-left: 20px;">
+          <li><code>GET /api/classrooms/search</code> - 搜索课程</li>
+          <li><code>GET /api/classrooms/{id}/similar</code> - 相似推荐</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000';
+
+    // 测试课程搜索
+    async function testCourseSearch() {
+      showResults('正在测试课程搜索API...');
+      try {
+        const response = await fetch(`${API_BASE}/api/classrooms/search?limit=5`);
+        const data = await response.json();
+        showResults('课程搜索API测试结果：', data);
+      } catch (error) {
+        showResults('错误：', error);
+      }
+    }
+
+    // 测试EduKG
+    async function testEduKG() {
+      showResults('正在测试EduKG知识图谱服务...');
+      try {
+        const response = await fetch(`${API_BASE}/api/debug/test-edukg?action=search&keyword=分数`);
+        const data = await response.json();
+        showResults('EduKG搜索测试结果：', data);
+      } catch (error) {
+        showResults('错误：', error);
+      }
+    }
+
+    // 刷新统计数据
+    async function refreshStats() {
+      showResults('正在获取统计数据...');
+      try {
+        const response = await fetch('/api/stats'); // 需要创建统计API
+        const data = await response.json();
+        updateStats(data);
+      } catch (error) {
+        // 使用默认数据
+        updateStats({
+          courses: 0,
+          templates: 0,
+          users: 0,
+          wrongQuestions: 0
+        });
+      }
+    }
+
+    function showResults(title, data) {
+      const resultsDiv = document.getElementById('results');
+      const resultsContent = document.getElementById('results-content');
+      resultsDiv.style.display = 'block';
+      resultsContent.textContent = title + '\n' + JSON.stringify(data, null, 2);
+    }
+
+    function updateStats(stats) {
+      document.getElementById('stat-courses').textContent = stats.courses || 0;
+      document.getElementById('stat-templates').textContent = stats.templates || 0;
+      document.getElementById('stat-users').textContent = stats.users || 0;
+      document.getElementById('stat-wrong-questions').textContent = stats.wrongQuestions || 0;
+    }
+
+    // 页面加载时获取统计数据
+    window.addEventListener('load', () => {
+      refreshStats();
+    });
+  </script>
+</body>
+</html>
