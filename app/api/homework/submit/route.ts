@@ -11,13 +11,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { users, homeworkSubmissions, homeworkResults, practiceQuestions } from '@/drizzle/schema';
-import { eq } from 'drizzle-orm';
+import { homeworkSubmissions, homeworkResults, practiceQuestions } from '@/drizzle/schema';
 import jwt from 'jsonwebtoken';
 import { callLLM } from '@/lib/ai/llm';
 import { generateTTS } from '@/lib/audio/tts-providers';
 import { createLogger } from '@/lib/logger';
-import { apiError, apiSuccess } from '@/lib/server/api-response';
 
 const log = createLogger('Homework Submit API');
 
@@ -128,10 +126,10 @@ export async function POST(request: NextRequest) {
     log.info('作业结果记录已创建', { resultId: result.id });
 
     // 7. 生成练习题
-    const practiceQuestions = await generatePracticeQuestions(questionText, grade, subject);
+    const generatedPracticeQuestions = await generatePracticeQuestions(questionText, grade, subject);
 
     // 8. 存储练习题
-    const questionsToInsert = practiceQuestions.map((q, index) => ({
+    const questionsToInsert = generatedPracticeQuestions.map((q, index) => ({
       resultId: result.id,
       questionText: q.questionText,
       options: q.options,
@@ -142,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     await db.insert(practiceQuestions).values(questionsToInsert);
 
-    log.info('练习题已生成', { count: practiceQuestions.length });
+    log.info('练习题已生成', { count: generatedPracticeQuestions.length });
 
     // 9. 返回成功响应
     return NextResponse.json({
