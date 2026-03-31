@@ -1,0 +1,64 @@
+<!--pages/demo-home/demo-home.wxml-->
+<view class="container">
+  <!-- 顶部标题区 -->
+  <view class="header">
+    <text class="title">OpenMAIC</text>
+    <text class="subtitle">AI自适应学习，精准提升</text>
+  </view>
+
+  <!-- EduKG技术背书区 -->
+  <view class="tech-support">
+    <view class="tech-icon">🏗️</view>
+    <view class="tech-info">
+      <text class="tech-title">技术支持</text>
+      <text class="tech-name">基础教育知识图谱服务平台</text>
+      <text class="tech-detail">清华、北师大联合研发</text>
+    </view>
+  </view>
+
+  <!-- 快速诊断卡片 -->
+  <view class="card" bindtap="goToDiagnosis">
+    <view class="card-icon">🎯</view>
+    <view class="card-content">
+      <text class="card-title">快速诊断你的学习情况</text>
+      <text class="card-desc">30秒发现知识薄弱点</text>
+    </view>
+    <view class="card-arrow">→</view>
+  </view>
+
+  <!-- 效果对比卡片 -->
+  <view class="card" bindtap="showComparison">
+    <view class="card-icon">📊</view>
+    <view class="card-content">
+      <text class="card-title">看看学习效果对比</text>
+      <text class="card-desc">传统学习 vs 自适应学习</text>
+    </view>
+    <view class="card-arrow">→</view>
+  </view>
+
+  <!-- 完整体验卡片 -->
+  <view class="card" bindtap="showFullDemo">
+    <view class="card-icon">💡</view>
+    <view class="card-content">
+      <text class="card-title">体验完整学习流程</text>
+      <text class="card-desc">二次函数自适应学习示例</text>
+    </view>
+    <view class="card-arrow">→</view>
+  </view>
+
+  <!-- AI生成课程卡片 -->
+  <view class="card" bindtap="generateAICourse">
+    <view class="card-icon">🤖</view>
+    <view class="card-content">
+      <text class="card-title">AI 生成课程</text>
+      <text class="card-desc">实时演示 AI 生成微课</text>
+    </view>
+    <view class="card-arrow">→</view>
+  </view>
+
+  <!-- 底部CTA -->
+  <view class="bottom-cta">
+    <text class="cta-text">想要生成自己的学习路径？</text>
+    <button class="cta-button" bindtap="goToLogin">立即登录/注册</button>
+  </view>
+</view>

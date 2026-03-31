@@ -1,0 +1,285 @@
+<!--pages/diagnosis/diagnosis.wxml-->
+<view class="container">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">
+      <text class="back-icon">←</text>
+      <text class="back-text">返回</text>
+    </view>
+    <text class="nav-title">快速诊断</text>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <!-- 模式选择入口 -->
+  <view class="entry-section" wx:if="{{mode === 'entry'}}">
+    <view class="entry-header">
+      <text class="entry-title">选择诊断方式</text>
+      <text class="entry-subtitle">根据你的情况选择最适合的诊断方式</text>
+    </view>
+
+    <view class="entry-cards">
+      <!-- 答题诊断卡片 -->
+      <view class="entry-card" bindtap="startQuizDiagnosis">
+        <view class="card-icon quiz-icon">📝</view>
+        <view class="card-content">
+          <text class="card-title">答题诊断</text>
+          <text class="card-desc">5道精选题目，快速找出薄弱知识点</text>
+          <view class="card-tags">
+            <text class="tag">快速</text>
+            <text class="tag">精准</text>
+          </view>
+        </view>
+        <view class="card-arrow">→</view>
+      </view>
+
+      <!-- 拍照诊断卡片 -->
+      <view class="entry-card photo" bindtap="startPhotoDiagnosis">
+        <view class="card-icon photo-icon">📷</view>
+        <view class="card-content">
+          <text class="card-title">拍照诊断</text>
+          <text class="card-desc">拍摄作业/试卷，智能分析知识点</text>
+          <view class="card-tags">
+            <text class="tag">简便</text>
+            <text class="tag">智能</text>
+          </view>
+        </view>
+        <view class="card-arrow">→</view>
+      </view>
+    </view>
+
+    <view class="entry-tips">
+      <text class="tips-icon">💡</text>
+      <text class="tips-text">拍照诊断可以识别已完成作业，快速分析掌握情况</text>
+    </view>
+  </view>
+
+  <!-- 完整体验流程引导 -->
+  <view class="full-demo-intro-section" wx:if="{{mode === 'full_demo_intro'}}">
+    <view class="intro-header">
+      <text class="intro-icon">🎯</text>
+      <text class="intro-title">完整学习流程体验</text>
+    </view>
+
+    <view class="intro-content">
+      <text class="intro-desc">我们将引导你完成以下4个步骤，体验完整的学习流程：</text>
+    </view>
+
+    <view class="steps-container">
+      <view class="step-item">
+        <view class="step-number">1</view>
+        <view class="step-content">
+          <text class="step-title">智能诊断</text>
+          <text class="step-desc">5道题目，AI分析薄弱知识点</text>
+        </view>
+      </view>
+
+      <view class="step-item">
+        <view class="step-number">2</view>
+        <view class="step-content">
+          <text class="step-title">知识图谱</text>
+          <text class="step-desc">可视化展示学习路径和掌握情况</text>
+        </view>
+      </view>
+
+      <view class="step-item">
+        <view class="step-number">3</view>
+        <view class="step-content">
+          <text class="step-title">学习路径</text>
+          <text class="step-desc">AI生成个性化学习建议</text>
+        </view>
+      </view>
+
+      <view class="step-item">
+        <view class="step-number">4</view>
+        <view class="step-content">
+          <text class="step-title">学习课程</text>
+          <text class="step-desc">AI生成的2分钟微课视频</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="intro-tips">
+      <text class="tips-text">全程体验只需5-10分钟</text>
+    </view>
+
+    <view class="intro-actions">
+      <button class="confirm-button" bindtap="startFullDemo">
+        开始体验
+      </button>
+    </view>
+  </view>
+
+  <!-- 诊断设置页面 -->
+  <view class="setup-section" wx:if="{{mode === 'setup'}}">
+    <view class="setup-header">
+      <text class="setup-title">诊断设置</text>
+      <text class="setup-subtitle">选择你的年级和想测试的知识点</text>
+    </view>
+
+    <!-- 年级选择 -->
+    <view class="setup-group">
+      <view class="group-label">
+        <text class="label-icon">📚</text>
+        <text class="label-text">选择年级</text>
+      </view>
+      <view class="options-grid">
+        <view
+          class="option-item {{selectedGrade === item ? 'selected' : ''}}"
+          wx:for="{{gradeOptions}}"
+          wx:key="*this"
+          bindtap="selectGrade"
+          data-grade="{{item}}"
+        >
+          <text class="option-text">{{item}}</text>
+          <text class="check-icon" wx:if="{{selectedGrade === item}}">✓</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 知识点选择 -->
+    <view class="setup-group">
+      <view class="group-label">
+        <text class="label-icon">🎯</text>
+        <text class="label-text">选择知识点</text>
+      </view>
+      <view class="options-grid">
+        <view
+          class="option-item {{selectedTopic === item ? 'selected' : ''}}"
+          wx:for="{{topicOptions}}"
+          wx:key="*this"
+          bindtap="selectTopic"
+          data-topic="{{item}}"
+        >
+          <text class="option-text">{{item}}</text>
+          <text class="check-icon" wx:if="{{selectedTopic === item}}">✓</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 确认按钮 -->
+    <view class="setup-actions">
+      <button class="confirm-button" bindtap="confirmSetup">
+        开始诊断
+      </button>
+    </view>
+
+    <view class="setup-tips">
+      <text class="tips-icon">💡</text>
+      <text class="tips-text">我们会根据你选择的年级和知识点，生成5道针对性诊断题目</text>
+    </view>
+  </view>
+
+  <!-- 答题诊断模式 -->
+  <view wx:if="{{mode === 'quiz' || mode === 'result'}}">
+    <!-- 进度指示 -->
+    <view class="progress-section" wx:if="{{mode === 'quiz'}}">
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{progress}}%"></view>
+      </view>
+      <text class="progress-text">{{current + 1}} / {{questions.length}}</text>
+    </view>
+
+    <!-- 题目区域 -->
+    <view class="question-section" wx:if="{{mode === 'quiz' && current < questions.length}}">
+      <view class="question-card">
+        <text class="question-text">{{questions[current].question}}</text>
+
+        <!-- 选项列表 -->
+        <view class="options-list">
+          <view
+            class="option-item {{selectedAnswer === index ? 'option-selected' : ''}}"
+            wx:for="{{questions[current].options}}"
+            wx:key="index"
+            wx:for-item="option"
+            wx:for-index="index"
+            bindtap="selectAnswer"
+            data-index="{{index}}"
+          >
+            <view class="option-label">{{optionLabels[index]}}</view>
+            <text class="option-text">{{option}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 结果区域 -->
+    <view class="result-section" wx:if="{{mode === 'result'}}">
+    <view class="result-card">
+      <text class="result-title">诊断完成！</text>
+      <text class="result-desc">让我们看看你的知识掌握情况</text>
+
+      <!-- 知识图谱组件 -->
+      <knowledge-graph
+        title="你的知识图谱"
+        subtitle="基于二次函数诊断结果"
+        nodes="{{knowledgeNodes}}"
+        bind:learn="onLearnNode"
+      ></knowledge-graph>
+
+      <button class="action-button" bindtap="showLearningPath">查看完整学习路径</button>
+      <button class="action-button secondary" bindtap="backToEntry">返回首页</button>
+    </view>
+  </view>
+  </view>
+
+  <!-- 拍照诊断模式 -->
+  <view class="photo-section" wx:if="{{mode === 'photo'}}">
+    <view class="photo-placeholder">
+      <text class="photo-icon">📷</text>
+      <text class="photo-tip">正在识别题目...</text>
+      <text class="photo-desc">请稍候，AI正在分析您的作业</text>
+    </view>
+  </view>
+
+  <!-- 拍照结果预览 -->
+  <view class="photo-result-section" wx:if="{{mode === 'photo_result'}}">
+    <view class="preview-header">
+      <text class="preview-title">识别成功！</text>
+      <text class="preview-subtitle">共识别到 {{photoQuestions.length}} 道题目</text>
+    </view>
+
+    <scroll-view class="questions-preview" scroll-y>
+      <view class="preview-question" wx:for="{{photoQuestions}}" wx:key="id">
+        <view class="question-number">题目 {{item.id}}</view>
+        <view class="question-content">{{item.content}}</view>
+
+        <!-- 选项 -->
+        <view class="question-options" wx:if="{{item.type === 'choice' && item.options}}">
+          <view class="option-item" wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="idx" wx:key="*this">
+            <text class="option-label">{{idx === 0 ? 'A' : idx === 1 ? 'B' : idx === 2 ? 'C' : 'D'}}. {{opt}}</text>
+          </view>
+        </view>
+
+        <!-- 答案和对错 -->
+        <view class="answer-info" wx:if="{{item.studentAnswer}}">
+          <text class="answer-label">学生答案：</text>
+          <text class="answer-value">{{item.studentAnswer}}</text>
+          <text class="answer-status {{item.isCorrect ? 'correct' : 'wrong'}}">
+            {{item.isCorrect ? '✓ 正确' : '✗ 错误'}}
+          </text>
+        </view>
+
+        <!-- 知识点 -->
+        <view class="knowledge-tags" wx:if="{{item.knowledgePoints && item.knowledgePoints.length > 0}}">
+          <text class="tag-label">知识点：</text>
+          <text class="knowledge-tag" wx:for="{{item.knowledgePoints}}" wx:for-item="kp" wx:key="id">
+            {{kp.name}}
+          </text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="preview-actions">
+      <button class="action-button secondary" bindtap="retakePhoto">重新拍照</button>
+      <button class="action-button" bindtap="confirmPhotoResult">生成诊断</button>
+    </view>
+  </view>
+
+  <!-- 底部按钮 -->
+  <view class="bottom-buttons" wx:if="{{mode === 'quiz' && current < questions.length}}">
+    <button class="bottom-btn secondary-btn" bindtap="prevQuestion" disabled="{{current === 0}}">上一题</button>
+    <button class="bottom-btn primary-btn" bindtap="nextQuestion" disabled="{{selectedAnswer === null}}">
+      {{current === questions.length - 1 ? '提交' : '下一题'}}
+    </button>
+  </view>
+</view>

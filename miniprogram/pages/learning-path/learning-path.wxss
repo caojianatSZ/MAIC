@@ -1,0 +1,349 @@
+/* pages/learning-path/learning-path.wxss */
+.container {
+  min-height: 100vh;
+  background: #F9FAFB;
+  padding-bottom: 180rpx;
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40rpx;
+}
+
+.loading-spinner {
+  width: 80rpx;
+  height: 80rpx;
+  border: 6rpx solid #E5E7EB;
+  border-top-color: #6366F1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  margin-top: 32rpx;
+  font-size: 28rpx;
+  color: #6B7280;
+}
+
+/* 导航栏 */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx;
+  background: #FFFFFF;
+  border-bottom: 2rpx solid #E5E7EB;
+}
+
+.nav-back {
+  display: flex;
+  align-items: center;
+}
+
+.back-icon {
+  font-size: 36rpx;
+  color: #1F2937;
+  margin-right: 8rpx;
+}
+
+.back-text {
+  font-size: 28rpx;
+  color: #1F2937;
+}
+
+.nav-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.nav-placeholder {
+  width: 120rpx;
+}
+
+/* EduKG来源横幅 */
+.source-banner {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  border-bottom: 2rpx solid #C7D2FE;
+}
+
+.source-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+}
+
+.source-text {
+  font-size: 24rpx;
+  color: #4338CA;
+  font-weight: 500;
+}
+
+/* 统计卡片 */
+.stats-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: #FFFFFF;
+  margin: 32rpx;
+  padding: 48rpx 32rpx;
+  border-radius: 24rpx;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #6366F1;
+  margin-bottom: 8rpx;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.stat-divider {
+  width: 2rpx;
+  height: 60rpx;
+  background: #E5E7EB;
+}
+
+/* 学习路径容器 */
+.path-container {
+  padding: 0 32rpx;
+}
+
+.path-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1F2937;
+  margin-bottom: 32rpx;
+}
+
+/* 时间线 */
+.timeline {
+  position: relative;
+}
+
+.timeline-item {
+  display: flex;
+  margin-bottom: 48rpx;
+  position: relative;
+}
+
+/* 时间线节点 */
+.timeline-node {
+  position: relative;
+  z-index: 2;
+  margin-right: 24rpx;
+}
+
+.node-icon {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.timeline-item.completed .node-icon {
+  background: #10B981;
+}
+
+.timeline-item.in_progress .node-icon {
+  background: #6366F1;
+  animation: pulse 2s infinite;
+}
+
+.timeline-item.pending .node-icon {
+  background: #E5E7EB;
+  color: #6B7280;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+  }
+}
+
+/* 时间线连线 */
+.timeline-line {
+  position: absolute;
+  left: 32rpx;
+  top: 64rpx;
+  width: 2rpx;
+  height: calc(100% + 48rpx);
+  background: #E5E7EB;
+  z-index: 1;
+}
+
+/* 时间线内容 */
+.timeline-content {
+  flex: 1;
+  padding-bottom: 16rpx;
+}
+
+.step-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+}
+
+.timeline-item.in_progress .step-card {
+  border: 3rpx solid #6366F1;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.2);
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.step-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1F2937;
+  flex: 1;
+}
+
+.step-status {
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.step-status.status-completed {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.step-status.status-in_progress {
+  background: #EEF2FF;
+  color: #4338CA;
+}
+
+.step-status.status-pending {
+  background: #F3F4F6;
+  color: #6B7280;
+}
+
+/* 步骤信息 */
+.step-info {
+  display: flex;
+  gap: 32rpx;
+  margin-bottom: 16rpx;
+}
+
+.step-meta {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.meta-icon {
+  font-size: 24rpx;
+}
+
+.meta-text {
+  font-size: 26rpx;
+  color: #6B7280;
+}
+
+/* 步骤操作 */
+.step-action {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 2rpx solid #F3F4F6;
+}
+
+.action-text {
+  font-size: 26rpx;
+  color: #6366F1;
+  font-weight: 600;
+}
+
+.step-action.locked .action-text {
+  color: #9CA3AF;
+}
+
+/* 底部操作按钮 */
+.bottom-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #FFFFFF;
+  padding: 32rpx;
+  display: flex;
+  gap: 24rpx;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.action-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+}
+
+.action-btn::after {
+  border: none;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #FFFFFF;
+}
+
+.secondary-btn {
+  background: #F3F4F6;
+  color: #6B7280;
+}
+
+.primary-btn:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.secondary-btn:active {
+  transform: scale(0.98);
+  background: #E5E7EB;
+}

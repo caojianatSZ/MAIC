@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "knowledge-graph": "/components/knowledge-graph/knowledge-graph"
+  },
+  "navigationBarTitleText": "快速诊断",
+  "navigationStyle": "custom"
+}

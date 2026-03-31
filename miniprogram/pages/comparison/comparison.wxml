@@ -1,0 +1,181 @@
+<!--pages/comparison/comparison.wxml-->
+<view class="container">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">
+      <text class="back-icon">←</text>
+      <text class="back-text">返回</text>
+    </view>
+    <text class="nav-title">学习效果对比</text>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <!-- 标题区域 -->
+  <view class="header-section">
+    <text class="title">传统学习 vs 自适应学习</text>
+    <text class="subtitle">看看不同学习方式的效果差异</text>
+  </view>
+
+  <!-- 对比卡片 -->
+  <view class="comparison-cards">
+    <!-- 传统学习 -->
+    <view class="comparison-card traditional">
+      <view class="card-header">
+        <text class="card-icon">📚</text>
+        <text class="card-title">传统学习</text>
+      </view>
+
+      <view class="card-content">
+        <view class="feature-item">
+          <text class="feature-label">学习内容</text>
+          <text class="feature-value">所有人学相同内容</text>
+        </view>
+        <view class="feature-item">
+          <text class="feature-label">学习节奏</text>
+          <text class="feature-value">统一进度，无法调整</text>
+        </view>
+        <view class="feature-item">
+          <text class="feature-label">薄弱点</text>
+          <text class="feature-value">难以发现和针对性提升</text>
+        </view>
+        <view class="feature-item">
+          <text class="feature-label">学习效率</text>
+          <text class="feature-value low">⭐⭐</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 自适应学习 -->
+    <view class="comparison-card adaptive">
+      <view class="card-header">
+        <text class="card-icon">🎯</text>
+        <text class="card-title">自适应学习</text>
+        <view class="badge">推荐</view>
+      </view>
+
+      <view class="card-content">
+        <view class="feature-item">
+          <text class="feature-label">学习内容</text>
+          <text class="feature-value highlight">个性化定制</text>
+        </view>
+        <view class="feature-item">
+          <text class="feature-label">学习节奏</text>
+          <text class="feature-value highlight">根据掌握度调整</text>
+        </view>
+        <view class="feature-item">
+          <text class="feature-label">薄弱点</text>
+          <text class="feature-value highlight">精准诊断，针对性提升</text>
+        </view>
+        <view class="feature-item">
+          <text class="feature-label">学习效率</text>
+          <text class="feature-value high">⭐⭐⭐⭐⭐</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 数据对比 -->
+  <view class="data-section">
+    <view class="section-title">效果数据对比</view>
+
+    <view class="chart-container">
+      <view class="bar-chart">
+        <view class="bar-item">
+          <text class="bar-label">学习效率</text>
+          <view class="bar-bg">
+            <view class="bar-fill traditional" style="width: 40%"></view>
+            <text class="bar-value">40%</text>
+          </view>
+        </view>
+        <view class="bar-item">
+          <text class="bar-label">学习效率</text>
+          <view class="bar-bg">
+            <view class="bar-fill adaptive" style="width: 90%"></view>
+            <text class="bar-value">90%</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="stats-grid">
+        <view class="stat-item">
+          <text class="stat-value">3-5倍</text>
+          <text class="stat-label">效率提升</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">85%</text>
+          <text class="stat-label">知识点掌握</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">2小时</text>
+          <text class="stat-label">日均学习</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 核心优势 -->
+  <view class="features-section">
+    <view class="section-title">自适应学习的核心优势</view>
+
+    <view class="feature-list">
+      <view class="feature-card">
+        <text class="feature-icon">🔍</text>
+        <view class="feature-content">
+          <text class="feature-title">智能诊断</text>
+          <text class="feature-desc">AI精准识别知识薄弱点</text>
+        </view>
+      </view>
+
+      <view class="feature-card">
+        <text class="feature-icon">📊</text>
+        <view class="feature-content">
+          <text class="feature-title">知识图谱</text>
+          <text class="feature-desc">可视化学习路径，清晰易懂</text>
+        </view>
+      </view>
+
+      <view class="feature-card">
+        <text class="feature-icon">🎓</text>
+        <view class="feature-content">
+          <text class="feature-title">AI生成课程</text>
+          <text class="feature-desc">2秒生成个性化微课</text>
+        </view>
+      </view>
+
+      <view class="feature-card">
+        <text class="feature-icon">📈</text>
+        <view class="feature-content">
+          <text class="feature-title">持续追踪</text>
+          <text class="feature-desc">学习进度实时掌握</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 用户案例 -->
+  <view class="case-section">
+    <view class="section-title">真实用户案例</view>
+
+    <view class="case-card">
+      <view class="case-header">
+        <text class="case-name">张同学</text>
+        <text class="case-tag">初三</text>
+      </view>
+      <view class="case-content">
+        <text class="case-text">"以前做二次函数题总是出错，用了自适应学习后，精准找到我的薄弱点，针对性练习，数学成绩从75分提升到92分！"</text>
+      </view>
+      <view class="case-result">
+        <text class="result-label">提升</text>
+        <text class="result-value">+17分</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部按钮 -->
+  <view class="action-section">
+    <button class="action-button" bindtap="startExperience">
+      立即体验自适应学习
+    </button>
+    <text class="action-tip">免费体验，开启高效学习之旅</text>
+  </view>
+</view>

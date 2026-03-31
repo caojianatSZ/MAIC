@@ -1,0 +1,233 @@
+/* components/knowledge-graph/knowledge-graph.wxss */
+.knowledge-graph-container {
+  width: 100%;
+  padding: 32rpx;
+  box-sizing: border-box;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+}
+
+/* 标题区域 */
+.graph-header {
+  margin-bottom: 24rpx;
+}
+
+.graph-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #1F2937;
+  margin-bottom: 8rpx;
+}
+
+.graph-subtitle {
+  display: block;
+  font-size: 26rpx;
+  color: #6B7280;
+}
+
+/* EduKG来源标识 */
+.graph-source {
+  display: flex;
+  align-items: center;
+  background: #F3F4F6;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.source-icon {
+  font-size: 32rpx;
+  margin-right: 12rpx;
+}
+
+.source-text {
+  font-size: 22rpx;
+  color: #6B7280;
+}
+
+/* 图例 */
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24rpx;
+  margin-bottom: 32rpx;
+  padding: 24rpx;
+  background: #F9FAFB;
+  border-radius: 16rpx;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.legend-color {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+}
+
+.legend-color.mastered {
+  background: #10B981;
+}
+
+.legend-color.partial {
+  background: #F59E0B;
+}
+
+.legend-color.weak {
+  background: #EF4444;
+}
+
+.legend-color.locked {
+  background: #E5E7EB;
+}
+
+.legend-text {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+/* Canvas */
+.graph-canvas {
+  width: 100%;
+  height: 500rpx;
+  background: #F9FAFB;
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 节点详情弹窗 */
+.node-detail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s;
+}
+
+.node-detail.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.detail-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.detail-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #FFFFFF;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 48rpx 32rpx 32rpx;
+  transform: translateY(100%);
+  transition: transform 0.3s;
+}
+
+.node-detail.show .detail-content {
+  transform: translateY(0);
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32rpx;
+}
+
+.detail-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #1F2937;
+}
+
+.detail-close {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F3F4F6;
+  border-radius: 50%;
+  font-size: 32rpx;
+  color: #6B7280;
+}
+
+.detail-body {
+  margin-bottom: 32rpx;
+}
+
+.detail-item {
+  margin-bottom: 24rpx;
+}
+
+.detail-label {
+  display: block;
+  font-size: 24rpx;
+  color: #6B7280;
+  margin-bottom: 12rpx;
+}
+
+.detail-value {
+  display: block;
+  font-size: 28rpx;
+  color: #1F2937;
+  line-height: 1.6;
+}
+
+.mastery-badge {
+  display: inline-block;
+  padding: 8rpx 24rpx;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.mastery-mastered {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.mastery-partial {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.mastery-weak {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.mastery-locked {
+  background: #F3F4F6;
+  color: #6B7280;
+}
+
+.detail-action {
+  width: 100%;
+  height: 88rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16rpx;
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+}
+
+.detail-action::after {
+  border: none;
+}

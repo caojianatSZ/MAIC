@@ -45,6 +45,49 @@ App({
   },
 
   /**
+   * 检查登录状态
+   */
+  isLoggedIn() {
+    return !!(this.globalData.userInfo && this.globalData.token)
+  },
+
+  /**
+   * 获取用户信息
+   */
+  getUserInfo() {
+    return this.globalData.userInfo
+  },
+
+  /**
+   * 获取Token
+   */
+  getToken() {
+    return this.globalData.token
+  },
+
+  /**
+   * 设置用户信息
+   */
+  setUserInfo(userInfo) {
+    this.globalData.userInfo = userInfo
+  },
+
+  /**
+   * 设置Token
+   */
+  setToken(token) {
+    this.globalData.token = token
+  },
+
+  /**
+   * 清除用户信息和Token（退出登录）
+   */
+  clearUserInfo() {
+    this.globalData.userInfo = null
+    this.globalData.token = null
+  },
+
+  /**
    * 全局数据
    */
   globalData: {

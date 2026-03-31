@@ -1,0 +1,112 @@
+<!--pages/learning-path/learning-path.wxml-->
+<view class="container">
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">正在生成学习路径...</text>
+  </view>
+
+  <!-- 内容区域 -->
+  <block wx:else>
+    <!-- 导航栏 -->
+    <view class="nav-bar">
+      <view class="nav-back" bindtap="goBack">
+        <text class="back-icon">←</text>
+        <text class="back-text">返回</text>
+      </view>
+      <text class="nav-title">为你推荐的学习路径</text>
+      <view class="nav-placeholder"></view>
+    </view>
+
+    <!-- EduKG数据来源 -->
+    <view class="source-banner">
+      <text class="source-icon">🏗️</text>
+      <text class="source-text">基于EduKG基础教育知识图谱生成</text>
+    </view>
+
+    <!-- 统计卡片 -->
+    <view class="stats-card">
+      <view class="stat-item">
+        <text class="stat-value">{{totalSteps}}</text>
+        <text class="stat-label">学习步骤</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <text class="stat-value">{{totalDuration}}</text>
+        <text class="stat-label">预计时长</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <text class="stat-value">{{completedSteps}}</text>
+        <text class="stat-label">已完成</text>
+      </view>
+    </view>
+
+    <!-- 学习路径时间线 -->
+    <view class="path-container">
+      <view class="path-title">学习路径</view>
+
+      <view class="timeline">
+        <view
+          class="timeline-item {{item.status}}"
+          wx:for="{{learningPath}}"
+          wx:key="step"
+        >
+          <!-- 时间线节点 -->
+          <view class="timeline-node">
+            <view class="node-icon">
+              <text wx:if="{{item.status === 'completed'}}">✓</text>
+              <text wx:elif="{{item.status === 'in_progress'}}">▶</text>
+              <text wx:else>{{item.step}}</text>
+            </view>
+          </view>
+
+          <!-- 时间线连线 -->
+          <view class="timeline-line" wx:if="{{item.step < totalSteps}}"></view>
+
+          <!-- 步骤内容 -->
+          <view class="timeline-content" bindtap="handleStepClick" data-step="{{item}}">
+            <view class="step-card">
+              <view class="step-header">
+                <text class="step-name">{{item.knowledgePointName}}</text>
+                <view class="step-status status-{{item.status}}">
+                  <text wx:if="{{item.status === 'completed'}}">已完成</text>
+                  <text wx:elif="{{item.status === 'in_progress'}}">进行中</text>
+                  <text wx:else>待学习</text>
+                </view>
+              </view>
+
+              <view class="step-info">
+                <view class="step-meta">
+                  <text class="meta-icon">⏱</text>
+                  <text class="meta-text">{{item.estimatedDuration}}分钟</text>
+                </view>
+                <view class="step-meta" wx:if="{{item.lessonCount > 0}}">
+                  <text class="meta-icon">📚</text>
+                  <text class="meta-text">{{item.lessonCount}}个课程</text>
+                </view>
+              </view>
+
+              <view class="step-action" wx:if="{{item.status === 'in_progress'}}">
+                <text class="action-text">继续学习 →</text>
+              </view>
+              <view class="step-action locked" wx:elif="{{item.status === 'pending'}}">
+                <text class="action-text">🔒 完成前置学习后解锁</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部操作按钮 -->
+    <view class="bottom-actions">
+      <button class="action-btn primary-btn" bindtap="startLearning" wx:if="{{currentStep}}">
+        开始学习：{{currentStep.knowledgePointName}}
+      </button>
+      <button class="action-btn secondary-btn" bindtap="showKnowledgeGraph">
+        查看知识图谱
+      </button>
+    </view>
+  </block>
+</view>

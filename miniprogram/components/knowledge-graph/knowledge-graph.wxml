@@ -1,0 +1,72 @@
+<!--components/knowledge-graph/knowledge-graph.wxml-->
+<view class="knowledge-graph-container">
+  <!-- 标题区域 -->
+  <view class="graph-header">
+    <text class="graph-title">{{title}}</text>
+    <text class="graph-subtitle">{{subtitle}}</text>
+  </view>
+
+  <!-- EduKG来源标识 -->
+  <view class="graph-source">
+    <text class="source-icon">🏗️</text>
+    <text class="source-text">数据来源：EduKG基础教育知识图谱服务平台</text>
+  </view>
+
+  <!-- 图例 -->
+  <view class="graph-legend">
+    <view class="legend-item">
+      <view class="legend-color mastered"></view>
+      <text class="legend-text">已掌握</text>
+    </view>
+    <view class="legend-item">
+      <view class="legend-color partial"></view>
+      <text class="legend-text">部分掌握</text>
+    </view>
+    <view class="legend-item">
+      <view class="legend-color weak"></view>
+      <text class="legend-text">薄弱</text>
+    </view>
+    <view class="legend-item">
+      <view class="legend-color locked"></view>
+      <text class="legend-text">未解锁</text>
+    </view>
+  </view>
+
+  <!-- 知识图谱Canvas -->
+  <canvas
+    type="2d"
+    id="knowledgeGraphCanvas"
+    class="graph-canvas"
+    touch-start="handleTouchStart"
+    touch-move="handleTouchMove"
+    touch-end="handleTouchEnd"
+  ></canvas>
+
+  <!-- 节点详情弹窗 -->
+  <view class="node-detail {{showDetail ? 'show' : ''}}" wx:if="{{showDetail}}">
+    <view class="detail-mask" bindtap="closeDetail"></view>
+    <view class="detail-content">
+      <view class="detail-header">
+        <text class="detail-title">{{selectedNode.name}}</text>
+        <view class="detail-close" bindtap="closeDetail">✕</view>
+      </view>
+      <view class="detail-body">
+        <view class="detail-item">
+          <text class="detail-label">掌握程度</text>
+          <view class="mastery-badge mastery-{{selectedNode.masteryLevel}}">
+            {{masteryLabels[selectedNode.masteryLevel]}}
+          </view>
+        </view>
+        <view class="detail-item" wx:if="{{selectedNode.description}}">
+          <text class="detail-label">知识点说明</text>
+          <text class="detail-value">{{selectedNode.description}}</text>
+        </view>
+        <view class="detail-item" wx:if="{{selectedNode.prerequisites && selectedNode.prerequisites.length > 0}}">
+          <text class="detail-label">前置知识</text>
+          <text class="detail-value">{{selectedNode.prerequisites.join('、')}}</text>
+        </view>
+      </view>
+      <button class="detail-action" bindtap="startLearning">开始学习</button>
+    </view>
+  </view>
+</view>

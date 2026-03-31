@@ -1,6 +1,11 @@
 {
   "pages": [
+    "pages/demo-home/demo-home",
     "pages/index/index",
+    "pages/comparison/comparison",
+    "pages/diagnosis/diagnosis",
+    "pages/learning-path/learning-path",
+    "pages/login/login",
     "pages/player/player",
     "pages/progress/progress",
     "pages/profile/profile"
