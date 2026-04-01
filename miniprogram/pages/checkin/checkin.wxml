@@ -1,0 +1,112 @@
+<!--pages/checkin/checkin.wxml-->
+<view class="container">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">
+      <text class="back-icon">←</text>
+      <text class="back-text">返回</text>
+    </view>
+    <text class="nav-title">每日打卡</text>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <!-- 打卡日历卡片 -->
+  <view class="calendar-card">
+    <view class="calendar-header">
+      <text class="calendar-title">{{currentMonth}}月打卡记录</text>
+      <text class="calendar-subtitle">坚持是一种力量</text>
+    </view>
+
+    <!-- 日历网格 -->
+    <view class="calendar-grid">
+      <view class="weekday-header">
+        <text class="weekday-item" wx:for="{{weekdays}}" wx:key="*this">{{item}}</text>
+      </view>
+
+      <view class="days-container">
+        <view
+          class="day-item {{item.checkedIn ? 'checked-in' : ''}} {{item.isToday ? 'today' : ''}}"
+          wx:for="{{calendarDays}}"
+          wx:key="date"
+        >
+          <text class="day-number">{{item.day}}</text>
+          <view class="checkin-badge" wx:if="{{item.checkedIn}}">
+            <text class="badge-icon">✓</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 打卡统计 -->
+    <view class="checkin-stats">
+      <view class="stat-item">
+        <text class="stat-value">{{streak}}</text>
+        <text class="stat-label">连续打卡</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <text class="stat-value">{{monthCheckins}}</text>
+        <text class="stat-label">本月打卡</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <text class="stat-value">{{totalCheckins}}</text>
+        <text class="stat-label">累计打卡</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 打卡按钮 -->
+  <view class="checkin-action">
+    <button
+      class="checkin-button {{checkedIn ? 'checked' : ''}}"
+      bindtap="onCheckIn"
+      disabled="{{checkedIn}}"
+    >
+      <view class="button-content">
+        <text class="button-icon">{{checkedIn ? '✓' : '📅'}}</text>
+        <text class="button-text">{{checkedIn ? '今日已打卡' : '立即打卡'}}</text>
+      </view>
+    </button>
+
+    <text class="checkin-tip" wx:if="{{!checkedIn}}">
+      每天打卡，养成学习习惯
+    </text>
+    <text class="checkin-tip success" wx:else>
+      连续打卡{{streak}}天，继续保持！
+    </text>
+  </view>
+
+  <!-- 成就预览 -->
+  <view class="achievements-preview" wx:if="{{streakAchievements.length > 0}}">
+    <view class="preview-header">
+      <text class="preview-title">打卡成就</text>
+    </view>
+
+    <view class="achievements-list">
+      <view class="achievement-item" wx:for="{{streakAchievements}}" wx:key="id">
+        <text class="achievement-icon">{{item.icon}}</text>
+        <view class="achievement-info">
+          <text class="achievement-name">{{item.name}}</text>
+          <text class="achievement-progress">进度: {{item.progress}}%</text>
+        </view>
+        <view class="achievement-status {{item.unlocked ? 'unlocked' : ''}}">
+          <text>{{item.unlocked ? '已解锁' : '未解锁'}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 打卡提醒设置 -->
+  <view class="reminder-section">
+    <view class="reminder-header">
+      <text class="reminder-title">⏰ 打卡提醒</text>
+      <switch
+        checked="{{reminderEnabled}}"
+        bindchange="onReminderChange"
+        color="#6366F1"
+      />
+    </view>
+    <text class="reminder-desc">开启后，每天晚上8点会提醒您打卡</text>
+  </view>
+</view>

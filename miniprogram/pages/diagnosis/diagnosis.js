@@ -253,6 +253,9 @@ Page({
             title: '分析完成',
             icon: 'success'
           })
+
+          // 触发成就检查
+          this.checkAchievements(result)
         } else {
           this.showError('分析失败，请重试')
         }
@@ -633,5 +636,59 @@ Page({
     } else {
       wx.navigateBack()
     }
+  },
+
+  /**
+   * 检查成就
+   */
+  checkAchievements(diagnosisResult) {
+    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
+    const userId = app.globalData.userId || 'demo_user'
+
+    // 触发成就事件
+    wx.request({
+      url: `${baseUrl}/api/achievements/check`,
+      method: 'POST',
+      data: {
+        userId,
+        event: {
+          type: 'diagnosis_finished',
+          subject: diagnosisResult.subject || 'math',
+          data: {
+            score: diagnosisResult.totalScore,
+            correctCount: diagnosisResult.correctCount,
+            totalCount: diagnosisResult.totalCount
+          }
+        }
+      },
+      success: (res) => {
+        if (res.data.success && res.data.data.unlockedAchievements) {
+          const unlockedAchievements = res.data.data.unlockedAchievements
+
+          if (unlockedAchievements.length > 0) {
+            // 显示成就解锁提示
+            this.showAchievementUnlock(unlockedAchievements[0])
+          }
+        }
+      },
+      fail: (err) => {
+        console.error('成就检查失败:', err)
+      }
+    })
+  },
+
+  /**
+   * 显示成就解锁
+   */
+  showAchievementUnlock(achievement) {
+    wx.showModal({
+      title: '🏆 成就解锁！',
+      content: `恭喜你获得「${achievement.name}」成就！\n\n${achievement.description || ''}`,
+      showCancel: false,
+      confirmText: '太棒了',
+      success: () => {
+        // 可以添加庆祝动画或音效
+      }
+    })
   }
 })

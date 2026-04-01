@@ -1,0 +1,47 @@
+<!--components/achievement/achievement.wxml-->
+<view class="achievement-container">
+  <!-- 成就徽章 -->
+  <view class="achievement-badge {{levelClass}}" bindtap="onTap">
+    <!-- 图标 -->
+    <view class="badge-icon">
+      <text class="icon-emoji">{{levelConfig.icon}}</text>
+      <view class="glow-effect" wx:if="{{unlocked}}"></view>
+    </view>
+
+    <!-- 等级标识 -->
+    <view class="badge-level" wx:if="{{showLevel}}">
+      <text class="level-text">{{levelConfig.name}}</text>
+    </view>
+
+    <!-- 进度条 -->
+    <view class="badge-progress" wx:if="{{!unlocked}}">
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{progress}}%"></view>
+      </view>
+      <text class="progress-text">{{progress}}%</text>
+    </view>
+
+    <!-- 新解锁标识 -->
+    <view class="badge-new" wx:if="{{isNew}}">
+      <text class="new-text">NEW</text>
+    </view>
+  </view>
+
+  <!-- 成就信息（可展开） -->
+  <view class="achievement-info {{showInfo ? 'expanded' : ''}}" wx:if="{{showInfo}}">
+    <text class="info-name">{{name}}</text>
+    <text class="info-desc" wx:if="{{description}}">{{description}}</text>
+    <text class="info-time" wx:if="{{unlocked && unlockedAt}}">解锁于 {{unlockedAt}}</text>
+  </view>
+</view>
+
+<!-- 解锁动画 -->
+<view class="unlock-animation" wx:if="{{showUnlockAnimation}}">
+  <view class="animation-container">
+    <view class="animation-badge {{levelClass}}">
+      <text class="animation-icon">{{levelConfig.icon}}</text>
+    </view>
+    <text class="animation-title">成就解锁！</text>
+    <text class="animation-name">{{name}}</text>
+  </view>
+</view>

@@ -1,0 +1,435 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 用户模块
+// ============================================
+
+model User {
+  id            String         @id @default(cuid())
+  openid        String         @unique  // 微信openid
+  unionid        String?        @unique  // 微信unionid（开放平台）
+  nickname      String?        // 昵称
+  avatarUrl     String?        @map("avatar_url")  // 头像URL
+  phoneNumber   String?        @map("phone_number")  // 手机号
+  email         String?        // 邮箱
+
+  // 登录信息
+  lastLoginAt   DateTime?      @map("last_login_at")
+  loginCount    Int            @default(0) @map("login_count")
+
+  // 状态
+  isActive      Boolean        @default(true) @map("is_active")
+  isVip         Boolean        @default(false) @map("is_vip")
+  vipExpireAt   DateTime?      @map("vip_expire_at")
+
+  // 时间戳
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  // 关系
+  wechatUserInfo WechatUserInfo?
+  learningProgress LearningProgress[]
+  diagnosisRecords DiagnosisRecord[]
+  practiceRecords PracticeRecord[]
+  userAchievements UserAchievement[]
+  studentProfile StudentProfile?
+  studyRecords StudyRecord[]
+
+  @@map("users")
+}
+
+// 微信用户详细信息
+model WechatUserInfo {
+  id            String   @id @default(cuid())
+  userId        String   @unique @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  openid        String
+  unionid       String?
+  sessionKey    String   @map("session_key")  // 加密存储
+
+  // 用户信息
+  nickname      String?
+  gender        String?  // 0:未知 1:男 2:女
+  language      String?  // zh_CN, en_US等
+  city          String?
+  province      String?
+  country       String?
+
+  // 时间戳
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("wechat_user_info")
+}
+
+// ============================================
+// 学习模块
+// ============================================
+
+// 学习进度
+model LearningProgress {
+  id                String    @id @default(cuid())
+  userId            String    @map("user_id")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  knowledgePointId  String    @map("knowledge_point_id")
+  knowledgePointName String    @map("knowledge_point_name")
+
+  // 掌握度
+  masteryLevel      Int       @map("mastery_level") // 0-100
+  practiceCount     Int       @default(0) @map("practice_count")  // 练习次数
+  correctCount      Int       @default(0) @map("correct_count")   // 正确次数
+
+  // 时间戳
+  lastPracticedAt   DateTime? @map("last_practiced_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@unique([userId, knowledgePointId])
+  @@map("learning_progress")
+}
+
+// 课程记录
+model LessonRecord {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  lessonId    String   @map("lesson_id")
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  // 学习状态
+  isCompleted Boolean  @default(false) @map("is_completed")
+  progress    Int      @default(0)  // 0-100
+  duration    Int      // 学习时长（秒）
+
+  // 时间戳
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, lessonId])
+  @@map("lesson_records")
+}
+
+// ============================================
+// 诊断模块
+// ============================================
+
+model DiagnosisRecord {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")  // 可为空（未登录用户）
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // 诊断信息
+  subject     String   // math, english等
+  topic       String   // quadratic_function等
+  quizData    Json     @map("quiz_data")   // 题目数据
+  answers     Json     // 答案数据
+
+  // 分析结果
+  totalScore  Int      @map("total_score")
+  analysisResult Json    @map("analysis_result")  // 分析结果
+
+  // 生成路径
+  learningPathId  String? @map("learning_path_id")  // 关联的学习路径
+
+  // 时间戳
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("diagnosis_records")
+}
+
+// ============================================
+// 练习模块
+// ============================================
+
+model PracticeRecord {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 题目信息
+  questionId      String   @map("question_id")
+  knowledgePointId String   @map("knowledge_point_id")
+  type            String   // single, multiple, text
+
+  // 答题信息
+  userAnswer      String?  @map("user_answer")
+  isCorrect       Boolean  @map("is_correct")
+  timeSpent       Int?     @map("time_spent")  // 答题用时（秒）
+
+  // 时间戳
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("practice_records")
+}
+
+// ============================================
+// 内容模块
+// ============================================
+
+// 知识点
+model KnowledgePoint {
+  id          String   @id @default(cuid())
+
+  // 基本信息
+  identifier  String   @unique  // kf_001, kf_002等
+  subject     String   // math, english等
+  name        String
+  description String?
+  level       Int      @default(0)  // 难度等级 0-4
+
+  // 知识图谱
+  prerequisites String[] @default([])  // 前置知识点ID数组
+
+  // 元数据
+  metadata    Json?
+  isActive    Boolean  @default(true) @map("is_active")
+
+  // 时间戳
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  questionKnowledgePoints QuestionKnowledgePoint[]
+
+  @@map("knowledge_points")
+}
+
+// 题目
+model Question {
+  id          String   @id @default(cuid())
+
+  // 基本信息
+  identifier  String   @unique  // dq_001, pq_001等
+  subject     String   // math, english等
+  type        String   // single, multiple, text
+  question    String
+  options     String[] @default([])
+
+  // 答案
+  answer      String   // 正确答案
+  explanation String?
+
+  // 关联
+  knowledgePointIds String[]  @map("knowledge_point_ids")
+  questionKnowledgePoints QuestionKnowledgePoint[]
+
+  // 元数据
+  difficulty  Int      @default(1)  // 1-5
+  isActive    Boolean  @default(true) @map("is_active")
+  metadata    Json?
+
+  // 时间戳
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("questions")
+}
+
+// 题目-知识点多对多关系
+model QuestionKnowledgePoint {
+  id                String  @id @default(cuid())
+  questionId        String  @map("question_id")
+  question          Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  knowledgePointId   String  @map("knowledge_point_id")
+  knowledgePoint     KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, knowledgePointId])
+  @@map("question_knowledge_points")
+}
+
+// 课程
+model Lesson {
+  id          String   @id @default(cuid())
+
+  // 基本信息
+  identifier  String   @unique  // lesson_001, lesson_002等
+  subject     String
+  title       String
+  description String?
+
+  // 课程信息
+  duration    Int      // 时长（秒）
+  sceneCount  Int      @map("scene_count")  // 场景数量
+  difficulty  Int      @default(2)  // 1-5
+  type        String   // slide, quiz, interactive, pbl
+
+  // 关联知识点
+  knowledgePointIds String[] @map("knowledge_point_ids")
+
+  // 元数据
+  metadata    Json?
+  isActive    Boolean  @default(true) @map("is_active")
+
+  // 时间戳
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  scenes      Scene[]
+  lessonRecords LessonRecord[]
+
+  @@map("lessons")
+}
+
+// 场景
+model Scene {
+  id          String   @id @default(cuid())
+  lessonId    String   @map("lesson_id")
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  // 基本信息
+  identifier  String   @unique  // scene_001_001等
+  type        String   // slide, quiz, interactive_simulation, pbl_activity, discussion
+  title       String
+  content     Json     // 场景内容
+  duration    Int      // 时长（秒）
+
+  // 元数据
+  metadata    Json?
+  isActive    Boolean  @default(true) @map("is_active")
+
+  // 时间戳
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("scenes")
+}
+
+// ============================================
+// 成就系统模块
+// ============================================
+
+// 成就定义
+model Achievement {
+  id                String   @id @default(cuid())
+  identifier        String   @unique  // ach_001, ach_002等
+
+  // 基本信息
+  type              String   // habit, progress, behavior
+  subject           String?  // math, english等
+  knowledgePointId  String?  @map("knowledge_point_id")  // 关联知识点
+  level             String   // bronze, silver, gold, diamond, king
+  name              String
+  description       String?
+  iconUrl           String?  @map("icon_url")
+
+  // 解锁条件（JSON格式）
+  condition         Json     // {"type": "knowledge_point_mastery", "accuracy_threshold": 80, "min_questions": 5}
+  points            Int      @default(0)
+
+  // 元数据
+  isActive          Boolean  @default(true) @map("is_active")
+  metadata          Json?
+
+  // 时间戳
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  userAchievements  UserAchievement[]
+
+  @@map("achievements")
+}
+
+// 用户成就
+model UserAchievement {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  achievementId     String   @map("achievement_id")
+  achievement       Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  // 进度
+  progress          Int      @default(0)  // 0-100
+  unlockedAt        DateTime? @map("unlocked_at")
+  notified          Boolean  @default(false) @map("notified")
+
+  // 时间戳
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// 学生画像
+model StudentProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 学习风格（JSON格式）
+  learningStyle     Json?    @map("learning_style")  // {"visual": 0.8, "auditory": 0.3, "kinesthetic": 0.6}
+
+  // 强项弱项（JSON数组）
+  strongPoints      Json?    @map("strong_points")  // ["图形思维", "应用能力"]
+  weakPoints        Json?    @map("weak_points")    // ["计算准确性", "概念理解"]
+
+  // 学习统计（JSON格式）
+  studyStats        Json?    @map("study_stats")  // {"totalStudyTime": 12000, "questionsCompleted": 150, "lessonsLearned": 12}
+
+  // 元数据
+  metadata          Json?
+
+  // 时间戳
+  lastUpdated       DateTime @updatedAt @map("last_updated")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("student_profiles")
+}
+
+// 学习记录（追溯数据）
+model StudyRecord {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 基本信息
+  type              String   // quiz, lesson, diagnosis
+  subject           String?  // math, english等
+  knowledgePointId  String?  @map("knowledge_point_id")
+
+  // 学习数据
+  score             Int?
+  timeSpent         Int?     @map("time_spent")  // 秒
+
+  // 元数据
+  metadata          Json?
+
+  // 时间戳
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("study_records")
+}
+
+// ============================================
+// 系统配置
+// ============================================
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  valueType String   @map("value_type")  // string, number, boolean, json
+  isActive  Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_configs")
+}

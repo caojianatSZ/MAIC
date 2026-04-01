@@ -8,7 +8,9 @@
     "pages/login/login",
     "pages/player/player",
     "pages/progress/progress",
-    "pages/profile/profile"
+    "pages/profile/profile",
+    "pages/checkin/checkin",
+    "pages/parent-settings/parent-settings"
   ],
   "window": {
     "backgroundTextStyle": "light",

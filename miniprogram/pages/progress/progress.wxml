@@ -202,7 +202,7 @@
         </view>
         <view class="kstat-divider"></view>
         <view class="kstat-item">
-          <text class="kstat-value">{{knowledgeData.totalPoints > 0 ? ((knowledgeData.masteredPoints / knowledgeData.totalPoints) * 100).toFixed(0) : 0}}%</text>
+          <text class="kstat-value">{{knowledgeData.masteryRate}}%</text>
           <text class="kstat-label">掌握率</text>
         </view>
       </view>
@@ -215,10 +215,10 @@
               <text class="kcategory-name">{{item.name}}</text>
               <text class="kcategory-count">{{item.mastered}}/{{item.count}}</text>
             </view>
-            <text class="kcategory-percent">{{item.count > 0 ? ((item.mastered / item.count) * 100).toFixed(0) : 0}}%</text>
+            <text class="kcategory-percent">{{item.masteryRate}}%</text>
           </view>
           <view class="kcategory-progress">
-            <view class="kprogress-fill" style="width: {{item.count > 0 ? (item.mastered / item.count) * 100 : 0}}%; background-color: {{item.color}}"></view>
+            <view class="kprogress-fill" style="width: {{item.masteryRate}}%; background-color: {{item.color}}"></view>
           </view>
         </view>
       </view>

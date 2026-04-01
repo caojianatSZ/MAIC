@@ -1,0 +1,132 @@
+<!--pages/parent-settings/parent-settings.wxml-->
+<view class="container">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">
+      <text class="back-icon">←</text>
+      <text class="back-text">返回</text>
+    </view>
+    <text class="nav-title">家长设置</text>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <!-- 绑定家长账号 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">👨‍👩‍👧‍👦 绑定家长账号</text>
+      <text class="section-desc">绑定后可接收孩子的学习通知</text>
+    </view>
+
+    <view class="bind-card" wx:if="{{!parentBound}}">
+      <button class="bind-button" bindtap="bindParent">
+        <view class="button-content">
+          <text class="button-icon">📱</text>
+          <text class="button-text">绑定家长微信</text>
+        </view>
+      </button>
+      <text class="bind-tip">点击使用微信授权绑定家长账号</text>
+    </view>
+
+    <view class="bound-card" wx:else>
+      <view class="bound-info">
+        <text class="bound-avatar"></text>
+        <view class="bound-details">
+          <text class="bound-name">{{parentInfo.nickname}}</text>
+          <text class="bound-relation">家长</text>
+        </view>
+      </view>
+      <button class="unbind-button" bindtap="unbindParent">解绑</button>
+    </view>
+  </view>
+
+  <!-- 通知设置 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">🔔 通知设置</text>
+      <text class="section-desc">接收孩子的学习进展通知</text>
+    </view>
+
+    <view class="notification-list">
+      <view class="notification-item">
+        <view class="item-info">
+          <text class="item-title">成就解锁通知</text>
+          <text class="item-desc">当孩子解锁新成就时通知您</text>
+        </view>
+        <switch
+          checked="{{notificationSettings.achievement}}"
+          bindchange="onAchievementNotificationChange"
+          color="#6366F1"
+        />
+      </view>
+
+      <view class="notification-item">
+        <view class="item-info">
+          <text class="item-title">每日打卡提醒</text>
+          <text class="item-desc">提醒孩子完成每日打卡</text>
+        </view>
+        <switch
+          checked="{{notificationSettings.dailyReminder}}"
+          bindchange="onDailyReminderChange"
+          color="#6366F1"
+        />
+      </view>
+
+      <view class="notification-item">
+        <view class="item-info">
+          <text class="item-title">学习报告</text>
+          <text class="item-desc">每周发送学习周报</text>
+        </view>
+        <switch
+          checked="{{notificationSettings.weeklyReport}}"
+          bindchange="onWeeklyReportChange"
+          color="#6366F1"
+        />
+      </view>
+    </view>
+  </view>
+
+  <!-- 通知预览 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">📱 通知预览</text>
+      <text class="section-desc">您将收到的通知样式</text>
+    </view>
+
+    <view class="preview-card">
+      <view class="preview-header">
+        <text class="preview-title">学习助手</text>
+        <text class="preview-time">刚刚</text>
+      </view>
+      <view class="preview-content">
+        <text class="preview-label">解锁成就</text>
+        <text class="preview-text">恭喜！您的孩子解锁了「二次函数熟练者」成就</text>
+      </view>
+      <view class="preview-footer">
+        <text class="preview-detail">掌握度：黄金级</text>
+        <text class="preview-detail">连续学习：7天</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 使用说明 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">💡 使用说明</text>
+    </view>
+
+    <view class="instruction-list">
+      <view class="instruction-item">
+        <text class="instruction-number">1</text>
+        <text class="instruction-text">绑定家长微信账号，建立关联关系</text>
+      </view>
+      <view class="instruction-item">
+        <text class="instruction-number">2</text>
+        <text class="instruction-text">开启需要接收的通知类型</text>
+      </view>
+      <view class="instruction-item">
+        <text class="instruction-number">3</text>
+        <text class="instruction-text">当孩子达成学习目标时自动接收通知</text>
+      </view>
+    </view>
+  </view>
+</view>

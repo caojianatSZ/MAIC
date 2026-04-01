@@ -1,4 +1,6 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "achievement": "/components/achievement/achievement"
+  },
   "navigationBarTitleText": "个人中心"
 }

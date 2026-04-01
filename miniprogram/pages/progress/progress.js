@@ -30,13 +30,14 @@ Page({
 
     // 知识点数据
     knowledgeData: {
-      totalPoints: 0,
-      masteredPoints: 0,
+      totalPoints: 20,
+      masteredPoints: 11,
+      masteryRate: 55,
       categories: [
-        { name: '数学', count: 8, mastered: 5, color: '#6366F1' },
-        { name: '语文', count: 5, mastered: 3, color: '#EC4899' },
-        { name: '英语', count: 4, mastered: 2, color: '#10B981' },
-        { name: '科学', count: 3, mastered: 1, color: '#F59E0B' }
+        { name: '数学', count: 8, mastered: 5, masteryRate: 63, color: '#6366F1' },
+        { name: '语文', count: 5, mastered: 3, masteryRate: 60, color: '#EC4899' },
+        { name: '英语', count: 4, mastered: 2, masteryRate: 50, color: '#10B981' },
+        { name: '科学', count: 3, mastered: 1, masteryRate: 33, color: '#F59E0B' }
       ],
       hotPoints: [
         { name: '分数', mastered: true, studyCount: 5 },

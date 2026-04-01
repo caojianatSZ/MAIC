@@ -1,0 +1,29 @@
+<!--components/growth-chart/growth-chart.wxml-->
+<view class="growth-chart-container">
+  <!-- 图表标题 -->
+  <view class="chart-header" wx:if="{{title}}">
+    <text class="chart-title">{{title}}</text>
+    <text class="chart-subtitle" wx:if="{{subtitle}}">{{subtitle}}</text>
+  </view>
+
+  <!-- ECharts 图表 -->
+  <ec-canvas
+    id="mychart-dom-line"
+    canvas-id="mychart-line"
+    ec="{{ ec }}"
+  ></ec-canvas>
+
+  <!-- 图例 -->
+  <view class="chart-legend" wx:if="{{showLegend}}">
+    <view class="legend-item" wx:for="{{legendData}}" wx:key="name">
+      <view class="legend-color" style="background: {{item.color}}"></view>
+      <text class="legend-name">{{item.name}}</text>
+    </view>
+  </view>
+
+  <!-- 数据提示 -->
+  <view class="chart-tip" wx:if="{{tip}}">
+    <text class="tip-icon">💡</text>
+    <text class="tip-text">{{tip}}</text>
+  </view>
+</view>
