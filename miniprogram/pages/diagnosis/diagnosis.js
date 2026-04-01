@@ -244,9 +244,11 @@ Page({
           this.setData({
             diagnosisResult: result,
             knowledgeNodes: knowledgeNodes,
-            current: this.data.questions.length // 触发结果显示
+            mode: 'result',  // 切换到结果展示模式
+            current: this.data.questions.length
           }, () => {
             console.log('setData 回调执行，当前状态:', {
+              mode: this.data.mode,
               current: this.data.current,
               questionsLength: this.data.questions.length,
               knowledgeNodesLength: this.data.knowledgeNodes.length
@@ -255,7 +257,8 @@ Page({
 
           wx.showToast({
             title: '分析完成',
-            icon: 'success'
+            icon: 'success',
+            duration: 1500
           })
 
           // 触发成就检查
