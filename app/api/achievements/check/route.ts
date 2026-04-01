@@ -11,6 +11,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { userId, event } = body
 
+    console.log('收到成就检查请求:', { userId, event })
+
     if (!userId || !event) {
       return NextResponse.json({
         success: false,
@@ -28,6 +30,8 @@ export async function POST(request: NextRequest) {
       timestamp: new Date()
     })
 
+    console.log('成就检查完成，解锁成就数:', unlockedAchievements.length)
+
     return NextResponse.json({
       success: true,
       data: {
@@ -37,10 +41,13 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('成就检查失败:', error)
+    console.error('成就检查失败详细错误:', error)
+    console.error('错误堆栈:', error instanceof Error ? error.stack : 'Unknown error')
+
     return NextResponse.json({
       success: false,
-      error: '成就检查失败'
+      error: error instanceof Error ? error.message : '成就检查失败',
+      debug: process.env.NODE_ENV === 'development' ? String(error) : undefined
     }, { status: 500 })
   }
 }

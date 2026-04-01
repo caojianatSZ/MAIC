@@ -12,7 +12,14 @@ import {
   AchievementLevel
 } from './types'
 
-const prisma = new PrismaClient()
+// 使用全局变量避免在开发环境中创建多个 Prisma Client 实例
+const globalForPrisma = global as unknown as { prisma: PrismaClient }
+
+const prisma = globalForPrisma.prisma || new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 export class AchievementEngine {
   /**
@@ -52,17 +59,22 @@ export class AchievementEngine {
    * 记录学习事件
    */
   private async recordStudyEvent(event: AchievementEvent): Promise<void> {
-    await prisma.studyRecord.create({
-      data: {
-        userId: event.userId,
-        type: event.type,
-        subject: event.subject,
-        knowledgePointId: event.knowledgePointId,
-        score: event.data.score,
-        timeSpent: event.data.timeSpent,
-        metadata: event.data as any
-      }
-    })
+    try {
+      await prisma.studyRecord.create({
+        data: {
+          userId: event.userId,
+          type: event.type,
+          subject: event.subject || null,
+          knowledgePointId: event.knowledgePointId || null,
+          score: event.data.score || null,
+          timeSpent: event.data.timeSpent || null,
+          metadata: event.data as any
+        }
+      })
+    } catch (error) {
+      console.error('记录学习事件失败:', error)
+      // 不抛出错误，继续执行
+    }
   }
 
   /**
