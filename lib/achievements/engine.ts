@@ -334,26 +334,41 @@ export class AchievementEngine {
     userId: string,
     results: AchievementResult[]
   ): Promise<void> {
-    for (const result of results) {
-      await prisma.userAchievement.upsert({
-        where: {
-          userId_achievementId: {
-            userId,
-            achievementId: result.achievementId
-          }
-        },
-        create: {
-          userId,
-          achievementId: result.achievementId,
-          progress: result.progress,
-          unlockedAt: result.unlocked ? new Date() : null,
-          notified: false
-        },
-        update: {
-          progress: result.progress,
-          unlockedAt: result.unlocked && !result.previousLevel ? new Date() : undefined
-        }
+    try {
+      // 检查用户是否存在
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
       })
+
+      if (!user) {
+        console.log(`用户 ${userId} 不存在，跳过成就进度更新`)
+        return
+      }
+
+      for (const result of results) {
+        await prisma.userAchievement.upsert({
+          where: {
+            userId_achievementId: {
+              userId,
+              achievementId: result.achievementId
+            }
+          },
+          create: {
+            userId,
+            achievementId: result.achievementId,
+            progress: result.progress,
+            unlockedAt: result.unlocked ? new Date() : null,
+            notified: false
+          },
+          update: {
+            progress: result.progress,
+            unlockedAt: result.unlocked && !result.previousLevel ? new Date() : undefined
+          }
+        })
+      }
+    } catch (error) {
+      console.error('更新成就进度失败:', error)
+      // 不抛出错误，继续执行
     }
   }
 
