@@ -275,18 +275,34 @@ export class AchievementEngine {
       }
     })
 
+    // 使用 metadata 中的 correctCount 和 totalCount 来计算准确率
     const totalAttempts = records.length
-    const correctAttempts = records.filter((r: any) => {
+    let totalCorrectCount = 0
+    let totalQuestionCount = 0
+
+    records.forEach((r: any) => {
       const metadata = r.metadata as any
-      return metadata.isCorrect === true
-    }).length
+      if (metadata.correctCount !== undefined) {
+        totalCorrectCount += metadata.correctCount
+      }
+      if (metadata.totalCount !== undefined) {
+        totalQuestionCount += metadata.totalCount
+      }
+    })
+
+    // 如果有 totalCount，使用它来计算准确率；否则使用记录数
+    const accuracy = totalQuestionCount > 0
+      ? (totalCorrectCount / totalQuestionCount) * 100
+      : totalAttempts > 0
+      ? (totalCorrectCount / totalAttempts) * 100
+      : 0
 
     return {
       knowledgePointId,
       knowledgePointName: '', // 需要从知识点表获取
       totalAttempts,
-      correctAttempts,
-      accuracy: totalAttempts > 0 ? (correctAttempts / totalAttempts) * 100 : 0,
+      correctAttempts: totalCorrectCount,
+      accuracy,
       firstLearnedAt: records[0]?.createdAt,
       lastPracticedAt: records[records.length - 1]?.createdAt
     }
