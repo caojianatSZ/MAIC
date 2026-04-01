@@ -148,13 +148,9 @@
         </view>
       </view>
     </view>
-
   </view>
 
   <!-- 主内容区（原有功能菜单） -->
-  <view class="content-wrapper">
-
-  <!-- 主内容区 -->
   <view class="content-wrapper">
     <!-- 学习档案 -->
     <view class="card">
