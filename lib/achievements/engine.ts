@@ -361,31 +361,46 @@ export class AchievementEngine {
    * 更新学生画像
    */
   private async updateStudentProfile(userId: string): Promise<void> {
-    // 获取学习统计
-    const studyStats = await this.getStudyStats(userId)
+    try {
+      // 检查用户是否存在
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
+      })
 
-    // 分析学习风格（简化版）
-    const learningStyle = await this.analyzeLearningStyle(userId)
-
-    // 识别强项弱项
-    const { strongPoints, weakPoints } = await this.identifyStrengthsWeaknesses(userId)
-
-    await prisma.studentProfile.upsert({
-      where: { userId },
-      create: {
-        userId,
-        learningStyle: learningStyle as any,
-        strongPoints: strongPoints as any,
-        weakPoints: weakPoints as any,
-        studyStats: studyStats as any
-      },
-      update: {
-        learningStyle: learningStyle as any,
-        strongPoints: strongPoints as any,
-        weakPoints: weakPoints as any,
-        studyStats: studyStats as any
+      if (!user) {
+        console.log(`用户 ${userId} 不存在，跳过学生画像更新`)
+        return
       }
-    })
+
+      // 获取学习统计
+      const studyStats = await this.getStudyStats(userId)
+
+      // 分析学习风格（简化版）
+      const learningStyle = await this.analyzeLearningStyle(userId)
+
+      // 识别强项弱项
+      const { strongPoints, weakPoints } = await this.identifyStrengthsWeaknesses(userId)
+
+      await prisma.studentProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          learningStyle: learningStyle as any,
+          strongPoints: strongPoints as any,
+          weakPoints: weakPoints as any,
+          studyStats: studyStats as any
+        },
+        update: {
+          learningStyle: learningStyle as any,
+          strongPoints: strongPoints as any,
+          weakPoints: weakPoints as any,
+          studyStats: studyStats as any
+        }
+      })
+    } catch (error) {
+      console.error('更新学生画像失败:', error)
+      // 不抛出错误，继续执行
+    }
   }
 
   /**
