@@ -93,6 +93,7 @@ App({
   globalData: {
     userInfo: null,
     token: null,
+    userId: 'demo_user_id', // 测试用户 ID
     baseUrl: 'http://localhost:3000' // 开发环境 API 地址（不包含/api后缀）
   }
 })

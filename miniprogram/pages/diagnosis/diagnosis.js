@@ -643,7 +643,19 @@ Page({
    */
   checkAchievements(diagnosisResult) {
     const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user'
+    const userId = app.globalData.userId || 'demo_user_id'
+
+    // 获取知识点 ID（从第一个知识点）
+    const knowledgePointId = diagnosisResult.knowledgePoints && diagnosisResult.knowledgePoints.length > 0
+      ? diagnosisResult.knowledgePoints[0].knowledgePointId
+      : null
+
+    console.log('检查成就:', {
+      userId,
+      subject: diagnosisResult.subject,
+      knowledgePointId,
+      score: diagnosisResult.totalScore
+    })
 
     // 触发成就事件
     wx.request({
@@ -652,8 +664,9 @@ Page({
       data: {
         userId,
         event: {
-          type: 'diagnosis_finished',
+          type: 'quiz_finished',
           subject: diagnosisResult.subject || 'math',
+          knowledgePointId: knowledgePointId,
           data: {
             score: diagnosisResult.totalScore,
             correctCount: diagnosisResult.correctCount,
@@ -662,10 +675,13 @@ Page({
         }
       },
       success: (res) => {
-        if (res.data.success && res.data.data.unlockedAchievements) {
-          const unlockedAchievements = res.data.data.unlockedAchievements
+        console.log('成就检查响应:', res.data)
+        if (res.data.success && res.data.data) {
+          const { unlockedCount, unlockedAchievements } = res.data.data
 
-          if (unlockedAchievements.length > 0) {
+          console.log(`解锁成就数: ${unlockedCount}`)
+
+          if (unlockedCount > 0 && unlockedAchievements && unlockedAchievements.length > 0) {
             // 显示成就解锁提示
             this.showAchievementUnlock(unlockedAchievements[0])
           }
