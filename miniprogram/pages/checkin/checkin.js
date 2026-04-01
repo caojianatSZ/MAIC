@@ -1,5 +1,7 @@
 // pages/checkin/checkin.js
 const app = getApp()
+const { getUserId } = require('../../utils/user')
+const { getBaseUrl } = require('../../utils/config')
 
 Page({
   data: {
@@ -92,8 +94,8 @@ Page({
    * 加载打卡数据
    */
   loadCheckinData() {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user'
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
 
     wx.showLoading({
       title: '加载中...',
@@ -138,8 +140,8 @@ Page({
    * 更新日历打卡状态
    */
   async updateCalendarCheckinStatus() {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user'
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
 
     // 获取本月所有打卡记录
     const monthStart = new Date(this.data.currentYear, this.data.currentMonth - 1, 1)
@@ -170,8 +172,8 @@ Page({
    * 加载打卡相关成就
    */
   loadStreakAchievements() {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user'
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
 
     wx.request({
       url: `${baseUrl}/api/achievements`,
@@ -201,8 +203,8 @@ Page({
       return
     }
 
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user'
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
 
     wx.showLoading({
       title: '打卡中...',

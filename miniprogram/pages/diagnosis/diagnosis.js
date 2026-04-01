@@ -1,5 +1,8 @@
 // pages/diagnosis/diagnosis.js
 const app = getApp()
+const { getUserId } = require('../../utils/user')
+const { getBaseUrl } = require('../../utils/config')
+const { EVENT_TYPES, DEFAULTS, PAGE_MODES } = require('../../constants/eventTypes')
 
 Page({
   /**
@@ -251,7 +254,7 @@ Page({
           wx.showToast({
             title: '分析完成',
             icon: 'success',
-            duration: 1500
+            duration: DEFAULTS.TOAST_DURATION
           })
 
           // 触发成就检查
@@ -282,6 +285,7 @@ Page({
    * 开始学习
    */
   startLearning() {
+    // TODO: 添加学习行为埋点
     this.showLearningPath()
   },
 
@@ -652,19 +656,18 @@ Page({
    * 检查成就
    */
   checkAchievements(diagnosisResult) {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user_id'
+    const userId = getUserId()
     const knowledgePointId = diagnosisResult.knowledgePoints?.[0]?.knowledgePointId || null
 
     // 触发成就事件
     wx.request({
-      url: `${baseUrl}/api/achievements/check`,
+      url: `${getBaseUrl()}/api/achievements/check`,
       method: 'POST',
       data: {
         userId,
         event: {
-          type: 'quiz_finished',
-          subject: diagnosisResult.subject || 'math',
+          type: EVENT_TYPES.QUIZ_FINISHED,
+          subject: diagnosisResult.subject || DEFAULTS.SUBJECT,
           knowledgePointId,
           data: {
             score: diagnosisResult.totalScore,

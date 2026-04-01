@@ -1,5 +1,7 @@
 // pages/profile/profile.js
 const app = getApp()
+const { getUserId } = require('../../utils/user')
+const { getBaseUrl } = require('../../utils/config')
 
 Page({
   data: {
@@ -50,8 +52,8 @@ Page({
    * 加载学生画像
    */
   loadStudentProfile() {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user'
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
 
     wx.request({
       url: `${baseUrl}/api/student/profile`,
@@ -77,8 +79,8 @@ Page({
    * 加载成就列表
    */
   loadAchievements() {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user'
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
 
     wx.request({
       url: `${baseUrl}/api/achievements`,
@@ -104,8 +106,8 @@ Page({
    * 加载雷达图数据
    */
   loadRadarData() {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
-    const userId = app.globalData.userId || 'demo_user'
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
 
     wx.request({
       url: `${baseUrl}/api/student/radar`,
