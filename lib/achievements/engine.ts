@@ -264,11 +264,14 @@ export class AchievementEngine {
     userId: string,
     knowledgePointId: string
   ): Promise<KnowledgePointStats> {
+    // 查询所有与测验相关的记录类型（quiz, quiz_finished, diagnosis_finished 等）
     const records = await prisma.studyRecord.findMany({
       where: {
         userId,
         knowledgePointId,
-        type: 'quiz'
+        type: {
+          startsWith: 'quiz'
+        }
       },
       orderBy: {
         createdAt: 'asc'
