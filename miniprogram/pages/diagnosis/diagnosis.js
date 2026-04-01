@@ -244,15 +244,8 @@ Page({
           this.setData({
             diagnosisResult: result,
             knowledgeNodes: knowledgeNodes,
-            mode: 'result',  // 切换到结果展示模式
+            mode: 'result',
             current: this.data.questions.length
-          }, () => {
-            console.log('setData 回调执行，当前状态:', {
-              mode: this.data.mode,
-              current: this.data.current,
-              questionsLength: this.data.questions.length,
-              knowledgeNodesLength: this.data.knowledgeNodes.length
-            })
           })
 
           wx.showToast({
@@ -661,18 +654,7 @@ Page({
   checkAchievements(diagnosisResult) {
     const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
     const userId = app.globalData.userId || 'demo_user_id'
-
-    // 获取知识点 ID（从第一个知识点）
-    const knowledgePointId = diagnosisResult.knowledgePoints && diagnosisResult.knowledgePoints.length > 0
-      ? diagnosisResult.knowledgePoints[0].knowledgePointId
-      : null
-
-    console.log('检查成就:', {
-      userId,
-      subject: diagnosisResult.subject,
-      knowledgePointId,
-      score: diagnosisResult.totalScore
-    })
+    const knowledgePointId = diagnosisResult.knowledgePoints?.[0]?.knowledgePointId || null
 
     // 触发成就事件
     wx.request({
@@ -683,7 +665,7 @@ Page({
         event: {
           type: 'quiz_finished',
           subject: diagnosisResult.subject || 'math',
-          knowledgePointId: knowledgePointId,
+          knowledgePointId,
           data: {
             score: diagnosisResult.totalScore,
             correctCount: diagnosisResult.correctCount,
@@ -692,19 +674,12 @@ Page({
         }
       },
       success: (res) => {
-        console.log('成就检查响应:', res.data)
         if (res.data.success && res.data.data) {
           const { unlockedCount, unlockedAchievements } = res.data.data
 
-          console.log(`解锁成就数: ${unlockedCount}`)
-
           // 保存解锁的成就到页面数据
-          if (unlockedAchievements && unlockedAchievements.length > 0) {
-            this.setData({
-              unlockedAchievements: unlockedAchievements
-            })
-
-            // 显示成就解锁弹窗
+          if (unlockedAchievements?.length > 0) {
+            this.setData({ unlockedAchievements })
             this.showAchievementUnlock(unlockedAchievements[0])
           }
 
@@ -743,10 +718,13 @@ Page({
     }
 
     // 根据薄弱知识点添加建议
-    if (diagnosisResult.knowledgePoints && diagnosisResult.knowledgePoints.length > 0) {
-      const weakPoints = diagnosisResult.knowledgePoints.filter(kp => kp.masteryLevel === 'weak')
-      if (weakPoints.length > 0) {
-        const weakPointNames = weakPoints.map(kp => kp.knowledgePointName).join('、')
+    if (diagnosisResult.knowledgePoints?.length > 0) {
+      const weakPointNames = diagnosisResult.knowledgePoints
+        .filter(kp => kp.masteryLevel === 'weak')
+        .map(kp => kp.knowledgePointName)
+        .join('、')
+
+      if (weakPointNames) {
         suggestion += `\n\n薄弱知识点：${weakPointNames}`
       }
     }
