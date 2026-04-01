@@ -205,19 +205,80 @@
     <!-- 结果区域 -->
     <view class="result-section" wx:if="{{mode === 'result'}}">
     <view class="result-card">
-      <text class="result-title">诊断完成！</text>
+      <!-- 标题 -->
+      <text class="result-title">🎉 诊断完成！</text>
       <text class="result-desc">让我们看看你的知识掌握情况</text>
 
-      <!-- 知识图谱组件 -->
-      <knowledge-graph
-        title="你的知识图谱"
-        subtitle="基于二次函数诊断结果"
-        nodes="{{knowledgeNodes}}"
-        bind:learn="onLearnNode"
-      ></knowledge-graph>
+      <!-- 得分卡片 -->
+      <view class="score-card">
+        <view class="score-main">
+          <text class="score-value">{{diagnosisResult.totalScore || 0}}</text>
+          <text class="score-label">分</text>
+        </view>
+        <view class="score-detail">
+          <view class="detail-item">
+            <text class="detail-label">正确率</text>
+            <text class="detail-value">{{diagnosisResult.correctCount || 0}}/{{diagnosisResult.totalCount || 0}}</text>
+          </view>
+          <view class="detail-divider"></view>
+          <view class="detail-item">
+            <text class="detail-label">用时</text>
+            <text class="detail-value">5分钟</text>
+          </view>
+        </view>
+      </view>
 
-      <button class="action-button" bindtap="showLearningPath">查看完整学习路径</button>
-      <button class="action-button secondary" bindtap="backToEntry">返回首页</button>
+      <!-- 知识图谱组件 -->
+      <view class="graph-section">
+        <view class="section-header">
+          <text class="section-title">📊 知识掌握图谱</text>
+        </view>
+        <knowledge-graph
+          title=""
+          subtitle=""
+          nodes="{{knowledgeNodes}}"
+          bind:learn="onLearnNode"
+        ></knowledge-graph>
+      </view>
+
+      <!-- 成就展示 -->
+      <view class="achievements-section" wx:if="{{unlockedAchievements.length > 0}}">
+        <view class="section-header">
+          <text class="section-title">🏆 解锁成就</text>
+          <text class="section-count">{{unlockedAchievements.length}}</text>
+        </view>
+        <scroll-view class="achievements-scroll" scroll-x>
+          <view class="achievement-item" wx:for="{{unlockedAchievements}}" wx:key="id">
+            <view class="achievement-icon">{{item.icon}}</view>
+            <view class="achievement-info">
+              <text class="achievement-name">{{item.name}}</text>
+              <text class="achievement-desc">{{item.level}}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 学习建议 -->
+      <view class="suggestion-section">
+        <view class="section-header">
+          <text class="section-title">💡 学习建议</text>
+        </view>
+        <view class="suggestion-content">
+          <text class="suggestion-text">
+            {{suggestionText}}
+          </text>
+        </view>
+      </view>
+
+      <!-- 行动按钮 -->
+      <view class="action-buttons">
+        <button class="action-button primary" bindtap="startLearning">
+          📚 开始学习
+        </button>
+        <button class="action-button secondary" bindtap="backToEntry">
+          🏠 返回首页
+        </button>
+      </view>
     </view>
   </view>
   </view>

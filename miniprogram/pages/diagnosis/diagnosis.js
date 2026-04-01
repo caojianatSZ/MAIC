@@ -20,6 +20,10 @@ Page({
     diagnosisResult: null,
     // 知识图谱数据
     knowledgeNodes: [],
+    // 解锁的成就
+    unlockedAchievements: [],
+    // 学习建议
+    suggestionText: '',
     // 拍照诊断数据
     photoImage: null,
     photoAnalyzing: false,
@@ -277,6 +281,16 @@ Page({
 
   /**
    * 查看学习路径
+   */
+  /**
+   * 开始学习
+   */
+  startLearning() {
+    this.showLearningPath()
+  },
+
+  /**
+   * 显示学习路径
    */
   showLearningPath() {
     if (!this.data.diagnosisResult) {
@@ -681,15 +695,61 @@ Page({
 
           console.log(`解锁成就数: ${unlockedCount}`)
 
-          if (unlockedCount > 0 && unlockedAchievements && unlockedAchievements.length > 0) {
-            // 显示成就解锁提示
+          // 保存解锁的成就到页面数据
+          if (unlockedAchievements && unlockedAchievements.length > 0) {
+            this.setData({
+              unlockedAchievements: unlockedAchievements
+            })
+
+            // 显示成就解锁弹窗
             this.showAchievementUnlock(unlockedAchievements[0])
           }
+
+          // 生成学习建议
+          this.generateSuggestion(diagnosisResult, unlockedCount)
         }
       },
       fail: (err) => {
         console.error('成就检查失败:', err)
+        // 即使成就检查失败，也生成学习建议
+        this.generateSuggestion(diagnosisResult, 0)
       }
+    })
+  },
+
+  /**
+   * 生成学习建议
+   */
+  generateSuggestion(diagnosisResult, unlockedCount) {
+    const score = diagnosisResult.totalScore || 0
+    const accuracy = diagnosisResult.totalCount > 0
+      ? Math.round((diagnosisResult.correctCount / diagnosisResult.totalCount) * 100)
+      : 0
+
+    let suggestion = ''
+
+    // 根据得分生成建议
+    if (score >= 90) {
+      suggestion = `太棒了！你掌握得很好！正确率达到 ${accuracy}%，${unlockedCount > 0 ? `还解锁了 ${unlockedCount} 个成就！` : ''}建议继续挑战更高难度的题目，巩固学习成果。`
+    } else if (score >= 70) {
+      suggestion = `不错！你的正确率是 ${accuracy}%，${unlockedCount > 0 ? `解锁了 ${unlockedCount} 个成就。` : ''}建议重点学习薄弱知识点，多做一些练习题来提高熟练度。`
+    } else if (score >= 60) {
+      suggestion = `还需要努力哦！你的正确率是 ${accuracy}%。建议从基础概念开始学习，循序渐进地提高。我们的学习路径会帮助你系统学习。`
+    } else {
+      suggestion = `别灰心！这个知识点确实有难度。建议从基础开始学起，观看微课视频，然后通过练习巩固。学习是一个过程，慢慢来！`
+    }
+
+    // 根据薄弱知识点添加建议
+    if (diagnosisResult.knowledgePoints && diagnosisResult.knowledgePoints.length > 0) {
+      const weakPoints = diagnosisResult.knowledgePoints.filter(kp => kp.masteryLevel === 'weak')
+      if (weakPoints.length > 0) {
+        const weakPointNames = weakPoints.map(kp => kp.knowledgePointName).join('、')
+        suggestion += `\n\n薄弱知识点：${weakPointNames}`
+      }
+    }
+
+    this.setData({
+      suggestionText: suggestion
     })
   },
 
