@@ -28,8 +28,57 @@ Page({
   onLoad(options) {
     console.log('播放页面加载', options)
 
-    const { classroomId, shareToken } = options
+    const { classroomId, shareToken, mode, courseData } = options
 
+    // Demo 模式：直接使用传入的课程数据
+    if (mode === 'demo' && courseData) {
+      try {
+        const course = JSON.parse(decodeURIComponent(courseData))
+        console.log('Demo 模式加载课程:', course)
+
+        this.setData({
+          mode: 'demo',
+          classroomInfo: {
+            id: course.courseId,
+            title: course.title,
+            description: course.description,
+            subject: course.subject,
+            aiGenerated: true,
+            generatedBy: course.generatedBy,
+            generationProcess: course.generationProcess
+          },
+          scenes: course.scenes || [],
+          currentSceneIndex: 0
+        })
+
+        // 设置第一个场景为当前场景
+        if (course.scenes && course.scenes.length > 0) {
+          this.setData({
+            currentScene: course.scenes[0]
+          })
+        }
+
+        wx.showToast({
+          title: 'AI 生成课程加载成功',
+          icon: 'success',
+          duration: 1500
+        })
+
+        return
+      } catch (e) {
+        console.error('Demo 课程数据解析失败:', e)
+        wx.showToast({
+          title: '课程数据加载失败',
+          icon: 'none'
+        })
+        setTimeout(() => {
+          wx.navigateBack()
+        }, 1500)
+        return
+      }
+    }
+
+    // 正常模式：从服务器加载
     if (!classroomId && !shareToken) {
       wx.showToast({
         title: '参数错误',

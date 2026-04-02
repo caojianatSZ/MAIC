@@ -40,7 +40,17 @@
       "Bash(find . -name *.json -path */classrooms/*)",
       "Bash(curl -s \"http://localhost:3000/api/classroom?id=C4ipu-iiOG\")",
       "Bash(curl -s \"http://localhost:3000/api/classroom?id=r-HhRdxRu6\")",
-      "Bash(curl -s \"http://localhost:3000/api/organization-classrooms/LN8AAtymomhkFFJR\")"
+      "Bash(curl -s \"http://localhost:3000/api/organization-classrooms/LN8AAtymomhkFFJR\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/learning-path/generate -H \"Content-Type: application/json\" -d '{\"\"\"\"answers\"\"\"\":[0,1,0,2,1]}')",
+      "Bash(curl -s http://localhost:3000/api/diagnosis/quiz)",
+      "Bash(curl -s -X POST http://localhost:3000/api/diagnosis/analyze -H \"Content-Type: application/json\" -d '{\"\"\"\"quizId\"\"\"\":\"\"\"\"test\"\"\"\",\"\"\"\"answers\"\"\"\":[]}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/learning-path/generate -H \"Content-Type: application/json\" -d '{\"\"\"\"subject\"\"\"\":\"\"\"\"math\"\"\"\",\"\"\"\"targetKnowledgePoints\"\"\"\":[\"\"\"\"kf_003\"\"\"\"],\"\"\"\"currentMastery\"\"\"\":{\"\"\"\"kf_003\"\"\"\":20}}')",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(curl -X POST http://localhost:3000/api/achievements/check -H \"Content-Type: application/json\" -d '{:*)",
+      "Bash(git push:*)",
+      "Bash(find . -path */api/achievements* -type f)"
     ]
   }
 }
