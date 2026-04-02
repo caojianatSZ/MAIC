@@ -28,29 +28,31 @@ export class AchievementEngine {
   async processEvent(event: AchievementEvent): Promise<AchievementResult[]> {
     console.log('处理成就事件:', event)
 
-    // 1. 记录学习行为
-    await this.recordStudyEvent(event)
+    // 1. 记录学习行为（非阻塞）
+    this.recordStudyEvent(event).catch(err => {
+      console.error('记录学习事件失败:', err)
+    })
 
     // 2. 获取相关成就
     const relevantAchievements = await this.getRelevantAchievements(event)
 
     console.log(`找到 ${relevantAchievements.length} 个相关成就`)
 
-    // 3. 检查每个成就的进度
-    const results: AchievementResult[] = []
+    // 3. 并行检查所有成就的进度
+    const achievementPromises = relevantAchievements.map(achievement =>
+      this.checkAchievement(achievement, event)
+    )
 
-    for (const achievement of relevantAchievements) {
-      const result = await this.checkAchievement(achievement, event)
-      if (result) {
-        results.push(result)
-      }
-    }
+    const achievementResults = await Promise.all(achievementPromises)
+    const results = achievementResults.filter((r): r is AchievementResult => r !== null)
 
     // 4. 更新用户成就进度
     await this.updateAchievementProgress(event.userId, results)
 
-    // 5. 更新学生画像
-    await this.updateStudentProfile(event.userId)
+    // 5. 异步更新学生画像（不阻塞返回）
+    this.updateStudentProfile(event.userId).catch(err => {
+      console.error('更新学生画像失败:', err)
+    })
 
     return results.filter(r => r.unlocked)
   }
@@ -265,6 +267,7 @@ export class AchievementEngine {
     knowledgePointId: string
   ): Promise<KnowledgePointStats> {
     // 查询所有与测验相关的记录类型（quiz, quiz_finished, diagnosis_finished 等）
+    // 只获取需要的字段，限制查询数量
     const records = await prisma.studyRecord.findMany({
       where: {
         userId,
@@ -273,10 +276,27 @@ export class AchievementEngine {
           startsWith: 'quiz'
         }
       },
+      select: {
+        metadata: true,
+        createdAt: true
+      },
       orderBy: {
         createdAt: 'asc'
-      }
+      },
+      take: 100 // 限制最多100条记录
     })
+
+    if (records.length === 0) {
+      return {
+        knowledgePointId,
+        knowledgePointName: '',
+        totalAttempts: 0,
+        correctAttempts: 0,
+        accuracy: 0,
+        firstLearnedAt: undefined,
+        lastPracticedAt: undefined
+      }
+    }
 
     // 使用 metadata 中的 correctCount 和 totalCount 来计算准确率
     const totalAttempts = records.length
@@ -312,35 +332,62 @@ export class AchievementEngine {
   }
 
   /**
-   * 计算当前连续学习天数
+   * 计算当前连续学习天数（优化版：一次性查询，内存计算）
    */
   private async calculateCurrentStreak(userId: string): Promise<number> {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
+    // 一次性查询最近90天的学习记录（限制查询范围）
+    const ninetyDaysAgo = new Date(today)
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+
+    const records = await prisma.studyRecord.findMany({
+      where: {
+        userId,
+        createdAt: {
+          gte: ninetyDaysAgo
+        }
+      },
+      select: {
+        createdAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 100 // 限制最多100条记录
+    })
+
+    if (records.length === 0) {
+      return 0
+    }
+
+    // 在内存中计算连续天数
+    const dateSet = new Set<string>()
+
+    // 将所有记录按日期分组
+    for (const record of records) {
+      const date = new Date(record.createdAt)
+      date.setHours(0, 0, 0, 0)
+      dateSet.add(date.toISOString())
+    }
+
+    // 从今天开始向前检查连续天数
     let streak = 0
-    let checkDate = today
+    let checkDate = new Date(today)
 
     while (true) {
-      const nextDay = new Date(checkDate)
-      nextDay.setDate(nextDay.getDate() + 1)
+      const dateStr = checkDate.toISOString()
 
-      const count = await prisma.studyRecord.count({
-        where: {
-          userId,
-          createdAt: {
-            gte: checkDate,
-            lt: nextDay
-          }
-        }
-      })
-
-      if (count > 0) {
+      if (dateSet.has(dateStr)) {
         streak++
         checkDate.setDate(checkDate.getDate() - 1)
       } else {
         break
       }
+
+      // 安全限制：最多检查90天
+      if (streak >= 90) break
     }
 
     return streak
