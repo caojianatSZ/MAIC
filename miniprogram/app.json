@@ -1,6 +1,9 @@
 {
   "pages": [
     "pages/demo-home/demo-home",
+    "pages/demo-input/demo-input",
+    "pages/demo-generating/demo-generating",
+    "pages/demo-library/demo-library",
     "pages/index/index",
     "pages/comparison/comparison",
     "pages/diagnosis/diagnosis",
