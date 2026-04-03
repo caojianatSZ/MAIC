@@ -99,9 +99,7 @@ async function generateAndStoreVersion(config: {
   style: 'basic' | 'applied'
   difficulty: 'standard' | 'advanced'
 }): Promise<string> {
-  let finalCourse: {
-    scenes: Array<{ duration?: number }>
-  } | null = null
+  let finalCourse: any = null
 
   // 使用Promise包装流式生成
   await new Promise<void>((resolve, reject) => {
@@ -129,9 +127,13 @@ async function generateAndStoreVersion(config: {
   })
 
   // 存储到数据库
+  if (!finalCourse) {
+    throw new Error('课程生成失败：finalCourse为空')
+  }
+
   const classroom = await prisma.classroom.create({
     data: {
-      identifier: `classroom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      identifier: `classroom_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       title: buildVersionTitle(config.topic, config.style, config.difficulty),
       description: `AI生成的${config.topic}课程 - ${config.style}风格 × ${config.difficulty}难度`,
       subject: config.subject,
