@@ -122,10 +122,11 @@ Page({
         // 微信小程序的 res.data 已经是解析后的对象
         const responseData = res.data
 
+        console.log('完整响应数据:', responseData)
+
         if (responseData && responseData.success) {
-          // apiSuccess 函数会把数据展开，所以 course 就是 responseData
-          // 不是 responseData.data
-          const course = responseData
+          // 课程数据在 responseData.data 中
+          const course = responseData.data
           console.log('提取的课程数据:', course)
 
           if (!course || !course.courseId) {
