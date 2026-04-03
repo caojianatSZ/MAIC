@@ -203,6 +203,7 @@ model KnowledgePoint {
 
   // 关系
   questionKnowledgePoints QuestionKnowledgePoint[]
+  classroomKnowledgePoints ClassroomKnowledgePoint[]
 
   @@map("knowledge_points")
 }
@@ -432,4 +433,62 @@ model SystemConfig {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_configs")
+}
+
+// ============================================
+// AI课程生成模块
+// ============================================
+
+// AI生成的教室（课程）
+model Classroom {
+  id                String   @id @default(cuid())
+
+  // 基本信息
+  identifier         String   @unique  // classroom_xxx
+  title              String
+  description        String?
+  subject            String   // math, physics, chinese等
+  grade              String?  // 初一~高三
+
+  // 分类标签
+  difficulty         String?  // standard, advanced
+  style              String?  // basic, applied
+  versionType        String?  @map("version_type")  // basic_standard, basic_advanced等
+
+  // 课程内容
+  scenes             Json     // 场景数组
+  sceneCount         Int      @map("scene_count")
+  duration           Int      // 总时长（秒）
+
+  // 生成信息
+  parentTopic         String?  @map("parent_topic")  // 原始主题（用于多版本分组）
+  generationMethod    String?  @map("generation_method")  // ai_generated, manually_created
+  metadata            Json?    // 生成元数据（agents, duration, knowledgePointIds等）
+
+  // 时间戳
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // 关联
+  knowledgePoints    ClassroomKnowledgePoint[]
+
+  @@index([subject, grade])
+  @@index([parentTopic])
+  @@index([versionType])
+  @@index([createdAt])
+  @@map("classrooms")
+}
+
+// Classroom与KnowledgePoint的多对多关系
+model ClassroomKnowledgePoint {
+  id                String   @id @default(cuid())
+  classroomId       String   @map("classroom_id")
+  classroom         Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  knowledgePointId  String   @map("knowledge_point_id")
+  knowledgePoint    KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@unique([classroomId, knowledgePointId])
+  @@index([knowledgePointId])
+  @@map("classroom_knowledge_points")
 }
