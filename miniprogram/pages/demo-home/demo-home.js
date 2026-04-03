@@ -104,12 +104,14 @@ Page({
     })
 
     wx.request({
-      url: `${baseUrl}/api/demo/generate-course`,
+      url: `${baseUrl}/api/demo/generate-course-sync`,
       method: 'POST',
       data: {
         topic: topic,
         subject: 'math',
-        knowledgePointIds: ['kf_003']
+        grade: '初三',
+        difficulty: 'standard',
+        style: 'basic'
       },
       success: (res) => {
         wx.hideLoading()
