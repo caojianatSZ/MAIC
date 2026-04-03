@@ -1,0 +1,46 @@
+<view class="demo-library-page">
+  <view class="header-section">
+    <text class="page-title">已为"{{topic}}"生成</text>
+    <text class="version-count">{{versions.length}}个版本</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading-section">
+    <text>加载中...</text>
+  </view>
+
+  <view wx:else class="versions-grid">
+    <view
+      wx:for="{{versions}}"
+      wx:key="classroomId"
+      class="version-card"
+      data-classroom-id="{{item.classroomId}}"
+      bindtap="onSelectVersion"
+    >
+      <view class="card-badges">
+        <view class="badge {{item.style}}">
+          <text>{{item.style === 'basic' ? '基础型' : '应用型'}}</text>
+        </view>
+        <view class="badge {{item.difficulty}}">
+          <text>{{item.difficulty === 'standard' ? '标准' : '进阶'}}</text>
+        </view>
+      </view>
+
+      <view class="card-title">{{item.title}}</view>
+
+      <view class="card-info">
+        <view class="info-item">
+          <text class="info-label">时长</text>
+          <text class="info-value">{{Math.round(item.duration / 60)}}分钟</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">场景</text>
+          <text class="info-value">{{item.sceneCount}}个</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading && versions.length === 0}}" class="empty-state">
+    <text>暂无生成版本</text>
+  </view>
+</view>

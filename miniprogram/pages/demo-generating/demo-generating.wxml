@@ -1,0 +1,37 @@
+<view class="demo-generating-page">
+  <view class="header-section">
+    <text class="page-title">正在生成课程</text>
+    <text class="topic-name">"{{topic}}"</text>
+  </view>
+
+  <view class="progress-section">
+    <view class="progress-bar">
+      <view class="progress-fill" style="width: {{progress}}%"></view>
+    </view>
+    <text class="progress-text">{{progress}}%</text>
+  </view>
+
+  <view class="scenes-section">
+    <view class="section-header">
+      <text class="section-title">课程场景</text>
+      <text class="scene-count">{{scenes.length}}/{{totalScenes}}</text>
+    </view>
+
+    <view class="scenes-list">
+      <view wx:for="{{scenes}}" wx:key="id" class="scene-item completed">
+        <view class="scene-icon">✓</view>
+        <view class="scene-info">
+          <text class="scene-title">{{item.title}}</text>
+          <text class="scene-type">{{item.type}}</text>
+        </view>
+        <view class="scene-duration">{{item.duration || 0}}秒</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="action-section">
+    <button class="play-button {{canPlay ? 'active' : ''}}" disabled="{{!canPlay}}" bindtap="onPlayNow">
+      立即播放
+    </button>
+  </view>
+</view>

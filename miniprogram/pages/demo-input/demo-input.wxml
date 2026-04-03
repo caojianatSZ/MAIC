@@ -1,0 +1,58 @@
+<view class="demo-input-page">
+  <view class="user-info-card">
+    <view class="info-row">
+      <text class="label">年级</text>
+      <scroll-view class="options-scroll" scroll-x>
+        <view class="grade-options">
+          <view wx:for="{{gradeOptions}}" wx:key="*this" class="option-item {{selectedGrade === item ? 'active' : ''}}" data-grade="{{item}}" bindtap="onSelectGrade">
+            {{item}}
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+    <view class="info-row">
+      <text class="label">科目</text>
+      <scroll-view class="options-scroll" scroll-x>
+        <view class="subject-options">
+          <view wx:for="{{subjectOptions}}" wx:key="*this" class="option-item {{selectedSubject === item ? 'active' : ''}}" data-subject="{{item}}" bindtap="onSelectSubject">
+            {{item}}
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <view class="recommendations-section">
+    <view class="section-header">
+      <text class="section-title">为你推荐的主题</text>
+      <text class="section-subtitle">基于{{selectedGrade}}{{selectedSubject}}</text>
+    </view>
+    <view wx:if="{{loadingRecommendations}}" class="loading"><text>加载中...</text></view>
+    <view wx:else class="recommendations-grid">
+      <view wx:for="{{recommendations}}" wx:key="knowledgePointId" class="recommendation-card" data-topic="{{item.topic}}" bindtap="onSelectRecommendation">
+        <view class="card-header">
+          <text class="topic-name">{{item.topic}}</text>
+          <view class="difficulty-badge {{item.difficulty}}">{{item.difficulty}}</view>
+        </view>
+        <view class="card-body">
+          <text class="duration">{{item.estimatedDuration / 60}}分钟</text>
+          <text class="popularity">推荐度 {{item.popularity}}%</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="input-section">
+    <view class="section-header">
+      <text class="section-title">或输入自定义主题</text>
+    </view>
+    <view class="input-wrapper">
+      <input class="topic-input" placeholder="如：二次函数最值" value="{{inputTopic}}" bindinput="onInputChange" />
+    </view>
+  </view>
+
+  <view class="action-section">
+    <button class="start-button" disabled="{{!inputTopic || generating}}" bindtap="onStartGeneration">开始生成</button>
+    <text class="hint-text">平均生成时间：2-3分钟</text>
+  </view>
+</view>

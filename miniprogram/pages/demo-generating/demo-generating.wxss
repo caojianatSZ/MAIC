@@ -1,0 +1,152 @@
+.demo-generating-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40rpx 20rpx;
+}
+
+.header-section {
+  text-align: center;
+  margin-bottom: 60rpx;
+}
+
+.page-title {
+  display: block;
+  font-size: 36rpx;
+  color: white;
+  margin-bottom: 16rpx;
+}
+
+.topic-name {
+  display: block;
+  font-size: 48rpx;
+  font-weight: bold;
+  color: white;
+}
+
+.progress-section {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 40rpx;
+}
+
+.progress-bar {
+  height: 12rpx;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 6rpx;
+  overflow: hidden;
+  margin-bottom: 16rpx;
+}
+
+.progress-fill {
+  height: 100%;
+  background: white;
+  border-radius: 6rpx;
+  transition: width 0.3s;
+}
+
+.progress-text {
+  display: block;
+  text-align: center;
+  font-size: 28rpx;
+  color: white;
+  font-weight: 500;
+}
+
+.scenes-section {
+  background: white;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 40rpx;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.scene-count {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.scenes-list {
+  max-height: 600rpx;
+  overflow-y: auto;
+}
+
+.scene-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  margin-bottom: 12rpx;
+  background: #f9f9f9;
+  border-radius: 12rpx;
+}
+
+.scene-icon {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16rpx;
+  font-size: 32rpx;
+  background: #52c41a;
+  color: white;
+  border-radius: 50%;
+}
+
+.scene-info {
+  flex: 1;
+}
+
+.scene-title {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 4rpx;
+}
+
+.scene-type {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.scene-duration {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.action-section {
+  padding: 20rpx 0;
+}
+
+.play-button {
+  width: 100%;
+  height: 88rpx;
+  background: white;
+  color: #667eea;
+  font-size: 32rpx;
+  font-weight: 500;
+  border-radius: 44rpx;
+  border: none;
+}
+
+.play-button.active {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.play-button[disabled] {
+  background: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
+}
