@@ -174,18 +174,20 @@ Page({
     }
 
     const process = course.generationProcess || {
-      totalDuration: '2.3秒',
+      totalDuration: '约2-3分钟',
       step1: '分析学习需求 ✓',
-      step2: '生成课程内容 ✓'
+      step2: '生成课程大纲 ✓',
+      step3: '生成所有场景 ✓'
     }
 
-    const title = course.title || '未知课程'
-    const duration = course.duration || 180
-    const sceneCount = course.sceneCount || course.scenes?.length || 3
+    // 使用 topic 而不是 title（课程数据中使用 topic 字段）
+    const title = course.topic || course.title || '未知课程'
+    const duration = course.duration || 720  // 默认12分钟
+    const sceneCount = course.totalScenes || course.sceneCount || course.scenes?.length || 5
 
     wx.showModal({
       title: '✅ 课程生成完成！',
-      content: `主题：${title}\n时长：${Math.floor(duration / 60)}分钟\n场景数：${sceneCount}\n\n生成用时：${process.totalDuration}`,
+      content: `📚 主题：${title}\n⏱️ 时长：${Math.floor(duration / 60)}分钟\n🎬 场景数：${sceneCount}个\n\n⚡ 生成用时：${process.totalDuration}`,
       confirmText: '查看详情',
       cancelText: '返回',
       success: (res) => {
