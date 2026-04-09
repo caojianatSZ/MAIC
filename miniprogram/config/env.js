@@ -25,7 +25,7 @@ const ENV_CONFIG = {
 
   // 生产环境
   production: {
-    baseUrl: 'https://api.yourdomain.com', // 需要替换为实际域名
+    baseUrl: 'https://corp0.hz-college.com', // OpenMAIC生产环境API地址
     apiPath: 'api',
     enableDebug: false,
     logLevel: 'error',
