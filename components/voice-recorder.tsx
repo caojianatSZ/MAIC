@@ -33,11 +33,13 @@ export default function VoiceRecorder({
   const [voiceNameInput, setVoiceNameInput] = useState('');
   const [savingVoice, setSavingVoice] = useState(false);
   const [currentClonedVoiceId, setCurrentClonedVoiceId] = useState<string | null>(null);
+  const [recordingState, setRecordingState] = useState<'idle' | 'starting' | 'recording' | 'stopping'>('idle');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 当 audioUrl 更新时，更新音频元素的 src
@@ -374,6 +376,140 @@ export default function VoiceRecorder({
     });
   };
 
+  // 开始录音
+  const startRecording = async () => {
+    setRecordingState('starting');
+    setError(null);
+
+    try {
+      console.log('请求麦克风权限...');
+
+      // 请求麦克风权限
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100,
+          channelCount: 1
+        }
+      });
+
+      console.log('麦克风权限已获得');
+
+      // 保存流引用，用于后续停止
+      streamRef.current = stream;
+
+      // 检查支持的MIME类型
+      let mimeType = 'audio/webm';
+      const types = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg'
+      ];
+
+      for (const type of types) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          console.log('使用的MIME类型:', mimeType);
+          break;
+        }
+      }
+
+      // 创建MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+
+      // 收集音频数据
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          console.log('收到音频数据:', event.data.size, 'bytes');
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        console.log('录音已停止');
+        const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+
+        console.log('音频Blob创建完成:', {
+          type: audioBlob.type,
+          size: audioBlob.size
+        });
+
+        // 创建音频URL
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setAudioUrl(audioUrl);
+        setAudioBlob(audioBlob);
+        setIsRecording(false);
+        setRecordingState('idle');
+
+        // 清理流
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      // 开始录音
+      mediaRecorder.start();
+      console.log('开始录音');
+      setIsRecording(true);
+      setRecordingState('recording');
+
+      // 设置计时器
+      let seconds = 0;
+      setRecordingTime(seconds);
+
+      timerRef.current = setInterval(() => {
+        seconds++;
+        setRecordingTime(seconds);
+
+        // 达到最大时长自动停止
+        if (seconds >= maxDuration) {
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+          }
+        }
+      }, 1000);
+
+    } catch (err) {
+      console.error('录音失败:', err);
+      setRecordingState('idle');
+      setIsRecording(false);
+
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setError('无法访问麦克风，请允许浏览器访问麦克风权限');
+        } else if (err.name === 'NotFoundError') {
+          setError('未找到麦克风设备，请检查设备连接');
+        } else if (err.name === 'NotReadableError') {
+          setError('麦克风被其他应用占用，请关闭其他使用麦克风的应用');
+        } else {
+          setError(`录音失败: ${err.message}`);
+        }
+      } else {
+        setError('录音失败，请尝试使用"上传文件"模式');
+      }
+    }
+  };
+
+  // 停止录音
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      setRecordingState('stopping');
+      console.log('停止录音...');
+      mediaRecorderRef.current.stop();
+
+      // 清理计时器
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  };
+
   // 格式化时间显示
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -497,25 +633,47 @@ export default function VoiceRecorder({
                   type="button"
                   onClick={() => {
                     if (isRecording) {
-                      // 停止录音
-                      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                        mediaRecorderRef.current.stop();
-                      }
+                      stopRecording();
                     } else {
-                      // 开始录音 - 这里简化，不实现实际录音
-                      setError('录音功能暂时不可用，请使用"上传文件"模式');
+                      startRecording();
                     }
                   }}
-                  disabled={isRecording}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors"
+                  disabled={isRecording || recordingState === 'starting' || recordingState === 'stopping'}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Mic className="w-5 h-5" />
-                  开始录音（{maxDuration}秒）
+                  {isRecording ? (
+                    <>
+                      <Square className="w-5 h-5 animate-pulse" />
+                      停止录音
+                    </>
+                  ) : recordingState === 'starting' ? (
+                    <>
+                      <Mic className="w-5 h-5 animate-pulse" />
+                      启动中...
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-5 h-5" />
+                      开始录音（{maxDuration}秒）
+                    </>
+                  )}
                 </button>
+
+                {/* 录音时间显示 */}
+                {isRecording && (
+                  <div className="text-center">
+                    <div className="text-2xl font-mono font-bold text-red-600">
+                      {formatTime(recordingTime)}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      录音中...
+                    </div>
+                  </div>
+                )}
 
                 {/* 录音提示 */}
                 <p className="text-xs text-gray-600 text-center">
-                  ⚠️ 浏览器录音功能可能不兼容，建议使用"上传文件"模式
+                  💡 请确保在安静环境中录音，说话清晰，时长3-5秒为佳
                 </p>
               </>
             )}
