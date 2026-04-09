@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // 验证参数
     if (!imageUrl && !imageBase64) {
-      return apiError('请提供图片URL或Base64');
+      return apiError('MISSING_REQUIRED_FIELD', 400, '请提供图片URL或Base64');
     }
 
     log.info('开始拍照诊断', { subject, grade, hasImage: !!imageUrl || !!imageBase64 });
@@ -108,6 +108,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     log.error('拍照诊断失败', error);
     return apiError(
+      'INTERNAL_ERROR',
+      500,
       error instanceof Error ? error.message : '拍照诊断失败，请稍后重试'
     );
   }

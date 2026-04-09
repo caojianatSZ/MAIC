@@ -1,15 +1,55 @@
 services:
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: openmaic-postgres
+    environment:
+      POSTGRES_USER: openmaic
+      POSTGRES_PASSWORD: openmaic_password
+      POSTGRES_DB: openmaic
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openmaic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - openmaic-network
+
+  # Next.js应用
   openmaic:
     build: .
+    container_name: openmaic-app
     ports:
       - "3000:3000"
     env_file:
-      - .env.local
+      - .env.qa
     volumes:
       # Optional: mount server-providers.yml for provider config
       # - ./server-providers.yml:/app/server-providers.yml:ro
       - openmaic-data:/app/data
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - openmaic-network
 
 volumes:
+  postgres-data:
   openmaic-data:
+
+networks:
+  openmaic-network:
+    driver: bridge

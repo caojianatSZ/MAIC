@@ -3,7 +3,7 @@
  * 同时生成4个版本：2种风格 × 2种难度
  */
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/prisma/client'
 import { generateCourseStreaming } from './streaming-generator'
 
 export interface VersionConfig {

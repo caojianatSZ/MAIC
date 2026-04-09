@@ -26,6 +26,8 @@ export interface AchievementEvent {
     totalCount?: number
     timeSpent?: number
     isCorrect?: boolean
+    streak?: number
+    [key: string]: any  // 允许其他自定义字段
   }
   timestamp: Date
 }

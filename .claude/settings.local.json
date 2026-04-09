@@ -50,7 +50,14 @@
       "Bash(npx ts-node:*)",
       "Bash(curl -X POST http://localhost:3000/api/achievements/check -H \"Content-Type: application/json\" -d '{:*)",
       "Bash(git push:*)",
-      "Bash(find . -path */api/achievements* -type f)"
+      "Bash(find . -path */api/achievements* -type f)",
+      "Bash(npx tsx:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(npx next:*)",
+      "Bash(ssh hongzhi:*)",
+      "Bash(scp /Users/caojian/Projects/OpenMAIC/docker-compose.yml hongzhi:/opt/openmaic/)",
+      "Bash(echo '=== docker-compose.yml uploaded ===' \")",
+      "Bash(scp:*)"
     ]
   }
 }
