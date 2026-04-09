@@ -13,16 +13,49 @@ function isJsonFormat(): boolean {
 function formatLine(level: LogLevel, tag: string, args: unknown[]): string {
   const timestamp = new Date().toISOString();
   const upperLevel = level.toUpperCase();
-  const msg = args
+
+  // 处理Error对象和普通数据
+  const processedArgs = args.map((a) => {
+    if (a instanceof Error) {
+      return {
+        message: a.message,
+        stack: a.stack,
+        name: a.name,
+        ...(a as any), // 包含其他错误属性
+      };
+    }
+    if (typeof a === 'object' && a !== null) {
+      return a;
+    }
+    if (typeof a === 'string') {
+      return a;
+    }
+    return JSON.stringify(a);
+  });
+
+  const msg = processedArgs.length === 1
+    ? processedArgs[0]
+    : processedArgs;
+
+  if (isJsonFormat()) {
+    return JSON.stringify({
+      timestamp,
+      level: upperLevel,
+      tag,
+      message: msg,
+      environment: process.env.NODE_ENV || 'development',
+      pid: process.pid,
+    });
+  }
+
+  // 文本格式
+  const msgStr = args
     .map((a) =>
       a instanceof Error ? (a.stack ?? a.message) : typeof a === 'string' ? a : JSON.stringify(a),
     )
     .join(' ');
 
-  if (isJsonFormat()) {
-    return JSON.stringify({ timestamp, level: upperLevel, tag, message: msg });
-  }
-  return `[${timestamp}] [${upperLevel}] [${tag}] ${msg}`;
+  return `[${timestamp}] [${upperLevel}] [${tag}] ${msgStr}`;
 }
 
 export function createLogger(tag: string) {

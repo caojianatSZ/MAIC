@@ -1,18 +1,35 @@
 // app.js
+const { getEnvConfig, log } = require('./config/env.js')
+
 App({
   onLaunch() {
-    console.log('小程序启动')
+    // 初始化环境配置
+    this.initEnv()
+
+    log('小程序启动')
 
     // 检查更新
     this.checkUpdate()
   },
 
   onShow() {
-    console.log('小程序显示')
+    log('小程序显示')
   },
 
   onHide() {
-    console.log('小程序隐藏')
+    log('小程序隐藏')
+  },
+
+  /**
+   * 初始化环境配置
+   */
+  initEnv() {
+    const envConfig = getEnvConfig()
+    this.globalData.envConfig = envConfig
+    this.globalData.baseUrl = envConfig.baseUrl
+    this.globalData.enableDebug = envConfig.enableDebug
+
+    log(`当前环境: ${JSON.stringify(envConfig)}`)
   },
 
   /**
@@ -23,7 +40,7 @@ App({
       const updateManager = wx.getUpdateManager()
 
       updateManager.onCheckForUpdate((res) => {
-        console.log('检查更新结果:', res.hasUpdate)
+        log('检查更新结果: ' + res.hasUpdate)
       })
 
       updateManager.onUpdateReady(() => {
@@ -39,7 +56,7 @@ App({
       })
 
       updateManager.onUpdateFailed(() => {
-        console.error('新版本下载失败')
+        log('新版本下载失败', 'error')
       })
     }
   },
@@ -94,6 +111,7 @@ App({
     userInfo: null,
     token: null,
     userId: 'demo_user_id', // 测试用户 ID
-    baseUrl: 'http://localhost:3000' // 开发环境 API 地址（不包含/api后缀）
+    baseUrl: '', // 由环境配置自动设置
+    envConfig: null // 环境配置对象
   }
 })
