@@ -56,6 +56,8 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchData() {
       try {
         setLoading(true);
@@ -76,6 +78,8 @@ export default function DashboardPage() {
           funnelRes.json(),
         ]);
 
+        if (!isMounted) return;
+
         if (statsData.success) {
           setStats(statsData);
         }
@@ -84,8 +88,8 @@ export default function DashboardPage() {
           setFunnel(funnelData);
         }
 
-        // 获取最近的转化记录（从每个课堂的转化中获取最新的一些）
-        if (statsData.success && statsData.statsPerClassroom) {
+        // 获取最近的转化记录（仅在有课堂时）
+        if (statsData.success && statsData.statsPerClassroom && statsData.statsPerClassroom.length > 0) {
           const conversionsRes = await Promise.all(
             statsData.statsPerClassroom.map(async (classroom: any) => {
               const response = await fetch(
@@ -94,6 +98,8 @@ export default function DashboardPage() {
               return response.json();
             })
           );
+
+          if (!isMounted) return;
 
           // 合并所有转化记录并按时间排序
           const allConversions: Conversion[] = [];
@@ -115,18 +121,28 @@ export default function DashboardPage() {
           );
 
           setRecentConversions(allConversions.slice(0, 10));
+        } else {
+          // 没有课堂时设置为空数组
+          setRecentConversions([]);
         }
       } catch (err) {
+        if (!isMounted) return;
         console.error('获取数据失败:', err);
         setError('加载数据失败，请刷新页面重试');
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
     if (organizationId) {
       fetchData();
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [organizationId]);
 
   // 遮掩手机号（只显示前3位和后4位）
