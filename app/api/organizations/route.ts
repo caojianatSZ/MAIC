@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, logoData, logoMimeType, phone, wechatQrUrl } = body;
+    const { name, logoData, logoMimeType, phone, wechatQrUrl, primaryColor, secondaryColor } = body;
 
     // 验证必填字段
     if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -94,11 +94,15 @@ export async function POST(req: NextRequest) {
       logoMimeType: logoMimeType || null,
       phone: phone || null,
       wechatQrUrl: wechatQrUrl || null,
+      primaryColor: primaryColor || null,
+      secondaryColor: secondaryColor || null,
     }).returning();
 
     return apiSuccess({
       id: org.id,
       name: org.name,
+      primaryColor: org.primaryColor,
+      secondaryColor: org.secondaryColor,
       message: '机构注册成功！请保存您的机构 ID'
     });
   } catch (error) {
