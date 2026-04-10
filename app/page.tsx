@@ -62,6 +62,7 @@ const log = createLogger('Home');
 
 const WEB_SEARCH_STORAGE_KEY = 'webSearchEnabled';
 const LANGUAGE_STORAGE_KEY = 'generationLanguage';
+const TTS_STORAGE_KEY = 'ttsEnabled';
 const RECENT_OPEN_STORAGE_KEY = 'recentClassroomsOpen';
 
 interface FormState {
@@ -69,6 +70,7 @@ interface FormState {
   requirement: string;
   language: 'zh-CN' | 'en-US';
   webSearch: boolean;
+  enableTTS: boolean;
 }
 
 const initialFormState: FormState = {
@@ -76,6 +78,7 @@ const initialFormState: FormState = {
   requirement: '',
   language: 'zh-CN',
   webSearch: false,
+  enableTTS: false,
 };
 
 function HomePage() {
@@ -116,6 +119,7 @@ function HomePage() {
     try {
       const savedWebSearch = localStorage.getItem(WEB_SEARCH_STORAGE_KEY);
       const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      const savedTTS = localStorage.getItem(TTS_STORAGE_KEY);
       const updates: Partial<FormState> = {};
       if (savedWebSearch === 'true') updates.webSearch = true;
       if (savedLanguage === 'zh-CN' || savedLanguage === 'en-US') {
@@ -124,6 +128,7 @@ function HomePage() {
         const detected = navigator.language?.startsWith('zh') ? 'zh-CN' : 'en-US';
         updates.language = detected;
       }
+      if (savedTTS === 'true') updates.enableTTS = true;
       if (Object.keys(updates).length > 0) {
         setForm((prev) => ({ ...prev, ...updates }));
       }
@@ -211,6 +216,7 @@ function HomePage() {
     try {
       if (field === 'webSearch') localStorage.setItem(WEB_SEARCH_STORAGE_KEY, String(value));
       if (field === 'language') localStorage.setItem(LANGUAGE_STORAGE_KEY, String(value));
+      if (field === 'enableTTS') localStorage.setItem(TTS_STORAGE_KEY, String(value));
       if (field === 'requirement') updateRequirementCache(value as string);
     } catch {
       /* ignore */
@@ -337,6 +343,7 @@ function HomePage() {
         currentStep: 'generating' as const,
         organizationId: selectedOrganization?.id,
         organization,
+        enableTTS: form.enableTTS,
         clonedVoiceId: voiceId || undefined,
       };
       sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
@@ -762,6 +769,8 @@ function HomePage() {
                   onLanguageChange={(lang) => updateForm('language', lang)}
                   webSearch={form.webSearch}
                   onWebSearchChange={(v) => updateForm('webSearch', v)}
+                  enableTTS={form.enableTTS}
+                  onEnableTTSChange={(v) => updateForm('enableTTS', v)}
                   onSettingsOpen={(section) => {
                     setSettingsSection(section);
                     setSettingsOpen(true);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
-import { Bot, Check, ChevronLeft, Globe, Paperclip, FileText, X, Globe2 } from 'lucide-react';
+import { Bot, Check, ChevronLeft, Globe, Paperclip, FileText, X, Globe2, Volume2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -32,6 +32,8 @@ export interface GenerationToolbarProps {
   onLanguageChange: (lang: 'zh-CN' | 'en-US') => void;
   webSearch: boolean;
   onWebSearchChange: (v: boolean) => void;
+  enableTTS?: boolean;
+  onEnableTTSChange?: (v: boolean) => void;
   onSettingsOpen: (section?: SettingsSection) => void;
   // PDF
   pdfFile: File | null;
@@ -45,6 +47,8 @@ export function GenerationToolbar({
   onLanguageChange,
   webSearch,
   onWebSearchChange,
+  enableTTS = false,
+  onEnableTTSChange,
   onSettingsOpen,
   pdfFile,
   onPdfFileChange,
@@ -354,6 +358,34 @@ export function GenerationToolbar({
             </button>
           </TooltipTrigger>
           <TooltipContent>{t('toolbar.webSearchNoProvider')}</TooltipContent>
+        </Tooltip>
+      )}
+
+      {/* ── TTS Toggle ── */}
+      {onEnableTTSChange && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onEnableTTSChange(!enableTTS)}
+              className={cn(
+                pillMuted,
+                enableTTS && 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400',
+              )}
+            >
+              <Volume2 className={cn('size-3.5', enableTTS && 'animate-pulse')} />
+              <span className="hidden sm:inline">{enableTTS ? 'TTS开' : 'TTS'}</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="text-xs">
+              <p className="font-medium">启用语音合成</p>
+              <p className="text-muted-foreground mt-0.5">
+                {enableTTS
+                  ? '使用服务器端 TTS 生成中文语音'
+                  : '使用浏览器语音（可能为英文）'}
+              </p>
+            </div>
+          </TooltipContent>
         </Tooltip>
       )}
 
