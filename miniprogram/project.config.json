@@ -1,5 +1,5 @@
 {
-  "description": "MAIC 作业辅导助手 - 微信小程序",
+  "description": "湖南弘知教育 - AI智能学习平台",
   "packOptions": {
     "ignore": [],
     "include": []
@@ -47,9 +47,9 @@
     "disableSWC": true
   },
   "compileType": "miniprogram",
-  "libVersion": "3.5.5",
+  "libVersion": "3.15.0",
   "appid": "wx21f97d21d26f279e",
-  "projectname": "maic-homework-tutor",
+  "projectname": "hongzhiedu-ai-tutor",
   "condition": {},
   "editorSetting": {
     "tabIndent": "insertSpaces",

@@ -18,6 +18,13 @@ import {
   Monitor,
   BotOff,
   ChevronUp,
+  FileText,
+  GraduationCap,
+  Users,
+  Shield,
+  Sparkles,
+  Award,
+  TrendingUp,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { createLogger } from '@/lib/logger';
@@ -86,7 +93,6 @@ function HomePage() {
   const [voiceCloningEnabled, setVoiceCloningEnabled] = useState(false);
   const [voiceId, setVoiceId] = useState<string | null>(null);
   const [showVoiceSelector, setShowVoiceSelector] = useState(false);
-  const [enableTTS, setEnableTTS] = useState(true); // TTS is enabled by default when voice is cloned
 
   // Draft cache for requirement text
   const { cachedValue: cachedRequirement, updateCache: updateRequirementCache } =
@@ -215,24 +221,24 @@ function HomePage() {
     toast.custom(
       (id) => (
         <div
-          className="w-[356px] rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-gradient-to-r from-amber-50 via-white to-amber-50 dark:from-amber-950/60 dark:via-slate-900 dark:to-amber-950/60 shadow-lg shadow-amber-500/8 dark:shadow-amber-900/20 p-4 flex items-start gap-3 cursor-pointer"
+          className="w-[356px] rounded-xl border border-blue-200/60 dark:border-blue-800/40 bg-gradient-to-r from-blue-50 via-white to-blue-50 dark:from-blue-950/60 dark:via-slate-900 dark:to-blue-950/60 shadow-lg shadow-blue-500/8 dark:shadow-blue-900/20 p-4 flex items-start gap-3 cursor-pointer"
           onClick={() => {
             toast.dismiss(id);
             setSettingsOpen(true);
           }}
         >
-          <div className="shrink-0 mt-0.5 size-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center ring-1 ring-amber-200/50 dark:ring-amber-800/30">
+          <div className="shrink-0 mt-0.5 size-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center ring-1 ring-blue-200/50 dark:ring-blue-800/30">
             {icon}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 leading-tight">
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 leading-tight">
               {title}
             </p>
-            <p className="text-xs text-amber-700/80 dark:text-amber-400/70 mt-0.5 leading-relaxed">
+            <p className="text-xs text-blue-700/80 dark:text-blue-400/70 mt-0.5 leading-relaxed">
               {desc}
             </p>
           </div>
-          <div className="shrink-0 mt-1 text-[10px] font-medium text-amber-500 dark:text-amber-500/70 tracking-wide">
+          <div className="shrink-0 mt-1 text-[10px] font-medium text-blue-500 dark:text-blue-500/70 tracking-wide">
             <Settings className="size-3.5 animate-[spin_3s_linear_infinite]" />
           </div>
         </div>
@@ -245,7 +251,7 @@ function HomePage() {
     // Validate setup before proceeding
     if (!currentModelId) {
       showSetupToast(
-        <BotOff className="size-4.5 text-amber-600 dark:text-amber-400" />,
+        <BotOff className="size-4.5 text-blue-600 dark:text-blue-400" />,
         t('settings.modelNotConfigured'),
         t('settings.setupNeeded'),
       );
@@ -331,7 +337,7 @@ function HomePage() {
         currentStep: 'generating' as const,
         organizationId: selectedOrganization?.id,
         organization,
-        clonedVoiceId: voiceId || undefined, // Pass cloned voice ID for TTS
+        clonedVoiceId: voiceId || undefined,
       };
       sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
 
@@ -372,7 +378,7 @@ function HomePage() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden">
       {/* ═══ Top-right pill (unchanged) ═══ */}
       <div
         ref={toolbarRef}
@@ -399,7 +405,7 @@ function HomePage() {
                 className={cn(
                   'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
                   locale === 'zh-CN' &&
-                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
                 )}
               >
                 简体中文
@@ -412,7 +418,7 @@ function HomePage() {
                 className={cn(
                   'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
                   locale === 'en-US' &&
-                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
                 )}
               >
                 English
@@ -446,7 +452,7 @@ function HomePage() {
                 className={cn(
                   'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
                   theme === 'light' &&
-                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
                 )}
               >
                 <Sun className="w-4 h-4" />
@@ -460,7 +466,7 @@ function HomePage() {
                 className={cn(
                   'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
                   theme === 'dark' &&
-                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
                 )}
               >
                 <Moon className="w-4 h-4" />
@@ -474,7 +480,7 @@ function HomePage() {
                 className={cn(
                   'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
                   theme === 'system' &&
-                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
                 )}
               >
                 <Monitor className="w-4 h-4" />
@@ -500,10 +506,10 @@ function HomePage() {
           {needsSetup && (
             <>
               <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-                <span className="animate-setup-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-violet-500" />
+                <span className="animate-setup-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
               </span>
-              <span className="animate-setup-float absolute top-full mt-2 right-0 whitespace-nowrap text-[11px] font-medium text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/50 px-2 py-0.5 rounded-full shadow-sm pointer-events-none">
+              <span className="animate-setup-float absolute top-full mt-2 right-0 whitespace-nowrap text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 px-2 py-0.5 rounded-full shadow-sm pointer-events-none">
                 {t('settings.setupNeeded')}
               </span>
             </>
@@ -519,61 +525,108 @@ function HomePage() {
         initialSection={settingsSection}
       />
 
-      {/* ═══ Background Decor ═══ */}
+      {/* ═══ Background Decor (Enhanced) ═══ */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"
           style={{ animationDuration: '4s' }}
         />
         <div
-          className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
+          className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"
           style={{ animationDuration: '6s' }}
+        />
+        <div
+          className="absolute top-1/2 left-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl animate-pulse"
+          style={{ animationDuration: '5s' }}
         />
       </div>
 
-      {/* ═══ Hero section: title + input (centered, wider) ═══ */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className={cn(
-          'relative z-20 w-full max-w-[800px] flex flex-col items-center',
-          classrooms.length === 0 ? 'justify-center min-h-[calc(100dvh-8rem)]' : 'mt-[10vh]',
-        )}
-      >
-        {/* ── Logo ── */}
-        <motion.img
-          src="/logo-horizontal.png"
-          alt="OpenMAIC"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{
-            delay: 0.1,
-            type: 'spring',
-            stiffness: 200,
-            damping: 20,
-          }}
-          className="h-12 md:h-16 mb-2 -ml-2 md:-ml-3"
-        />
-
-        {/* ── Slogan ── */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }}
-          className="text-sm text-muted-foreground/60 mb-8"
+      {/* ═══ Hero section: split-screen layout ═══ */}
+      <div className="relative z-20 w-full max-w-7xl flex flex-col lg:flex-row items-center gap-12 lg:gap-16 mt-[5vh]">
+        {/* ── Left: Content ── */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          className="flex-1 w-full"
         >
-          {t('home.slogan')}
-        </motion.p>
+          {/* Logo */}
+          <motion.img
+            src="/hz-logo.png"
+            alt="湖南弘知教育"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              delay: 0.1,
+              type: 'spring',
+              stiffness: 200,
+              damping: 20,
+            }}
+            className="h-12 md:h-16 mb-6 object-contain"
+          />
 
-        {/* ── Unified input area ── */}
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 dark:text-white mb-4"
+          >
+            AI 驱动的智能
+            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              {' '}学习伙伴
+            </span>
+          </motion.h1>
+
+          {/* Subheadline */}
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-4"
+          >
+            湖南弘知教育科技有限公司
+          </motion.p>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="text-base text-gray-500 dark:text-gray-400 mb-8 max-w-2xl"
+          >
+            像专业老师一样,24小时随时辅导。已帮助 10,000+ 学生提高成绩,现在你也可以。
+          </motion.p>
+
+          {/* Trust Badges */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="flex flex-wrap items-center gap-6 mb-8"
+          >
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Shield className="w-4 h-4 text-green-600" />
+              <span>安全可靠</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Users className="w-4 h-4 text-blue-600" />
+              <span>10,000+ 用户</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Award className="w-4 h-4 text-amber-600" />
+              <span>专业认证</span>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* ── Right: Interactive Card ── */}
         <motion.div
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.35 }}
-          className="w-full"
+          className="flex-1 w-full max-w-xl"
         >
-          <div className="w-full rounded-2xl border border-border/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl shadow-black/[0.03] dark:shadow-black/20 transition-shadow focus-within:shadow-2xl focus-within:shadow-violet-500/[0.06]">
+          <div className="w-full rounded-2xl border border-gray-200/60 dark:border-gray-700/60 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-xl shadow-gray-500/10 dark:shadow-black/20 transition-shadow focus-within:shadow-2xl focus-within:shadow-blue-500/[0.1]">
             {/* ── Greeting + Profile + Agents ── */}
             <div className="relative z-20 flex items-start justify-between">
               <GreetingBar />
@@ -674,7 +727,8 @@ function HomePage() {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => {/* VoiceRecorder已显示在下方 */}}
+                          onClick={() => {/* VoiceRecorder已显示在下方 */}
+}
                           className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors opacity-50 cursor-not-allowed"
                           disabled
                         >
@@ -737,7 +791,7 @@ function HomePage() {
                 className={cn(
                   'shrink-0 h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
                   canGenerate
-                    ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90 shadow-sm cursor-pointer'
                     : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                 )}
               >
@@ -746,21 +800,82 @@ function HomePage() {
               </button>
             </div>
           </div>
-        </motion.div>
 
-        {/* ── Error ── */}
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-3 w-full p-3 bg-destructive/10 border border-destructive/20 rounded-lg"
-            >
-              <p className="text-sm text-destructive">{error}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          {/* ── Error ── */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 w-full p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
+              >
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+
+      {/* ═══ Features Section (Bento Grid) ═══ */}
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="relative z-10 mt-20 w-full max-w-7xl"
+      >
+        <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
+          为什么选择我们
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Feature 1 */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
+              <Sparkles className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              AI 智能讲解
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              深入分析题目,提供个性化讲解方案,让你真正理解知识点
+            </p>
+          </motion.div>
+
+          {/* Feature 2 */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
+              <GraduationCap className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              专业教师团队
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              经验丰富的教师团队,为你提供高质量的教学内容和辅导
+            </p>
+          </motion.div>
+
+          {/* Feature 3 */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
+              <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              学习进度追踪
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              详细的学习数据分析,帮助你了解自己的进步和需要改进的地方
+            </p>
+          </motion.div>
+        </div>
       </motion.div>
 
       {/* ═══ Recent classrooms — collapsible ═══ */}
@@ -768,8 +883,8 @@ function HomePage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="relative z-10 mt-10 w-full max-w-6xl flex flex-col items-center"
+          transition={{ delay: 0.7 }}
+          className="relative z-10 mt-20 w-full max-w-7xl flex flex-col items-center"
         >
           {/* Trigger — divider-line with centered text */}
           <button
@@ -784,19 +899,19 @@ function HomePage() {
             }}
             className="group w-full flex items-center gap-4 py-2 cursor-pointer"
           >
-            <div className="flex-1 h-px bg-border/40 group-hover:bg-border/70 transition-colors" />
-            <span className="shrink-0 flex items-center gap-2 text-[13px] text-muted-foreground/60 group-hover:text-foreground/70 transition-colors select-none">
-              <Clock className="size-3.5" />
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700 group-hover:bg-gray-300 dark:group-hover:bg-gray-600 transition-colors" />
+            <span className="shrink-0 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors select-none">
+              <Clock className="size-4" />
               {t('classroom.recentClassrooms')}
-              <span className="text-[11px] tabular-nums opacity-60">{classrooms.length}</span>
+              <span className="text-xs tabular-nums opacity-60">{classrooms.length}</span>
               <motion.div
                 animate={{ rotate: recentOpen ? 180 : 0 }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
               >
-                <ChevronDown className="size-3.5" />
+                <ChevronDown className="size-4" />
               </motion.div>
             </span>
-            <div className="flex-1 h-px bg-border/40 group-hover:bg-border/70 transition-colors" />
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700 group-hover:bg-gray-300 dark:group-hover:bg-gray-600 transition-colors" />
           </button>
 
           {/* Expandable content */}
@@ -841,8 +956,8 @@ function HomePage() {
       )}
 
       {/* Footer — flows with content, at the very end */}
-      <div className="mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">
-        OpenMAIC Open Source Project
+      <div className="mt-auto pt-12 pb-4 text-center text-xs text-gray-400 dark:text-gray-600">
+        © 2026 湖南弘知教育科技有限公司
       </div>
     </div>
   );
@@ -943,15 +1058,15 @@ function GreetingBar() {
       {/* ── Collapsed pill (always in flow) ── */}
       {!open && (
         <div
-          className="flex items-center gap-2.5 cursor-pointer transition-all duration-200 group rounded-full px-2.5 py-1.5 border border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 active:scale-[0.97]"
+          className="flex items-center gap-2.5 cursor-pointer transition-all duration-200 group rounded-full px-2.5 py-1.5 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.97]"
           onClick={() => setOpen(true)}
         >
           <div className="shrink-0 relative">
-            <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-border/30 group-hover:ring-violet-400/60 dark:group-hover:ring-violet-400/40 transition-all duration-300">
+            <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-gray-200 dark:ring-gray-700 group-hover:ring-blue-400 dark:group-hover:ring-blue-500 transition-all duration-300">
               <img src={avatar} alt="" className="size-full object-cover" />
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-border/40 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity">
-              <Pencil className="size-[7px] text-muted-foreground/70" />
+            <div className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity">
+              <Pencil className="size-[7px] text-gray-500 dark:text-gray-400" />
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -959,14 +1074,14 @@ function GreetingBar() {
               <TooltipTrigger asChild>
                 <span className="leading-none select-none flex items-center gap-1">
                   <span>
-                    <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors">
                       {t('home.greeting')}
                     </span>
-                    <span className="text-[13px] font-semibold text-foreground/85 group-hover:text-foreground transition-colors">
+                    <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">
                       {displayName}
                     </span>
                   </span>
-                  <ChevronDown className="size-3 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors shrink-0" />
+                  <ChevronDown className="size-3 text-gray-400 dark:text-gray-600 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors shrink-0" />
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={4}>
@@ -987,7 +1102,7 @@ function GreetingBar() {
             transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
             className="absolute left-4 top-3.5 z-50 w-64"
           >
-            <div className="rounded-2xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06] shadow-[0_1px_8px_-2px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_8px_-2px_rgba(0,0,0,0.3)] px-2.5 py-2">
+            <div className="rounded-2xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm ring-1 ring-gray-200/50 dark:ring-gray-700/50 shadow-lg px-2.5 py-2">
               {/* ── Row: avatar + name ── */}
               <div
                 className="flex items-center gap-2.5 cursor-pointer transition-all duration-200"
@@ -1005,17 +1120,17 @@ function GreetingBar() {
                     setAvatarPickerOpen(!avatarPickerOpen);
                   }}
                 >
-                  <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-violet-300/70 dark:ring-violet-500/40 transition-all duration-300">
+                  <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-blue-400 dark:ring-blue-500 transition-all duration-300">
                     <img src={avatar} alt="" className="size-full object-cover" />
                   </div>
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-border/60 flex items-center justify-center"
+                    className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center"
                   >
                     <ChevronDown
                       className={cn(
-                        'size-2 text-muted-foreground/70 transition-transform duration-200',
+                        'size-2 text-gray-500 dark:text-gray-400 transition-transform duration-200',
                         avatarPickerOpen && 'rotate-180',
                       )}
                     />
@@ -1039,11 +1154,11 @@ function GreetingBar() {
                         onBlur={commitName}
                         maxLength={20}
                         placeholder={t('profile.defaultNickname')}
-                        className="flex-1 min-w-0 h-6 bg-transparent border-b border-border/80 text-[13px] font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
+                        className="flex-1 min-w-0 h-6 bg-transparent border-b border-gray-300 dark:border-gray-600 text-[13px] font-semibold text-gray-900 dark:text-gray-100 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
                       />
                       <button
                         onClick={commitName}
-                        className="shrink-0 size-5 rounded flex items-center justify-center text-violet-500 hover:bg-violet-100 dark:hover:bg-violet-900/30"
+                        className="shrink-0 size-5 rounded flex items-center justify-center text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
                       >
                         <Check className="size-3" />
                       </button>
@@ -1056,10 +1171,10 @@ function GreetingBar() {
                       }}
                       className="group/name inline-flex items-center gap-1 cursor-pointer"
                     >
-                      <span className="text-[13px] font-semibold text-foreground/85 group-hover/name:text-foreground transition-colors">
+                      <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 group-hover/name:text-gray-900 dark:group-hover/name:text-gray-100 transition-colors">
                         {displayName}
                       </span>
-                      <Pencil className="size-2.5 text-muted-foreground/30 opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                      <Pencil className="size-2.5 text-gray-400 dark:text-gray-600 opacity-0 group-hover/name:opacity-100 transition-opacity" />
                     </span>
                   )}
                 </div>
@@ -1068,9 +1183,9 @@ function GreetingBar() {
                 <motion.div
                   initial={{ opacity: 0, y: -2 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="shrink-0 size-6 rounded-full flex items-center justify-center hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+                  className="shrink-0 size-6 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <ChevronUp className="size-3.5 text-muted-foreground/50" />
+                  <ChevronUp className="size-3.5 text-gray-400 dark:text-gray-600" />
                 </motion.div>
               </div>
 
@@ -1095,8 +1210,8 @@ function GreetingBar() {
                               'size-7 rounded-full overflow-hidden bg-gray-50 dark:bg-gray-800 cursor-pointer transition-all duration-150',
                               'hover:scale-110 active:scale-95',
                               avatar === url
-                                ? 'ring-2 ring-violet-400 dark:ring-violet-500 ring-offset-0'
-                                : 'hover:ring-1 hover:ring-muted-foreground/30',
+                                ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-offset-0'
+                                : 'hover:ring-1 hover:ring-gray-300 dark:hover:ring-gray-600',
                             )}
                           >
                             <img src={url} alt="" className="size-full" />
@@ -1107,8 +1222,8 @@ function GreetingBar() {
                             'size-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border border-dashed',
                             'hover:scale-110 active:scale-95',
                             isCustomAvatar(avatar)
-                              ? 'ring-2 ring-violet-400 dark:ring-violet-500 ring-offset-0 border-violet-300 dark:border-violet-600 bg-violet-50 dark:bg-violet-900/30'
-                              : 'border-muted-foreground/30 text-muted-foreground/50 hover:border-muted-foreground/50',
+                              ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-offset-0 border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30'
+                              : 'border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-600 hover:border-gray-400 dark:hover:border-gray-500',
                           )}
                           onClick={() => avatarInputRef.current?.click()}
                           title={t('profile.uploadAvatar')}
@@ -1127,7 +1242,7 @@ function GreetingBar() {
                   placeholder={t('profile.bioPlaceholder')}
                   maxLength={200}
                   rows={2}
-                  className="resize-none border-border/40 bg-transparent min-h-[72px] !text-[13px] !leading-relaxed placeholder:!text-[11px] placeholder:!leading-relaxed focus-visible:ring-1 focus-visible:ring-border/60"
+                  className="resize-none border-gray-200 dark:border-gray-700 bg-transparent min-h-[72px] !text-[13px] !leading-relaxed placeholder:!text-[11px] placeholder:!leading-relaxed focus-visible:ring-1 focus-visible:ring-blue-400 dark:focus-visible:ring-blue-500"
                 />
               </div>
             </div>
@@ -1177,7 +1292,7 @@ function ClassroomCard({
       {/* Thumbnail — large radius, no border, subtle bg */}
       <div
         ref={thumbRef}
-        className="relative w-full aspect-[16/9] rounded-2xl bg-slate-100 dark:bg-slate-800/80 overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]"
+        className="relative w-full aspect-[16/9] rounded-2xl bg-gray-100 dark:bg-slate-800/80 overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]"
       >
         {slide && thumbWidth > 0 ? (
           <ThumbnailSlide
@@ -1188,8 +1303,8 @@ function ClassroomCard({
           />
         ) : !slide ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="size-12 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 dark:from-violet-900/30 dark:to-blue-900/30 flex items-center justify-center">
-              <span className="text-xl opacity-50">📄</span>
+            <div className="size-12 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center">
+              <FileText className="size-6 text-blue-500/50" />
             </div>
           </div>
         ) : null}
@@ -1206,7 +1321,7 @@ function ClassroomCard({
               <Button
                 size="icon"
                 variant="ghost"
-                className="absolute top-2 right-2 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-destructive/80 text-white hover:text-white backdrop-blur-sm rounded-full"
+                className="absolute top-2 right-2 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-red-500/80 text-white hover:text-white backdrop-blur-sm rounded-full"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(classroom.id, e);
@@ -1253,12 +1368,12 @@ function ClassroomCard({
 
       {/* Info — outside the thumbnail */}
       <div className="mt-2.5 px-1 flex items-center gap-2">
-        <span className="shrink-0 inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
+        <span className="shrink-0 inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
           {classroom.sceneCount} {t('classroom.slides')} · {formatDate(classroom.updatedAt)}
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <p className="font-medium text-[15px] truncate text-foreground/90 min-w-0">
+            <p className="font-medium text-[15px] truncate text-gray-900 dark:text-gray-100 min-w-0">
               {classroom.name}
             </p>
           </TooltipTrigger>
@@ -1270,7 +1385,7 @@ function ClassroomCard({
             <div className="flex items-center gap-1.5">
               <span className="break-all">{classroom.name}</span>
               <button
-                className="shrink-0 p-0.5 rounded hover:bg-foreground/10 transition-colors"
+                className="shrink-0 p-0.5 rounded hover:bg-gray-200/50 dark:hover:bg-gray-700/50 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigator.clipboard.writeText(classroom.name);

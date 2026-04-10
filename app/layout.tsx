@@ -17,9 +17,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'OpenMAIC',
+  title: '湖南弘知教育 - AI智能学习平台',
   description:
-    'The open-source AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
+    '湖南弘知教育科技有限公司 - AI驱动的智能学习平台,提供个性化学习方案,像专业老师一样24小时随时辅导。',
 };
 
 export default function RootLayout({

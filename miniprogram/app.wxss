@@ -1,18 +1,19 @@
 /**
- * 全局样式 - 现代化设计
+ * 全局样式 - 2026 优化版
+ * 品牌色彩: 蓝色系 + 活力橙
  */
 
-/* 全局变量 - 2026升级版 */
+/* 全局变量 */
 page {
-  /* 主色调 - 靛蓝系（智慧、专注） */
-  --primary-color: #6366F1;
-  --primary-light: #818CF8;
-  --primary-dark: #4F46E5;
-  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* 主色调 - 智蓝系（智慧、信任） */
+  --primary-color: #3B82F6;
+  --primary-light: #60A5FA;
+  --primary-dark: #2563EB;
+  --primary-gradient: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
 
-  /* 辅助色 */
-  --accent-color: #EC4899;
-  --accent-light: #F472B6;
+  /* 辅助色 - 活力橙 */
+  --accent-color: #F59E0B;
+  --accent-light: #FBBF24;
 
   /* 功能色 */
   --success-color: #10B981;
@@ -21,20 +22,20 @@ page {
   --info-color: #3B82F6;
 
   /* 文字颜色 */
-  --text-primary: #1F2937;
+  --text-primary: #111827;
   --text-secondary: #6B7280;
   --text-tertiary: #9CA3AF;
   --text-white: #FFFFFF;
 
   /* 背景色 */
-  --bg-primary: #F9FAFB;
-  --bg-secondary: #F3F4F6;
-  --bg-tertiary: #E5E7EB;
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F9FAFB;
+  --bg-tertiary: #F3F4F6;
 
   /* 卡片样式 */
   --card-background: #FFFFFF;
-  --card-shadow: 0 4rpx 16rpx rgba(99, 102, 241, 0.08);
-  --card-shadow-hover: 0 8rpx 24rpx rgba(99, 102, 241, 0.12);
+  --card-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.08);
+  --card-shadow-hover: 0 8rpx 24rpx rgba(59, 130, 246, 0.12);
   --card-radius: 24rpx;
 
   background-color: var(--bg-primary);
@@ -106,14 +107,14 @@ page {
   font-weight: 600;
   text-align: center;
   border: none;
-  box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8rpx 24rpx rgba(59, 130, 246, 0.4);
   transition: all 0.3s ease;
 }
 
 .btn-primary:active {
   opacity: 0.9;
   transform: scale(0.98);
-  box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.3);
 }
 
 .btn-primary.disabled {
@@ -136,7 +137,7 @@ page {
 
 .btn-secondary:active {
   opacity: 0.7;
-  background-color: rgba(99, 102, 241, 0.05);
+  background-color: rgba(59, 130, 246, 0.05);
 }
 
 /* 文本样式 */
@@ -214,7 +215,7 @@ page {
 }
 
 .badge-primary {
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: rgba(59, 130, 246, 0.1);
   color: var(--primary-color);
 }
 
@@ -296,7 +297,8 @@ page {
 }
 
 .empty-icon {
-  font-size: 120rpx;
+  width: 120rpx;
+  height: 120rpx;
   margin-bottom: 24rpx;
   opacity: 0.3;
 }
@@ -352,4 +354,46 @@ page {
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10rpx); }
+}
+
+/* 淡入动画 */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 滑入动画 */
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 缩放动画 */
+.scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
