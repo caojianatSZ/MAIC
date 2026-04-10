@@ -57,7 +57,9 @@
       "Bash(ssh hongzhi:*)",
       "Bash(scp /Users/caojian/Projects/OpenMAIC/docker-compose.yml hongzhi:/opt/openmaic/)",
       "Bash(echo '=== docker-compose.yml uploaded ===' \")",
-      "Bash(scp:*)"
+      "Bash(scp:*)",
+      "Bash(chmod +x /Users/caojian/Projects/OpenMAIC/scripts/voice-recorder-test.sh)",
+      "Bash(/Users/caojian/Projects/OpenMAIC/scripts/voice-recorder-test.sh)"
     ]
   }
 }

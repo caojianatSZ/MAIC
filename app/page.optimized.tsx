@@ -1,0 +1,1407 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  ArrowUp,
+  Check,
+  ChevronDown,
+  Clock,
+  Copy,
+  ImagePlus,
+  Pencil,
+  Trash2,
+  Settings,
+  Sun,
+  Moon,
+  Monitor,
+  BotOff,
+  ChevronUp,
+  FileText,
+  GraduationCap,
+  Users,
+  Shield,
+  Sparkles,
+  Award,
+  TrendingUp,
+} from 'lucide-react';
+import { useI18n } from '@/lib/hooks/use-i18n';
+import { createLogger } from '@/lib/logger';
+import { Button } from '@/components/ui/button';
+import { Textarea as UITextarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { SettingsDialog } from '@/components/settings';
+import { GenerationToolbar } from '@/components/generation/generation-toolbar';
+import { AgentBar } from '@/components/agent/agent-bar';
+import { useTheme } from '@/lib/hooks/use-theme';
+import { nanoid } from 'nanoid';
+import { storePdfBlob } from '@/lib/utils/image-storage';
+import type { UserRequirements } from '@/lib/types/generation';
+import { useSettingsStore } from '@/lib/store/settings';
+import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
+import {
+  StageListItem,
+  listStages,
+  deleteStageData,
+  getFirstSlideByStages,
+} from '@/lib/utils/stage-storage';
+import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
+import type { Slide } from '@/lib/types/slides';
+import { useMediaGenerationStore } from '@/lib/store/media-generation';
+import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useDraftCache } from '@/lib/hooks/use-draft-cache';
+import { SpeechButton } from '@/components/audio/speech-button';
+import { OrganizationSelector } from '@/components/organization-selector';
+import type { Organization } from '@/components/organization-selector';
+import VoiceRecorder from '@/components/voice-recorder';
+import VoiceSelector from '@/components/voice-selector';
+
+const log = createLogger('Home');
+
+const WEB_SEARCH_STORAGE_KEY = 'webSearchEnabled';
+const LANGUAGE_STORAGE_KEY = 'generationLanguage';
+const RECENT_OPEN_STORAGE_KEY = 'recentClassroomsOpen';
+
+interface FormState {
+  pdfFile: File | null;
+  requirement: string;
+  language: 'zh-CN' | 'en-US';
+  webSearch: boolean;
+}
+
+const initialFormState: FormState = {
+  pdfFile: null,
+  requirement: '',
+  language: 'zh-CN',
+  webSearch: false,
+};
+
+function HomePage() {
+  const { t, locale, setLocale } = useI18n();
+  const { theme, setTheme } = useTheme();
+  const router = useRouter();
+  const [form, setForm] = useState<FormState>(initialFormState);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<
+    import('@/lib/types/settings').SettingsSection | undefined
+  >(undefined);
+  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
+
+  // Voice cloning state
+  const [voiceCloningEnabled, setVoiceCloningEnabled] = useState(false);
+  const [voiceId, setVoiceId] = useState<string | null>(null);
+  const [showVoiceSelector, setShowVoiceSelector] = useState(false);
+
+  // Draft cache for requirement text
+  const { cachedValue: cachedRequirement, updateCache: updateRequirementCache } =
+    useDraftCache<string>({ key: 'requirementDraft' });
+
+  // Model setup state
+  const currentModelId = useSettingsStore((s) => s.modelId);
+  const [storeHydrated, setStoreHydrated] = useState(false);
+  const [recentOpen, setRecentOpen] = useState(true);
+
+  // Hydrate client-only state after mount (avoids SSR mismatch)
+  /* eslint-disable react-hooks/set-state-in-effect -- Hydration from localStorage must happen in effect */
+  useEffect(() => {
+    setStoreHydrated(true);
+    try {
+      const saved = localStorage.getItem(RECENT_OPEN_STORAGE_KEY);
+      if (saved !== null) setRecentOpen(saved !== 'false');
+    } catch {
+      /* localStorage unavailable */
+    }
+    try {
+      const savedWebSearch = localStorage.getItem(WEB_SEARCH_STORAGE_KEY);
+      const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      const updates: Partial<FormState> = {};
+      if (savedWebSearch === 'true') updates.webSearch = true;
+      if (savedLanguage === 'zh-CN' || savedLanguage === 'en-US') {
+        updates.language = savedLanguage;
+      } else {
+        const detected = navigator.language?.startsWith('zh') ? 'zh-CN' : 'en-US';
+        updates.language = detected;
+      }
+      if (Object.keys(updates).length > 0) {
+        setForm((prev) => ({ ...prev, ...updates }));
+      }
+    } catch {
+      /* localStorage unavailable */
+    }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Restore requirement draft from cache (derived state pattern — no effect needed)
+  const [prevCachedRequirement, setPrevCachedRequirement] = useState(cachedRequirement);
+  if (cachedRequirement !== prevCachedRequirement) {
+    setPrevCachedRequirement(cachedRequirement);
+    if (cachedRequirement) {
+      setForm((prev) => ({ ...prev, requirement: cachedRequirement }));
+    }
+  }
+
+  const needsSetup = storeHydrated && !currentModelId;
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [classrooms, setClassrooms] = useState<StageListItem[]>([]);
+  const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    if (!languageOpen && !themeOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+        setLanguageOpen(false);
+        setThemeOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [languageOpen, themeOpen]);
+
+  const loadClassrooms = async () => {
+    try {
+      const list = await listStages();
+      setClassrooms(list);
+      // Load first slide thumbnails
+      if (list.length > 0) {
+        const slides = await getFirstSlideByStages(list.map((c) => c.id));
+        setThumbnails(slides);
+      }
+    } catch (err) {
+      log.error('Failed to load classrooms:', err);
+    }
+  };
+
+  useEffect(() => {
+    // Clear stale media store to prevent cross-course thumbnail contamination.
+    // The store may hold tasks from a previously visited classroom whose elementIds
+    // (gen_img_1, etc.) collide with other courses' placeholders.
+    useMediaGenerationStore.getState().revokeObjectUrls();
+    useMediaGenerationStore.setState({ tasks: {} });
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Store hydration on mount
+    loadClassrooms();
+  }, []);
+
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPendingDeleteId(id);
+  };
+
+  const confirmDelete = async (id: string) => {
+    setPendingDeleteId(null);
+    try {
+      await deleteStageData(id);
+      await loadClassrooms();
+    } catch (err) {
+      log.error('Failed to delete classroom:', err);
+      toast.error('Failed to delete classroom');
+    }
+  };
+
+  const updateForm = <K extends keyof FormState>(field: K, value: FormState[K]) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    try {
+      if (field === 'webSearch') localStorage.setItem(WEB_SEARCH_STORAGE_KEY, String(value));
+      if (field === 'language') localStorage.setItem(LANGUAGE_STORAGE_KEY, String(value));
+      if (field === 'requirement') updateRequirementCache(value as string);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const showSetupToast = (icon: React.ReactNode, title: string, desc: string) => {
+    toast.custom(
+      (id) => (
+        <div
+          className="w-[356px] rounded-xl border border-blue-200/60 dark:border-blue-800/40 bg-gradient-to-r from-blue-50 via-white to-blue-50 dark:from-blue-950/60 dark:via-slate-900 dark:to-blue-950/60 shadow-lg shadow-blue-500/8 dark:shadow-blue-900/20 p-4 flex items-start gap-3 cursor-pointer"
+          onClick={() => {
+            toast.dismiss(id);
+            setSettingsOpen(true);
+          }}
+        >
+          <div className="shrink-0 mt-0.5 size-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center ring-1 ring-blue-200/50 dark:ring-blue-800/30">
+            {icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 leading-tight">
+              {title}
+            </p>
+            <p className="text-xs text-blue-700/80 dark:text-blue-400/70 mt-0.5 leading-relaxed">
+              {desc}
+            </p>
+          </div>
+          <div className="shrink-0 mt-1 text-[10px] font-medium text-blue-500 dark:text-blue-500/70 tracking-wide">
+            <Settings className="size-3.5 animate-[spin_3s_linear_infinite]" />
+          </div>
+        </div>
+      ),
+      { duration: 4000 },
+    );
+  };
+
+  const handleGenerate = async () => {
+    // Validate setup before proceeding
+    if (!currentModelId) {
+      showSetupToast(
+        <BotOff className="size-4.5 text-blue-600 dark:text-blue-400" />,
+        t('settings.modelNotConfigured'),
+        t('settings.setupNeeded'),
+      );
+      setSettingsOpen(true);
+      return;
+    }
+
+    if (!form.requirement.trim()) {
+      setError(t('upload.requirementRequired'));
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const userProfile = useUserProfileStore.getState();
+      const requirements: UserRequirements = {
+        requirement: form.requirement,
+        language: form.language,
+        userNickname: userProfile.nickname || undefined,
+        userBio: userProfile.bio || undefined,
+        webSearch: form.webSearch || undefined,
+      };
+
+      let pdfStorageKey: string | undefined;
+      let pdfFileName: string | undefined;
+      let pdfProviderId: string | undefined;
+      let pdfProviderConfig: { apiKey?: string; baseUrl?: string } | undefined;
+
+      if (form.pdfFile) {
+        pdfStorageKey = await storePdfBlob(form.pdfFile);
+        pdfFileName = form.pdfFile.name;
+
+        const settings = useSettingsStore.getState();
+        pdfProviderId = settings.pdfProviderId;
+        const providerCfg = settings.pdfProvidersConfig?.[settings.pdfProviderId];
+        if (providerCfg) {
+          pdfProviderConfig = {
+            apiKey: providerCfg.apiKey,
+            baseUrl: providerCfg.baseUrl,
+          };
+        }
+      }
+
+      // Fetch organization details if selected
+      let organization: { id: string; name: string; phone: string } | undefined = undefined;
+      if (selectedOrganization) {
+        try {
+          const orgRes = await fetch(`/api/organizations/${selectedOrganization.id}/branding`);
+          if (orgRes.ok) {
+            const orgData = await orgRes.json();
+            if (orgData.success) {
+              organization = {
+                id: orgData.organizationId,
+                name: orgData.organizationName,
+                phone: '', // Will be fetched later if needed
+              };
+
+              // Save to localStorage for future use
+              const saved = JSON.parse(localStorage.getItem('userOrganizations') || '[]');
+              if (!saved.find((o: Organization) => o.id === organization?.id)) {
+                saved.push({ id: organization.id, name: organization.name });
+                localStorage.setItem('userOrganizations', JSON.stringify(saved));
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch organization details:', error);
+        }
+      }
+
+      const sessionState = {
+        sessionId: nanoid(),
+        requirements,
+        pdfText: '',
+        pdfImages: [],
+        imageStorageIds: [],
+        pdfStorageKey,
+        pdfFileName,
+        pdfProviderId,
+        pdfProviderConfig,
+        sceneOutlines: null,
+        currentStep: 'generating' as const,
+        organizationId: selectedOrganization?.id,
+        organization,
+        clonedVoiceId: voiceId || undefined,
+      };
+      sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
+
+      router.push('/generation-preview');
+    } catch (err) {
+      log.error('Error preparing generation:', err);
+      setError(err instanceof Error ? err.message : t('upload.generateFailed'));
+    }
+  };
+
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return t('classroom.today');
+    if (diffDays === 1) return t('classroom.yesterday');
+    if (diffDays < 7) return `${diffDays} ${t('classroom.daysAgo')}`;
+    return date.toLocaleDateString();
+  };
+
+  const canGenerate = !!form.requirement.trim();
+
+  // Handle voice recording complete (audio uploaded and cloned)
+  const handleVoiceUploadComplete = async (voiceId: string, _fileName: string) => {
+    // VoiceRecorder component already handles the cloning process
+    // We just receive the final voiceId here
+    setVoiceId(voiceId);
+    toast.success('语音克隆成功！将在生成课程时使用此声音。');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (canGenerate) handleGenerate();
+    }
+  };
+
+  return (
+    <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden">
+      {/* ═══ Top-right pill (unchanged) ═══ */}
+      <div
+        ref={toolbarRef}
+        className="fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
+      >
+        {/* Language Selector */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              setLanguageOpen(!languageOpen);
+              setThemeOpen(false);
+            }}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
+          >
+            {locale === 'zh-CN' ? 'CN' : 'EN'}
+          </button>
+          {languageOpen && (
+            <div className="absolute top-full mt-2 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[120px]">
+              <button
+                onClick={() => {
+                  setLocale('zh-CN');
+                  setLanguageOpen(false);
+                }}
+                className={cn(
+                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
+                  locale === 'zh-CN' &&
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+                )}
+              >
+                简体中文
+              </button>
+              <button
+                onClick={() => {
+                  setLocale('en-US');
+                  setLanguageOpen(false);
+                }}
+                className={cn(
+                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
+                  locale === 'en-US' &&
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+                )}
+              >
+                English
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+
+        {/* Theme Selector */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              setThemeOpen(!themeOpen);
+              setLanguageOpen(false);
+            }}
+            className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
+          >
+            {theme === 'light' && <Sun className="w-4 h-4" />}
+            {theme === 'dark' && <Moon className="w-4 h-4" />}
+            {theme === 'system' && <Monitor className="w-4 h-4" />}
+          </button>
+          {themeOpen && (
+            <div className="absolute top-full mt-2 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[140px]">
+              <button
+                onClick={() => {
+                  setTheme('light');
+                  setThemeOpen(false);
+                }}
+                className={cn(
+                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
+                  theme === 'light' &&
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+                )}
+              >
+                <Sun className="w-4 h-4" />
+                {t('settings.themeOptions.light')}
+              </button>
+              <button
+                onClick={() => {
+                  setTheme('dark');
+                  setThemeOpen(false);
+                }}
+                className={cn(
+                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
+                  theme === 'dark' &&
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+                )}
+              >
+                <Moon className="w-4 h-4" />
+                {t('settings.themeOptions.dark')}
+              </button>
+              <button
+                onClick={() => {
+                  setTheme('system');
+                  setThemeOpen(false);
+                }}
+                className={cn(
+                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
+                  theme === 'system' &&
+                    'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+                )}
+              >
+                <Monitor className="w-4 h-4" />
+                {t('settings.themeOptions.system')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+
+        {/* Settings Button */}
+        <div className="relative">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className={cn(
+              'p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group',
+              needsSetup && 'animate-setup-glow',
+            )}
+          >
+            <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+          </button>
+          {needsSetup && (
+            <>
+              <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                <span className="animate-setup-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
+              </span>
+              <span className="animate-setup-float absolute top-full mt-2 right-0 whitespace-nowrap text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 px-2 py-0.5 rounded-full shadow-sm pointer-events-none">
+                {t('settings.setupNeeded')}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={(open) => {
+          setSettingsOpen(open);
+          if (!open) setSettingsSection(undefined);
+        }}
+        initialSection={settingsSection}
+      />
+
+      {/* ═══ Background Decor (Enhanced) ═══ */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"
+          style={{ animationDuration: '4s' }}
+        />
+        <div
+          className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"
+          style={{ animationDuration: '6s' }}
+        />
+        <div
+          className="absolute top-1/2 left-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl animate-pulse"
+          style={{ animationDuration: '5s' }}
+        />
+      </div>
+
+      {/* ═══ Hero section: split-screen layout ═══ */}
+      <div className="relative z-20 w-full max-w-7xl flex flex-col lg:flex-row items-center gap-12 lg:gap-16 mt-[5vh]">
+        {/* ── Left: Content ── */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          className="flex-1 w-full"
+        >
+          {/* Logo */}
+          <motion.img
+            src="/hz-logo.png"
+            alt="湖南弘知教育"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              delay: 0.1,
+              type: 'spring',
+              stiffness: 200,
+              damping: 20,
+            }}
+            className="h-12 md:h-16 mb-6 object-contain"
+          />
+
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 dark:text-white mb-4"
+          >
+            AI 驱动的智能
+            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              {' '}学习伙伴
+            </span>
+          </motion.h1>
+
+          {/* Subheadline */}
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-4"
+          >
+            湖南弘知教育科技有限公司
+          </motion.p>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="text-base text-gray-500 dark:text-gray-400 mb-8 max-w-2xl"
+          >
+            像专业老师一样,24小时随时辅导。已帮助 10,000+ 学生提高成绩,现在你也可以。
+          </motion.p>
+
+          {/* Trust Badges */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="flex flex-wrap items-center gap-6 mb-8"
+          >
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Shield className="w-4 h-4 text-green-600" />
+              <span>安全可靠</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Users className="w-4 h-4 text-blue-600" />
+              <span>10,000+ 用户</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Award className="w-4 h-4 text-amber-600" />
+              <span>专业认证</span>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* ── Right: Interactive Card ── */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.35 }}
+          className="flex-1 w-full max-w-xl"
+        >
+          <div className="w-full rounded-2xl border border-gray-200/60 dark:border-gray-700/60 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-xl shadow-gray-500/10 dark:shadow-black/20 transition-shadow focus-within:shadow-2xl focus-within:shadow-blue-500/[0.1]">
+            {/* ── Greeting + Profile + Agents ── */}
+            <div className="relative z-20 flex items-start justify-between">
+              <GreetingBar />
+              <div className="pr-3 pt-3.5 shrink-0">
+                <AgentBar />
+              </div>
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              ref={textareaRef}
+              placeholder={t('upload.requirementPlaceholder')}
+              className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px]"
+              value={form.requirement}
+              onChange={(e) => updateForm('requirement', e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={4}
+            />
+
+            {/* Organization selector */}
+            <div className="px-4 pb-2">
+              <OrganizationSelector
+                selectedOrganization={selectedOrganization}
+                onOrganizationChange={setSelectedOrganization}
+              />
+            </div>
+
+            {/* Voice cloning option */}
+            <div className="px-4 pb-2">
+              <button
+                type="button"
+                onClick={() => setVoiceCloningEnabled(!voiceCloningEnabled)}
+                className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                  voiceCloningEnabled
+                    ? 'bg-blue-600 border-blue-600'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}>
+                  {voiceId && <Check className="w-3 h-3 text-white" />}
+                </div>
+                <label className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex-1 text-left">
+                  使用自定义教师声音（语音克隆）
+                </label>
+                {voiceId && (
+                  <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    已选择
+                  </span>
+                )}
+              </button>
+
+              {voiceCloningEnabled && (
+                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  {voiceId ? (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-green-600 dark:text-green-400">
+                        ✓ 当前音色已选择，生成课程时将使用您的声音。
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setVoiceId(null)}
+                        className="text-xs text-gray-600 hover:text-gray-800 underline"
+                      >
+                        更换音色
+                      </button>
+                    </div>
+                  ) : showVoiceSelector ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          选择已保存的音色
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowVoiceSelector(false)}
+                          className="text-xs text-blue-600 hover:text-blue-700"
+                        >
+                          ← 返回
+                        </button>
+                      </div>
+                      <VoiceSelector
+                        selectedVoiceId={voiceId}
+                        onVoiceSelect={(id) => {
+                          setVoiceId(id);
+                          if (id) {
+                            toast.success('音色已选择');
+                          }
+                        }}
+                        onNewVoice={() => setShowVoiceSelector(false)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        选择克隆方式：
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {/* VoiceRecorder已显示在下方 */}
+}
+                          className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors opacity-50 cursor-not-allowed"
+                          disabled
+                        >
+                          克隆新音色（下方）
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowVoiceSelector(true)}
+                          className="flex-1 py-2 px-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm transition-colors"
+                        >
+                          选择已保存音色
+                        </button>
+                      </div>
+                      <div className="border-t border-gray-300 dark:border-gray-600 pt-3">
+                        <VoiceRecorder
+                          onUploadComplete={handleVoiceUploadComplete}
+                          maxDuration={3}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Toolbar row */}
+            <div className="px-3 pb-3 flex items-end gap-2">
+              <div className="flex-1 min-w-0">
+                <GenerationToolbar
+                  language={form.language}
+                  onLanguageChange={(lang) => updateForm('language', lang)}
+                  webSearch={form.webSearch}
+                  onWebSearchChange={(v) => updateForm('webSearch', v)}
+                  onSettingsOpen={(section) => {
+                    setSettingsSection(section);
+                    setSettingsOpen(true);
+                  }}
+                  pdfFile={form.pdfFile}
+                  onPdfFileChange={(f) => updateForm('pdfFile', f)}
+                  onPdfError={setError}
+                />
+              </div>
+
+              {/* Voice input */}
+              <SpeechButton
+                size="md"
+                onTranscription={(text) => {
+                  setForm((prev) => {
+                    const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
+                    updateRequirementCache(next);
+                    return { ...prev, requirement: next };
+                  });
+                }}
+              />
+
+              {/* Send button */}
+              <button
+                onClick={handleGenerate}
+                disabled={!canGenerate}
+                className={cn(
+                  'shrink-0 h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
+                  canGenerate
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90 shadow-sm cursor-pointer'
+                    : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
+                )}
+              >
+                <span className="text-xs font-medium">{t('toolbar.enterClassroom')}</span>
+                <ArrowUp className="size-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* ── Error ── */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 w-full p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
+              >
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+
+      {/* ═══ Features Section (Bento Grid) ═══ */}
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="relative z-10 mt-20 w-full max-w-7xl"
+      >
+        <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
+          为什么选择我们
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Feature 1 */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
+              <Sparkles className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              AI 智能讲解
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              深入分析题目,提供个性化讲解方案,让你真正理解知识点
+            </p>
+          </motion.div>
+
+          {/* Feature 2 */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
+              <GraduationCap className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              专业教师团队
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              经验丰富的教师团队,为你提供高质量的教学内容和辅导
+            </p>
+          </motion.div>
+
+          {/* Feature 3 */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
+              <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              学习进度追踪
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              详细的学习数据分析,帮助你了解自己的进步和需要改进的地方
+            </p>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* ═══ Recent classrooms — collapsible ═══ */}
+      {classrooms.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.7 }}
+          className="relative z-10 mt-20 w-full max-w-7xl flex flex-col items-center"
+        >
+          {/* Trigger — divider-line with centered text */}
+          <button
+            onClick={() => {
+              const next = !recentOpen;
+              setRecentOpen(next);
+              try {
+                localStorage.setItem(RECENT_OPEN_STORAGE_KEY, String(next));
+              } catch {
+                /* ignore */
+              }
+            }}
+            className="group w-full flex items-center gap-4 py-2 cursor-pointer"
+          >
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700 group-hover:bg-gray-300 dark:group-hover:bg-gray-600 transition-colors" />
+            <span className="shrink-0 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors select-none">
+              <Clock className="size-4" />
+              {t('classroom.recentClassrooms')}
+              <span className="text-xs tabular-nums opacity-60">{classrooms.length}</span>
+              <motion.div
+                animate={{ rotate: recentOpen ? 180 : 0 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+              >
+                <ChevronDown className="size-4" />
+              </motion.div>
+            </span>
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700 group-hover:bg-gray-300 dark:group-hover:bg-gray-600 transition-colors" />
+          </button>
+
+          {/* Expandable content */}
+          <AnimatePresence>
+            {recentOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                className="w-full overflow-hidden"
+              >
+                <div className="pt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8">
+                  {classrooms.map((classroom, i) => (
+                    <motion.div
+                      key={classroom.id}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        delay: i * 0.04,
+                        duration: 0.35,
+                        ease: 'easeOut',
+                      }}
+                    >
+                      <ClassroomCard
+                        classroom={classroom}
+                        slide={thumbnails[classroom.id]}
+                        formatDate={formatDate}
+                        onDelete={handleDelete}
+                        confirmingDelete={pendingDeleteId === classroom.id}
+                        onConfirmDelete={() => confirmDelete(classroom.id)}
+                        onCancelDelete={() => setPendingDeleteId(null)}
+                        onClick={() => router.push(`/classroom/${classroom.id}`)}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
+      {/* Footer — flows with content, at the very end */}
+      <div className="mt-auto pt-12 pb-4 text-center text-xs text-gray-400 dark:text-gray-600">
+        © 2026 湖南弘知教育科技有限公司
+      </div>
+    </div>
+  );
+}
+
+// ─── Greeting Bar — avatar + "Hi, Name", click to edit in-place ────
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+
+function isCustomAvatar(src: string) {
+  return src.startsWith('data:');
+}
+
+function GreetingBar() {
+  const { t } = useI18n();
+  const avatar = useUserProfileStore((s) => s.avatar);
+  const nickname = useUserProfileStore((s) => s.nickname);
+  const bio = useUserProfileStore((s) => s.bio);
+  const setAvatar = useUserProfileStore((s) => s.setAvatar);
+  const setNickname = useUserProfileStore((s) => s.setNickname);
+  const setBio = useUserProfileStore((s) => s.setBio);
+
+  const [open, setOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const displayName = nickname || t('profile.defaultNickname');
+
+  // Click-outside to collapse
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setEditingName(false);
+        setAvatarPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const startEditName = () => {
+    setNameDraft(nickname);
+    setEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  };
+
+  const commitName = () => {
+    setNickname(nameDraft.trim());
+    setEditingName(false);
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_AVATAR_SIZE) {
+      toast.error(t('profile.fileTooLarge'));
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error(t('profile.invalidFileType'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d')!;
+        const scale = Math.max(128 / img.width, 128 / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (128 - w) / 2, (128 - h) / 2, w, h);
+        setAvatar(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  return (
+    <div ref={containerRef} className="relative pl-4 pr-2 pt-3.5 pb-1 w-auto">
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAvatarUpload}
+      />
+
+      {/* ── Collapsed pill (always in flow) ── */}
+      {!open && (
+        <div
+          className="flex items-center gap-2.5 cursor-pointer transition-all duration-200 group rounded-full px-2.5 py-1.5 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.97]"
+          onClick={() => setOpen(true)}
+        >
+          <div className="shrink-0 relative">
+            <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-gray-200 dark:ring-gray-700 group-hover:ring-blue-400 dark:group-hover:ring-blue-500 transition-all duration-300">
+              <img src={avatar} alt="" className="size-full object-cover" />
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity">
+              <Pencil className="size-[7px] text-gray-500 dark:text-gray-400" />
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="leading-none select-none flex items-center gap-1">
+                  <span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors">
+                      {t('home.greeting')}
+                    </span>
+                    <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">
+                      {displayName}
+                    </span>
+                  </span>
+                  <ChevronDown className="size-3 text-gray-400 dark:text-gray-600 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={4}>
+                {t('profile.editTooltip')}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      )}
+
+      {/* ── Expanded panel (absolute, floating) ── */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+            className="absolute left-4 top-3.5 z-50 w-64"
+          >
+            <div className="rounded-2xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm ring-1 ring-gray-200/50 dark:ring-gray-700/50 shadow-lg px-2.5 py-2">
+              {/* ── Row: avatar + name ── */}
+              <div
+                className="flex items-center gap-2.5 cursor-pointer transition-all duration-200"
+                onClick={() => {
+                  setOpen(false);
+                  setEditingName(false);
+                  setAvatarPickerOpen(false);
+                }}
+              >
+                {/* Avatar */}
+                <div
+                  className="shrink-0 relative cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAvatarPickerOpen(!avatarPickerOpen);
+                  }}
+                >
+                  <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-blue-400 dark:ring-blue-500 transition-all duration-300">
+                    <img src={avatar} alt="" className="size-full object-cover" />
+                  </div>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'size-2 text-gray-500 dark:text-gray-400 transition-transform duration-200',
+                        avatarPickerOpen && 'rotate-180',
+                      )}
+                    />
+                  </motion.div>
+                </div>
+
+                {/* Text */}
+                <div className="flex-1 min-w-0">
+                  {editingName ? (
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        ref={nameInputRef}
+                        value={nameDraft}
+                        onChange={(e) => setNameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitName();
+                          if (e.key === 'Escape') {
+                            setEditingName(false);
+                          }
+                        }}
+                        onBlur={commitName}
+                        maxLength={20}
+                        placeholder={t('profile.defaultNickname')}
+                        className="flex-1 min-w-0 h-6 bg-transparent border-b border-gray-300 dark:border-gray-600 text-[13px] font-semibold text-gray-900 dark:text-gray-100 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                      />
+                      <button
+                        onClick={commitName}
+                        className="shrink-0 size-5 rounded flex items-center justify-center text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                      >
+                        <Check className="size-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditName();
+                      }}
+                      className="group/name inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 group-hover/name:text-gray-900 dark:group-hover/name:text-gray-100 transition-colors">
+                        {displayName}
+                      </span>
+                      <Pencil className="size-2.5 text-gray-400 dark:text-gray-600 opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                    </span>
+                  )}
+                </div>
+
+                {/* Collapse arrow */}
+                <motion.div
+                  initial={{ opacity: 0, y: -2 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="shrink-0 size-6 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <ChevronUp className="size-3.5 text-gray-400 dark:text-gray-600" />
+                </motion.div>
+              </div>
+
+              {/* ── Expandable content ── */}
+              <div className="pt-2" onClick={(e) => e.stopPropagation()}>
+                {/* Avatar picker */}
+                <AnimatePresence>
+                  {avatarPickerOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.15, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="p-1 pb-2.5 flex items-center gap-1.5 flex-wrap">
+                        {AVATAR_OPTIONS.map((url) => (
+                          <button
+                            key={url}
+                            onClick={() => setAvatar(url)}
+                            className={cn(
+                              'size-7 rounded-full overflow-hidden bg-gray-50 dark:bg-gray-800 cursor-pointer transition-all duration-150',
+                              'hover:scale-110 active:scale-95',
+                              avatar === url
+                                ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-offset-0'
+                                : 'hover:ring-1 hover:ring-gray-300 dark:hover:ring-gray-600',
+                            )}
+                          >
+                            <img src={url} alt="" className="size-full" />
+                          </button>
+                        ))}
+                        <label
+                          className={cn(
+                            'size-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 border border-dashed',
+                            'hover:scale-110 active:scale-95',
+                            isCustomAvatar(avatar)
+                              ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-offset-0 border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30'
+                              : 'border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-600 hover:border-gray-400 dark:hover:border-gray-500',
+                          )}
+                          onClick={() => avatarInputRef.current?.click()}
+                          title={t('profile.uploadAvatar')}
+                        >
+                          <ImagePlus className="size-3" />
+                        </label>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Bio */}
+                <UITextarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder={t('profile.bioPlaceholder')}
+                  maxLength={200}
+                  rows={2}
+                  className="resize-none border-gray-200 dark:border-gray-700 bg-transparent min-h-[72px] !text-[13px] !leading-relaxed placeholder:!text-[11px] placeholder:!leading-relaxed focus-visible:ring-1 focus-visible:ring-blue-400 dark:focus-visible:ring-blue-500"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Classroom Card — clean, minimal style ──────────────────────
+function ClassroomCard({
+  classroom,
+  slide,
+  formatDate,
+  onDelete,
+  confirmingDelete,
+  onConfirmDelete,
+  onCancelDelete,
+  onClick,
+}: {
+  classroom: StageListItem;
+  slide?: Slide;
+  formatDate: (ts: number) => string;
+  onDelete: (id: string, e: React.MouseEvent) => void;
+  confirmingDelete: boolean;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+  onClick: () => void;
+}) {
+  const { t } = useI18n();
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const [thumbWidth, setThumbWidth] = useState(0);
+
+  useEffect(() => {
+    const el = thumbRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setThumbWidth(Math.round(entry.contentRect.width));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div className="group cursor-pointer" onClick={confirmingDelete ? undefined : onClick}>
+      {/* Thumbnail — large radius, no border, subtle bg */}
+      <div
+        ref={thumbRef}
+        className="relative w-full aspect-[16/9] rounded-2xl bg-gray-100 dark:bg-slate-800/80 overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]"
+      >
+        {slide && thumbWidth > 0 ? (
+          <ThumbnailSlide
+            slide={slide}
+            size={thumbWidth}
+            viewportSize={slide.viewportSize ?? 1000}
+            viewportRatio={slide.viewportRatio ?? 0.5625}
+          />
+        ) : !slide ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="size-12 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center">
+              <FileText className="size-6 text-blue-500/50" />
+            </div>
+          </div>
+        ) : null}
+
+        {/* Delete — top-right, only on hover */}
+        <AnimatePresence>
+          {!confirmingDelete && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute top-2 right-2 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-red-500/80 text-white hover:text-white backdrop-blur-sm rounded-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(classroom.id, e);
+                }}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Inline delete confirmation overlay */}
+        <AnimatePresence>
+          {confirmingDelete && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/50 backdrop-blur-[6px]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="text-[13px] font-medium text-white/90">
+                {t('classroom.deleteConfirmTitle')}?
+              </span>
+              <div className="flex gap-2">
+                <button
+                  className="px-3.5 py-1 rounded-lg text-[12px] font-medium bg-white/15 text-white/80 hover:bg-white/25 backdrop-blur-sm transition-colors"
+                  onClick={onCancelDelete}
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  className="px-3.5 py-1 rounded-lg text-[12px] font-medium bg-red-500/90 text-white hover:bg-red-500 transition-colors"
+                  onClick={onConfirmDelete}
+                >
+                  {t('classroom.delete')}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Info — outside the thumbnail */}
+      <div className="mt-2.5 px-1 flex items-center gap-2">
+        <span className="shrink-0 inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
+          {classroom.sceneCount} {t('classroom.slides')} · {formatDate(classroom.updatedAt)}
+        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <p className="font-medium text-[15px] truncate text-gray-900 dark:text-gray-100 min-w-0">
+              {classroom.name}
+            </p>
+          </TooltipTrigger>
+          <TooltipContent
+            side="bottom"
+            sideOffset={4}
+            className="!max-w-[min(90vw,32rem)] break-words whitespace-normal"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="break-all">{classroom.name}</span>
+              <button
+                className="shrink-0 p-0.5 rounded hover:bg-gray-200/50 dark:hover:bg-gray-700/50 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(classroom.name);
+                  toast.success(t('classroom.nameCopied'));
+                }}
+              >
+                <Copy className="size-3 opacity-60" />
+              </button>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
+
+export default function Page() {
+  return <HomePage />;
+}

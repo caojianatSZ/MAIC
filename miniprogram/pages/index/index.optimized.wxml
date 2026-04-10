@@ -1,0 +1,158 @@
+<!--pages/index/index.wxml-->
+<view class="container-no-padding">
+  <!-- 品牌头部 -->
+  <view class="brand-header">
+    <view class="brand-content">
+      <view class="brand-logo">
+        <image src="/assets/images/hz-logo.png" class="logo-image" mode="aspectFit" />
+      </view>
+      <view class="brand-text">
+        <text class="brand-title">湖南弘知教育</text>
+        <text class="brand-subtitle">AI 驱动的智能学习平台</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 主要内容区 -->
+  <view class="content-wrapper">
+    <!-- 快速入口卡片 -->
+    <view class="quick-actions">
+      <!-- 拍照输入 -->
+      <view class="action-card primary" bindtap="onTakePhoto" hover-class="action-card-hover">
+        <view class="action-icon">
+          <image src="/assets/icons/camera.svg" class="icon-svg" />
+        </view>
+        <view class="action-content">
+          <text class="action-title">拍照解题</text>
+          <text class="action-desc">拍照识别题目</text>
+        </view>
+        <view class="action-arrow">
+          <image src="/assets/icons/chevron-right.svg" class="arrow-icon" />
+        </view>
+      </view>
+
+      <!-- 手动输入 -->
+      <view class="action-card secondary" bindtap="onManualInput" hover-class="action-card-hover">
+        <view class="action-icon">
+          <image src="/assets/icons/edit.svg" class="icon-svg" />
+        </view>
+        <view class="action-content">
+          <text class="action-title">手动输入</text>
+          <text class="action-desc">输入题目内容</text>
+        </view>
+        <view class="action-arrow">
+          <image src="/assets/icons/chevron-right.svg" class="arrow-icon" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 输入区域 -->
+    <view class="card" wx:if="{{showInput}}">
+      <view class="input-header">
+        <view class="input-title-row">
+          <text class="section-title">题目内容</text>
+          <view class="badge badge-primary">
+            <text>最多1000字</text>
+          </view>
+        </view>
+        <view class="char-count">
+          <text class="{{questionText.length > 800 ? 'text-warning' : ''}}">{{questionText.length}}/1000</text>
+        </view>
+      </view>
+
+      <textarea
+        class="modern-textarea"
+        placeholder="在这里输入或粘贴你的题目..."
+        placeholder-class="textarea-placeholder"
+        value="{{questionText}}"
+        bindinput="onInputChange"
+        maxlength="1000"
+        auto-height
+        adjust-position
+      />
+
+      <!-- 快捷操作 -->
+      <view class="quick-actions-row" wx:if="{{questionText.length > 0}}">
+        <view class="quick-btn" bindtap="onClearInput">
+          <image src="/assets/icons/x.svg" class="quick-btn-icon" />
+          <text class="quick-btn-text">清空</text>
+        </view>
+        <view class="quick-btn" bindtap="onPaste">
+          <image src="/assets/icons/copy.svg" class="quick-btn-icon" />
+          <text class="quick-btn-text">粘贴</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 提交按钮 -->
+    <view class="submit-wrapper" wx:if="{{showInput}}">
+      <button
+        class="submit-btn {{questionText.length > 0 ? 'active' : 'disabled'}}"
+        bindtap="onSubmit"
+        disabled="{{questionText.length === 0}}"
+      >
+        <image src="/assets/icons/sparkles.svg" class="submit-btn-icon" wx:if="{{questionText.length > 0}}" />
+        <text class="submit-btn-text">{{questionText.length > 0 ? '开始辅导' : '请输入题目'}}</text>
+      </button>
+    </view>
+
+    <!-- 功能介绍 -->
+    <view class="features-section">
+      <text class="section-title">为什么选择我们</text>
+
+      <view class="feature-list">
+        <view class="feature-item">
+          <view class="feature-icon">
+            <image src="/assets/icons/target.svg" class="feature-icon-svg" />
+          </view>
+          <view class="feature-content">
+            <text class="feature-title">精准讲解</text>
+            <text class="feature-desc">AI智能分析,深入浅出</text>
+          </view>
+        </view>
+
+        <view class="feature-item">
+          <view class="feature-icon">
+            <image src="/assets/icons/headphones.svg" class="feature-icon-svg" />
+          </view>
+          <view class="feature-content">
+            <text class="feature-title">语音辅导</text>
+            <text class="feature-desc">专业老师语音讲解</text>
+          </view>
+        </view>
+
+        <view class="feature-item">
+          <view class="feature-icon">
+            <image src="/assets/icons/book.svg" class="feature-icon-svg" />
+          </view>
+          <view class="feature-content">
+            <text class="feature-title">举一反三</text>
+            <text class="feature-desc">配套练习巩固知识</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 信任徽章 -->
+    <view class="trust-badges">
+      <view class="badge-item">
+        <image src="/assets/icons/shield.svg" class="badge-icon" />
+        <text class="badge-text">安全可靠</text>
+      </view>
+      <view class="badge-item">
+        <image src="/assets/icons/users.svg" class="badge-icon" />
+        <text class="badge-text">10,000+ 用户</text>
+      </view>
+      <view class="badge-item">
+        <image src="/assets/icons/award.svg" class="badge-icon" />
+        <text class="badge-text">专业认证</text>
+      </view>
+    </view>
+
+    <!-- 底部提示 -->
+    <view class="bottom-tip">
+      <text class="tip-text">遇到问题?</text>
+      <text class="tip-link">查看帮助</text>
+    </view>
+  </view>
+</view>
