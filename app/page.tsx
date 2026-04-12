@@ -579,7 +579,7 @@ function HomePage() {
             transition={{ delay: 0.2 }}
             className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 dark:text-white mb-4"
           >
-            AI 驱动的智能
+            弘知 AI 驱动的智能
             <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               {' '}学习伙伴
             </span>
