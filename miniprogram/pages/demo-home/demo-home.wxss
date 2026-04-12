@@ -1,7 +1,7 @@
 /* pages/demo-home/demo-home.wxss */
 .container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #3B82F6 0%, #6366F1 100%);
   padding: 48rpx 32rpx;
   box-sizing: border-box;
 }
@@ -10,6 +10,22 @@
 .header {
   text-align: center;
   margin-bottom: 48rpx;
+}
+
+.logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 24rpx;
+  padding: 16rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20rpx;
+  backdrop-filter: blur(10rpx);
+}
+
+.logo-image {
+  width: 280rpx;
+  height: 112rpx;
 }
 
 .title {

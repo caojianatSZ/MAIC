@@ -2,8 +2,11 @@
 <view class="container">
   <!-- 顶部标题区 -->
   <view class="header">
-    <text class="title">OpenMAIC</text>
-    <text class="subtitle">AI自适应学习，精准提升</text>
+    <view class="logo-container">
+      <image src="/images/hz-logo-clean.png" class="logo-image" mode="aspectFit" />
+    </view>
+    <text class="title">湖南弘知教育</text>
+    <text class="subtitle">AI 驱动的智能学习平台</text>
   </view>
 
   <!-- EduKG技术背书区 -->

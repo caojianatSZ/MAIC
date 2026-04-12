@@ -30,19 +30,19 @@
 }
 
 .brand-logo {
-  width: 96rpx;
-  height: 96rpx;
+  width: 160rpx;
+  height: 80rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 24rpx;
+  border-radius: 20rpx;
   backdrop-filter: blur(10rpx);
 }
 
 .logo-image {
-  width: 64rpx;
-  height: 64rpx;
+  width: 140rpx;
+  height: 56rpx;
 }
 
 .brand-text {

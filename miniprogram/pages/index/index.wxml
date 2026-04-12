@@ -4,7 +4,7 @@
   <view class="brand-header">
     <view class="brand-content">
       <view class="brand-logo">
-        <image src="/assets/images/hz-logo.png" class="logo-image" mode="aspectFit" />
+        <image src="/images/hz-logo-clean.png" class="logo-image" mode="aspectFit" />
       </view>
       <view class="brand-text">
         <text class="brand-title">湖南弘知教育</text>
