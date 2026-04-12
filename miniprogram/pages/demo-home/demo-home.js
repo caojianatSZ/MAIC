@@ -1,4 +1,6 @@
 // pages/demo-home/demo-home.js
+const { getEnvConfig } = require('../../config/env.js')
+
 Page({
   /**
    * 页面的初始数据
@@ -10,15 +12,7 @@ Page({
    */
   onLoad() {
     console.log('Demo首页加载')
-
-    // 检查登录状态
-    const app = getApp()
-    if (app.isLoggedIn()) {
-      // 已登录，跳转到正常首页
-      wx.switchTab({
-        url: '/pages/index/index'
-      })
-    }
+    // 不再强制登录检查，允许所有用户使用
   },
 
   /**
@@ -81,8 +75,8 @@ Page({
    * 显示课程主题选择
    */
   showCourseTopics() {
-    const app = getApp()
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
+    const envConfig = getEnvConfig()
+    const baseUrl = envConfig.baseUrl
 
     wx.showActionSheet({
       itemList: ['配方法求顶点', '二次函数图像', '二次函数应用题'],
@@ -103,8 +97,14 @@ Page({
       mask: true
     })
 
+    const envConfig = getEnvConfig()
+    const apiUrl = `${envConfig.baseUrl}/api/demo/generate-course-sync`
+
+    console.log('调用API:', apiUrl)
+    console.log('环境配置:', envConfig)
+
     wx.request({
-      url: `${baseUrl}/api/demo/generate-course-sync`,
+      url: apiUrl,
       method: 'POST',
       data: {
         topic: topic,
