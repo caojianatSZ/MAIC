@@ -16,7 +16,7 @@ const ENV_CONFIG = {
 
   // 体验环境
   staging: {
-    baseUrl: 'https://staging-api.yourdomain.com',
+    baseUrl: 'https://corp0.hz-college.com',
     apiPath: 'api',
     enableDebug: true,
     logLevel: 'info',
@@ -25,7 +25,7 @@ const ENV_CONFIG = {
 
   // 生产环境
   production: {
-    baseUrl: 'https://corp0.hz-college.com', // OpenMAIC生产环境API地址
+    baseUrl: 'https://corp0.hz-college.com',
     apiPath: 'api',
     enableDebug: false,
     logLevel: 'error',
