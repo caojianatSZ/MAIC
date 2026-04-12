@@ -211,6 +211,7 @@ export async function generateTTSForClassroom(
   await ensureDir(audioDir);
 
   // Resolve TTS provider (exclude browser-native-tts)
+  // Priority: GLM TTS (Chinese) > Qwen TTS (Chinese) > Other TTS providers
   const ttsProviderIds = Object.keys(getServerTTSProviders()).filter(
     (id) => id !== 'browser-native-tts',
   );
@@ -219,7 +220,18 @@ export async function generateTTSForClassroom(
     return;
   }
 
-  const providerId = ttsProviderIds[0] as TTSProviderId;
+  // Prioritize Chinese TTS providers: glm-tts, qwen-tts
+  const chineseTTSProviders = ['glm-tts', 'qwen-tts'];
+  let providerId = ttsProviderIds[0] as TTSProviderId;
+
+  // Find the first available Chinese TTS provider
+  for (const chineseProvider of chineseTTSProviders) {
+    if (ttsProviderIds.includes(chineseProvider as TTSProviderId)) {
+      providerId = chineseProvider as TTSProviderId;
+      log.info(`🇨🇳 Using Chinese TTS provider: ${providerId}`);
+      break;
+    }
+  }
   const apiKey = resolveTTSApiKey(providerId);
   if (!apiKey) {
     log.warn(`No API key for TTS provider "${providerId}", skipping TTS generation`);
