@@ -53,8 +53,6 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
-import { OrganizationSelector } from '@/components/organization-selector';
-import type { Organization } from '@/components/organization-selector';
 import VoiceRecorder from '@/components/voice-recorder';
 import VoiceSelector from '@/components/voice-selector';
 
@@ -90,7 +88,6 @@ function HomePage() {
   const [settingsSection, setSettingsSection] = useState<
     import('@/lib/types/settings').SettingsSection | undefined
   >(undefined);
-  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
 
   // Voice cloning state
   const [voiceCloningEnabled, setVoiceCloningEnabled] = useState(false);
@@ -302,33 +299,6 @@ function HomePage() {
         }
       }
 
-      // Fetch organization details if selected
-      let organization: { id: string; name: string; phone: string } | undefined = undefined;
-      if (selectedOrganization) {
-        try {
-          const orgRes = await fetch(`/api/organizations/${selectedOrganization.id}/branding`);
-          if (orgRes.ok) {
-            const orgData = await orgRes.json();
-            if (orgData.success) {
-              organization = {
-                id: orgData.organizationId,
-                name: orgData.organizationName,
-                phone: '', // Will be fetched later if needed
-              };
-
-              // Save to localStorage for future use
-              const saved = JSON.parse(localStorage.getItem('userOrganizations') || '[]');
-              if (!saved.find((o: Organization) => o.id === organization?.id)) {
-                saved.push({ id: organization.id, name: organization.name });
-                localStorage.setItem('userOrganizations', JSON.stringify(saved));
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Failed to fetch organization details:', error);
-        }
-      }
-
       const sessionState = {
         sessionId: nanoid(),
         requirements,
@@ -341,8 +311,6 @@ function HomePage() {
         pdfProviderConfig,
         sceneOutlines: null,
         currentStep: 'generating' as const,
-        organizationId: selectedOrganization?.id,
-        organization,
         enableTTS: form.enableTTS,
         clonedVoiceId: voiceId || undefined,
       };
@@ -652,14 +620,6 @@ function HomePage() {
               onKeyDown={handleKeyDown}
               rows={4}
             />
-
-            {/* Organization selector */}
-            <div className="px-4 pb-2">
-              <OrganizationSelector
-                selectedOrganization={selectedOrganization}
-                onOrganizationChange={setSelectedOrganization}
-              />
-            </div>
 
             {/* Voice cloning option */}
             <div className="px-4 pb-2">
