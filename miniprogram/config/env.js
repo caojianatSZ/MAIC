@@ -7,7 +7,7 @@
 const ENV_CONFIG = {
   // 开发环境
   development: {
-    baseUrl: 'http://localhost:3000',
+    baseUrl: 'https://corp0.hz-college.com',
     apiPath: 'api',
     enableDebug: true,
     logLevel: 'debug',
