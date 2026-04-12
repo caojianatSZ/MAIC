@@ -1,4 +1,4 @@
-import { pg } from 'pg';
+import { Client } from 'pg';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -15,7 +15,7 @@ async function createOrganization() {
   console.log('🏢 正在创建湖南弘知教育科技有限公司机构...\n');
 
   // 创建数据库连接
-  const client = new pg(dbConfig);
+  const client = new Client(dbConfig);
 
   try {
     // 连接数据库

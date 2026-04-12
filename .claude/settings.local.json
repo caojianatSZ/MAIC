@@ -59,7 +59,16 @@
       "Bash(echo '=== docker-compose.yml uploaded ===' \")",
       "Bash(scp:*)",
       "Bash(chmod +x /Users/caojian/Projects/OpenMAIC/scripts/voice-recorder-test.sh)",
-      "Bash(/Users/caojian/Projects/OpenMAIC/scripts/voice-recorder-test.sh)"
+      "Bash(/Users/caojian/Projects/OpenMAIC/scripts/voice-recorder-test.sh)",
+      "Bash(python3:*)",
+      "Bash(find /Users/caojian/Projects/OpenMAIC/miniprogram/assets -type f -name \"*.svg\" -exec ls -lh {})",
+      "Bash(find /Users/caojian/Projects/OpenMAIC/miniprogram/assets -type f -exec ls -lh {})",
+      "Bash(/Users/caojian/Projects/OpenMAIC/miniprogram/assets/icons/camera.svg:*)",
+      "Bash(/Users/caojian/Projects/OpenMAIC/miniprogram/assets/icons/chevron-right.svg:*)",
+      "Bash(/Users/caojian/Projects/OpenMAIC/miniprogram/assets/icons/edit.svg:*)",
+      "Bash(/Users/caojian/Projects/OpenMAIC/miniprogram/assets/icons/x.svg:*)",
+      "Bash(/Users/caojian/Projects/OpenMAIC/miniprogram/assets/icons/copy.svg:*)",
+      "Bash(git:*)"
     ]
   }
 }
