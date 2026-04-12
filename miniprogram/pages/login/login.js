@@ -59,7 +59,7 @@ Page({
   /**
    * 调用后端登录API
    */
-  callLoginAPI(code: string) {
+  callLoginAPI(code) {
     const app = getApp()
     const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
 
