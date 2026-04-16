@@ -198,21 +198,21 @@ async function performOCR(imageBase64: string): Promise<string> {
         'Authorization': `Bearer ${ZHIPU_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'glm-4v',
+        model: 'glm-4.6v-flash',
         stream: false,
         messages: [
           {
             role: 'user',
             content: [
               {
-                type: 'text',
-                text: prompt
-              },
-              {
                 type: 'image_url',
                 image_url: {
-                  url: imageBase64
+                  url: base64Data
                 }
+              },
+              {
+                type: 'text',
+                text: prompt
               }
             ]
           }
