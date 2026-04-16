@@ -166,13 +166,12 @@ async function performOCR(imageBase64: string): Promise<string> {
   }
 
   try {
-    // 提取Base64数据部分
-    const base64Data = imageBase64.split(',')[1];
-    if (!base64Data) {
-      throw new Error('无效的Base64图片格式');
-    }
+    // GLM-OCR需要带前缀的base64格式
+    // 如果没有前缀，添加默认的image/jpeg前缀
+    const fileData = imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
 
     // 限制图片大小，GLM-OCR支持单图≤10MB
+    const base64Data = imageBase64.split(',')[1] || imageBase64;
     const maxSize = 10 * 1024 * 1024;
     if (base64Data.length > maxSize) {
       throw new Error('图片太大，请使用小于10MB的图片');
@@ -189,9 +188,7 @@ async function performOCR(imageBase64: string): Promise<string> {
       },
       body: JSON.stringify({
         model: 'glm-ocr',
-        file: base64Data,
-        // 使用Markdown格式输出，保持表格和结构
-        output_format: 'markdown'
+        file: fileData
       })
     });
 
@@ -208,17 +205,10 @@ async function performOCR(imageBase64: string): Promise<string> {
       throw new Error(result.error.message || 'GLM-OCR识别失败');
     }
 
-    // GLM-OCR返回格式：{ result: { markdown: "..." } } 或直接返回文本
-    let content = result.result?.markdown || result.result?.text || result.content || result.data;
+    // GLM-OCR返回格式：{ result: { markdown: "..." } }
+    let content = result.result?.markdown || result.result?.text || result.data || result;
 
     if (!content) {
-      // 如果返回的是数组格式
-      if (Array.isArray(result)) {
-        content = result.map((item: any) => item.text || item.content || '').join('\n');
-      }
-    }
-
-    if (!content || typeof content !== 'string') {
       log.error('GLM-OCR返回格式异常', { result });
       throw new Error('GLM-OCR返回格式异常');
     }
