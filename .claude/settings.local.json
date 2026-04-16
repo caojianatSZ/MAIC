@@ -68,7 +68,14 @@
       "Bash(/Users/caojian/Projects/OpenMAIC/miniprogram/assets/icons/edit.svg:*)",
       "Bash(/Users/caojian/Projects/OpenMAIC/miniprogram/assets/icons/x.svg:*)",
       "Bash(/Users/caojian/Projects/OpenMAIC/miniprogram/assets/icons/copy.svg:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Read(//private/tmp/**)",
+      "Bash(unzip -q gstack-main.zip)",
+      "Bash(nslookup corp0.hz-college.com)",
+      "Bash(dig corp0.hz-college.com +short)",
+      "Bash(host corp0.hz-college.com)",
+      "Bash(nc -z -v -w 5 corp0.hz-college.com 443)",
+      "Bash(timeout 5 bash -c \"echo > /dev/tcp/corp0.hz-college.com/443\")"
     ]
   }
 }

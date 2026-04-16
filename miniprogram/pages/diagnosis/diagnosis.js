@@ -568,12 +568,14 @@ Page({
           if (res.statusCode === 200) {
             try {
               const data = JSON.parse(res.data)
-              if (data.success && data.data) {
-                resolve(data.data)
+              if (data.success) {
+                // 服务器返回的数据格式: { success: true, ocrText, questions, summary }
+                resolve(data)
               } else {
                 reject(new Error(data.error || '分析失败'))
               }
             } catch (e) {
+              console.error('解析响应失败:', e)
               reject(new Error('解析响应失败'))
             }
           } else {

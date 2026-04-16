@@ -155,60 +155,98 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 步骤1: OCR识别题目
+ * 步骤1: 使用GLM-4V多模态模型分析图片内容
+ * GLM-4V可以直接理解图片中的文字、图表、公式等
  */
-async function performOCR(imageSource: string): Promise<string> {
-  const ZHIPU_OCR_URL = 'https://open.bigmodel.cn/api/paas/v4/files/ocr';
+async function performOCR(imageBase64: string): Promise<string> {
   const ZHIPU_API_KEY = process.env.GLM_API_KEY;
 
   if (!ZHIPU_API_KEY) {
-    throw new Error('OCR服务未配置，请设置GLM_API_KEY');
+    throw new Error('GLM服务未配置，请设置GLM_API_KEY');
   }
 
   try {
-    // 如果是Base64，转换为文件
-    let imageBody: string | File;
-
-    if (imageSource.startsWith('data:image')) {
-      // 直接使用Base64
-      imageBody = imageSource;
-    } else {
-      // 如果是URL，先下载图片
-      const imageResponse = await fetch(imageSource);
-      if (!imageResponse.ok) {
-        throw new Error('图片下载失败');
-      }
-      const blob = await imageResponse.blob();
-      // 将Blob转换为Base64
-      imageBody = await blobToBase64(blob);
+    // 提取Base64数据部分
+    const base64Data = imageBase64.split(',')[1];
+    if (!base64Data) {
+      throw new Error('无效的Base64图片格式');
     }
 
-    // 准备FormData（智谱OCR需要multipart/form-data）
-    // 注意：这里需要将Base64转换为实际的文件上传
-    // 简化处理：直接调用 /api/ocr 接口
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const ocrResponse = await fetch(`${baseUrl}/api/ocr`, {
+    // 限制图片大小，避免超过API限制
+    const maxSize = 4 * 1024 * 1024; // 4MB
+    if (base64Data.length > maxSize) {
+      throw new Error('图片太大，请使用小于4MB的图片');
+    }
+
+    const prompt = `请仔细观察这张图片，识别并转录其中的所有内容。要求：
+
+1. **文字内容**：准确识别所有题目文字、选项、答案等
+2. **图表描述**：对于图片中的图表、图形、示意图等，用文字详细描述其内容
+   - 坐标轴：描述x轴、y轴代表的量及单位
+   - 曲线/直线：描述形状、趋势、关键点
+   - 示意图：描述物体位置、运动方向、标注信息等
+3. **数学公式**：用文字描述数学公式
+4. **保持结构**：按照图片中的排版组织内容，标明题目序号
+
+请以结构化的格式返回，便于后续分析。`;
+
+    // 智谱AI GLM-4V API调用 - 使用OpenAI兼容的多模态格式
+    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
       method: 'POST',
-      body: JSON.stringify({ text: imageBody }),
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ZHIPU_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'glm-4v',
+        stream: false,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: prompt
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imageBase64
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 4000,
+        top_p: 0.7
+      })
     });
 
-    if (!ocrResponse.ok) {
-      throw new Error('OCR请求失败');
+    if (!response.ok) {
+      const errorText = await response.text();
+      log.error('GLM-4V API错误', { status: response.status, error: errorText });
+      throw new Error(`GLM-4V请求失败: ${response.status}`);
     }
 
-    const ocrResult = await ocrResponse.json();
+    const result = await response.json();
 
-    if (!ocrResult.success) {
-      throw new Error(ocrResult.error || 'OCR识别失败');
+    if (result.error) {
+      log.error('GLM-4V返回错误', result.error);
+      throw new Error(result.error.message || 'GLM-4V识别失败');
     }
 
-    // 智谱OCR返回格式：{ data: { text: string, words_result: [...] } }
-    return ocrResult.data?.text || '';
+    const content = result.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('GLM-4V返回为空');
+    }
+
+    return content;
 
   } catch (error) {
-    log.error('OCR识别失败', error);
-    throw new Error('OCR识别失败，请检查图片是否清晰');
+    log.error('GLM-4V识别失败', error);
+    throw new Error('图片识别失败，请重试');
   }
 }
 
