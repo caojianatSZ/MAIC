@@ -205,11 +205,15 @@ async function performOCR(imageBase64: string): Promise<string> {
       throw new Error(result.error.message || 'GLM-OCR识别失败');
     }
 
-    // GLM-OCR返回格式：{ result: { markdown: "..." } }
-    let content = result.result?.markdown || result.result?.text || result.data || result;
+    // 记录原始返回结果用于调试
+    log.info('GLM-OCR原始返回', { type: typeof result, keys: Object.keys(result) });
 
-    if (!content) {
-      log.error('GLM-OCR返回格式异常', { result });
+    // GLM-OCR返回格式：{ md_results: "..." }
+    let content = result.md_results || result.result?.markdown || result.result?.text || result.markdown || result.text || result.data || result.content;
+
+    // 确保content是字符串
+    if (!content || typeof content !== 'string') {
+      log.error('GLM-OCR返回格式异常', { result, contentType: typeof content });
       throw new Error('GLM-OCR返回格式异常');
     }
 
