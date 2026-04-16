@@ -1,198 +1,178 @@
 <!--pages/profile/profile.wxml-->
 <view class="container-no-padding">
-  <!-- 顶部用户信息卡片 -->
+  <!-- 顶部家长信息卡片 -->
   <view class="profile-header">
     <view class="header-bg"></view>
 
     <view class="user-card-wrapper">
       <view class="user-card">
-        <view class="user-avatar-section" bindtap="onChangeAvatar">
+        <view class="user-avatar-section">
           <image
             class="user-avatar"
             src="{{userInfo.avatarUrl || '/images/default-avatar.png'}}"
             mode="aspectFill"
           />
-          <view class="avatar-badge">
-            <text class="badge-icon">📷</text>
-          </view>
         </view>
 
         <view class="user-info-section">
-          <text class="user-name">{{userInfo.nickName || '点击登录'}}</text>
+          <text class="user-name">{{userInfo.nickName || '家长'}}，你好</text>
           <view class="user-tags">
-            <view class="user-tag">
-              <text class="tag-icon">⭐</text>
-              <text class="tag-text">VIP用户</text>
+            <view class="user-tag parent-tag">
+              <text class="tag-icon">👨‍👩‍👧</text>
+              <text class="tag-text">家长</text>
             </view>
           </view>
         </view>
       </view>
     </view>
 
-    <!-- 快速统计 -->
-    <view class="quick-stats">
-      <view class="stat-item" bindtap="onViewHistory">
-        <text class="stat-value">{{stats.totalCount}}</text>
-        <text class="stat-label">总辅导</text>
+    <!-- 当前选择的孩子 -->
+    <view class="child-selector" bindtap="onSelectChild">
+      <view class="child-info">
+        <view class="child-avatar">
+          <image src="{{currentChild.avatar || '/images/default-child-avatar.png'}}" mode="aspectFill" class="child-img"/>
+        </view>
+        <view class="child-details">
+          <text class="child-name">{{currentChild.name || '添加孩子'}}</text>
+          <text class="child-grade">{{currentChild.grade || '设置孩子信息'}}</text>
+        </view>
       </view>
-      <view class="stat-divider"></view>
-      <view class="stat-item" bindtap="onViewToday">
-        <text class="stat-value">{{stats.todayCount}}</text>
-        <text class="stat-label">今日</text>
-      </view>
-      <view class="stat-divider"></view>
-      <view class="stat-item" bindtap="onViewWrong">
-        <text class="stat-value">{{stats.wrongCount || 0}}</text>
-        <text class="stat-label">错题</text>
+      <view class="selector-arrow">
+        <text class="arrow-icon">›</text>
       </view>
     </view>
   </view>
 
-  <!-- 学生画像内容 -->
+  <!-- 主内容区 -->
   <view class="content-wrapper">
-    <!-- 知识掌握雷达图 -->
+    <!-- 孩子学习档案 -->
     <view class="card">
       <view class="card-header">
-        <text class="section-title">📊 知识掌握雷达图</text>
-      </view>
-      <view class="radar-chart-container">
-        <view class="radar-placeholder">
-          <text class="placeholder-text">雷达图组件即将上线</text>
-          <text class="placeholder-sub">将展示知识掌握度可视化</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 我的成就 -->
-    <view class="card">
-      <view class="card-header">
-        <text class="section-title">🏆 我的成就</text>
-        <view class="more-btn" bindtap="onViewMoreAchievements">
-          <text class="more-text">查看全部</text>
-          <text class="more-arrow">›</text>
-        </view>
-      </view>
-
-      <view class="achievements-grid" wx:if="{{achievements.length > 0}}">
-        <achievement
-          wx:for="{{achievements.slice(0, 6)}}"
-          wx:key="id"
-          achievementId="{{item.id}}"
-          level="{{item.level}}"
-          name="{{item.name}}"
-          description="{{item.description}}"
-          progress="{{item.progress}}"
-          unlocked="{{item.unlocked}}"
-          unlockedAt="{{item.unlockedAt}}"
-          showLevel="{{true}}"
-          showInfo="{{false}}"
-          bind:tap="onAchievementTap"
-        ></achievement>
-      </view>
-
-      <view class="empty-achievements" wx:else>
-        <text class="empty-icon">🏆</text>
-        <text class="empty-text">开始学习，解锁你的第一个成就！</text>
-      </view>
-    </view>
-
-    <!-- 学习标签 -->
-    <view class="card">
-      <view class="card-header">
-        <text class="section-title">🎯 学习分析</text>
-      </view>
-
-      <view class="tags-section">
-        <view class="tag-group" wx:if="{{strongPoints.length > 0}}">
-          <text class="tag-group-title">强项</text>
-          <view class="tags-list">
-            <view class="tag-item strong" wx:for="{{strongPoints}}" wx:key="*this" wx:for-item="tag">
-              <text class="tag-text">{{tag}}</text>
-            </view>
-          </view>
-        </view>
-
-        <view class="tag-group" wx:if="{{weakPoints.length > 0}}">
-          <text class="tag-group-title">待提升</text>
-          <view class="tags-list">
-            <view class="tag-item weak" wx:for="{{weakPoints}}" wx:key="*this" wx:for-item="tag">
-              <text class="tag-text">{{tag}}</text>
-            </view>
-          </view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 学习统计 -->
-    <view class="card" wx:if="{{studentProfile && studentProfile.studyStats}}">
-      <view class="card-header">
-        <text class="section-title">📈 学习统计</text>
-      </view>
-
-      <view class="stats-grid">
-        <view class="stat-box">
-          <text class="stat-value">{{studentProfile.studyStats.totalStudyTime || 0}}</text>
-          <text class="stat-label">学习时长(分钟)</text>
-        </view>
-        <view class="stat-box">
-          <text class="stat-value">{{studentProfile.studyStats.questionsCompleted || 0}}</text>
-          <text class="stat-label">完成题目</text>
-        </view>
-        <view class="stat-box">
-          <text class="stat-value">{{studentProfile.studyStats.lessonsLearned || 0}}</text>
-          <text class="stat-label">学习课程</text>
-        </view>
-        <view class="stat-box">
-          <text class="stat-value">{{studentProfile.studyStats.currentStreak || 0}}</text>
-          <text class="stat-label">连续打卡(天)</text>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 主内容区（原有功能菜单） -->
-  <view class="content-wrapper">
-    <!-- 学习档案 -->
-    <view class="card">
-      <view class="card-header">
-        <text class="section-title">📚 学习档案</text>
+        <text class="section-title">📚 {{currentChild.name || '孩子'}}的学习档案</text>
         <view class="edit-btn" bindtap="onEditProfile">
           <text class="edit-text">编辑</text>
           <text class="edit-arrow">›</text>
         </view>
       </view>
 
-      <view class="profile-info" wx:if="{{profile.grade || profile.subjects}}">
-        <view class="info-row" wx:if="{{profile.grade}}">
+      <view class="profile-info" wx:if="{{childProfile.grade || childProfile.subjects}}">
+        <view class="info-row" wx:if="{{childProfile.grade}}">
           <text class="info-label">年级</text>
-          <text class="info-value">{{profile.grade}}</text>
+          <text class="info-value">{{childProfile.grade}}</text>
         </view>
-        <view class="info-row" wx:if="{{profile.subjects && profile.subjects.length > 0}}">
-          <text class="info-label">科目</text>
+        <view class="info-row" wx:if="{{childProfile.school}}">
+          <text class="info-label">学校</text>
+          <text class="info-value">{{childProfile.school}}</text>
+        </view>
+        <view class="info-row" wx:if="{{childProfile.subjects && childProfile.subjects.length > 0}}">
+          <text class="info-label">关注科目</text>
           <view class="subjects-tags">
-            <view class="subject-tag" wx:for="{{profile.subjects}}" wx:key="*this">
+            <view class="subject-tag" wx:for="{{childProfile.subjects}}" wx:key="*this">
               <text>{{item}}</text>
             </view>
           </view>
         </view>
+        <view class="info-row" wx:if="{{childProfile.goal}}">
+          <text class="info-label">学习目标</text>
+          <text class="info-value">{{childProfile.goal}}</text>
+        </view>
       </view>
 
       <view class="empty-profile" wx:else>
-        <text class="empty-text">还未设置学习档案</text>
+        <text class="empty-icon">📚</text>
+        <text class="empty-title">还未设置{{currentChild.name || '孩子'}}的学习档案</text>
+        <text class="empty-desc">设置档案后，可以更精准地跟踪学习进度</text>
         <view class="setup-btn" bindtap="onEditProfile">
           <text>立即设置</text>
         </view>
       </view>
     </view>
 
+    <!-- 学习进度概览 -->
+    <view class="card">
+      <view class="card-header">
+        <text class="section-title">📊 本周学习概览</text>
+        <view class="period-selector">
+          <text class="period-item {{period === 'week' ? 'active' : ''}}" bindtap="onPeriodChange" data-period="week">本周</text>
+          <text class="period-item {{period === 'month' ? 'active' : ''}}" bindtap="onPeriodChange" data-period="month">本月</text>
+        </view>
+      </view>
+
+      <view class="progress-overview">
+        <view class="overview-item">
+          <text class="overview-value">{{stats.weeklyCount || 0}}</text>
+          <text class="overview-label">完成课程</text>
+        </view>
+        <view class="overview-item">
+          <text class="overview-value">{{stats.studyMinutes || 0}}</text>
+          <text class="overview-label">学习分钟</text>
+        </view>
+        <view class="overview-item">
+          <text class="overview-value">{{stats.streakDays || 0}}</text>
+          <text class="overview-label">连续学习(天)</text>
+        </view>
+      </view>
+
+      <!-- 知识掌握进度 -->
+      <view class="mastery-section" wx:if="{{knowledgeData}}">
+        <view class="mastery-header">
+          <text class="mastery-title">知识掌握</text>
+          <text class="mastery-rate">{{knowledgeData.rate || 0}}%</text>
+        </view>
+        <view class="mastery-progress">
+          <view class="mastery-bar" style="width: {{knowledgeData.rate || 0}}%; background: {{knowledgeData.rate >= 80 ? '#10b981' : knowledgeData.rate >= 60 ? '#f59e0b' : '#ef4444'}}"></view>
+        </view>
+        <text class="mastery-tips" wx:if="{{knowledgeData.tips}}">
+          💡 {{knowledgeData.tips}}
+        </text>
+      </view>
+    </view>
+
+    <!-- 孩子成就 - 家长可分享 -->
+    <view class="card">
+      <view class="card-header">
+        <text class="section-title">🏆 {{currentChild.name || '孩子'}}的成就</text>
+        <view class="more-btn" bindtap="onViewAllAchievements">
+          <text class="more-text">全部</text>
+          <text class="more-arrow">›</text>
+        </view>
+      </view>
+
+      <view class="achievements-list" wx:if="{{achievements.length > 0}}">
+        <view class="achievement-item {{item.unlocked ? 'unlocked' : 'locked'}}" wx:for="{{achievements}}" wx:key="id">
+          <view class="achievement-icon">{{item.icon}}</view>
+          <view class="achievement-content">
+            <text class="achievement-name">{{item.name}}</text>
+            <text class="achievement-desc">{{item.description}}</text>
+            <view class="achievement-meta">
+              <text class="achievement-level">{{item.level}}</text>
+              <text class="achievement-time" wx:if="{{item.unlockedAt}}">{{item.unlockedAt}}</text>
+            </view>
+          </view>
+          <view class="achievement-actions" wx:if="{{item.unlocked}}">
+            <view class="share-btn" bindtap="onShareAchievement" data-id="{{item.id}}">
+              <text class="share-icon">📤</text>
+              <text class="share-text">分享</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="empty-achievements" wx:else>
+        <text class="empty-icon">🏆</text>
+        <text class="empty-text">{{currentChild.name || '孩子'}}还没有获得成就</text>
+        <text class="empty-desc">开始学习后，解锁第一个成就吧！</text>
+      </view>
+    </view>
+
     <!-- 功能菜单 -->
     <view class="card">
       <view class="menu-list">
-        <view class="menu-item" bindtap="onViewHistory" hover-class="menu-item-hover">
-          <view class="menu-icon">📖</view>
+        <view class="menu-item" bindtap="onViewProgress">
+          <view class="menu-icon">📊</view>
           <view class="menu-content">
-            <text class="menu-title">学习记录</text>
-            <text class="menu-desc">查看所有辅导记录</text>
+            <text class="menu-title">学习进度</text>
+            <text class="menu-desc">查看详细的学习数据</text>
           </view>
           <view class="menu-arrow">
             <text class="arrow-icon">›</text>
@@ -201,14 +181,14 @@
 
         <view class="menu-divider"></view>
 
-        <view class="menu-item" bindtap="onWrongQuestions" hover-class="menu-item-hover">
+        <view class="menu-item" bindtap="onViewWrongQuestions">
           <view class="menu-icon">❌</view>
           <view class="menu-content">
             <text class="menu-title">错题本</text>
-            <text class="menu-desc">巩固错题，举一反三</text>
+            <text class="menu-desc">需要重点练习的题目</text>
           </view>
-          <view class="menu-badge">
-            <text class="badge-count">{{stats.wrongCount || 0}}</text>
+          <view class="menu-badge" wx:if="{{stats.wrongCount > 0}}">
+            <text class="badge-count">{{stats.wrongCount}}</text>
           </view>
           <view class="menu-arrow">
             <text class="arrow-icon">›</text>
@@ -217,57 +197,164 @@
 
         <view class="menu-divider"></view>
 
-        <view class="menu-item" bindtap="onAchievements" hover-class="menu-item-hover">
-          <view class="menu-icon">🏆</view>
+        <view class="menu-item" bindtap="onViewReports">
+          <view class="menu-icon">📈</view>
           <view class="menu-content">
-            <text class="menu-title">学习成就</text>
-            <text class="menu-desc">查看你的学习进度</text>
+            <text class="menu-title">学习报告</text>
+            <text class="menu-desc">每周学习总结</text>
           </view>
           <view class="menu-arrow">
             <text class="arrow-icon">›</text>
           </view>
         </view>
       </view>
-    </view>
-
-    <!-- 其他功能 -->
-    <view class="card">
-      <view class="menu-list">
-        <view class="menu-item" bindtap="onAbout" hover-class="menu-item-hover">
-          <view class="menu-icon">ℹ️</view>
-          <text class="menu-text">关于我们</text>
-          <text class="menu-arrow">›</text>
-        </view>
-
-        <view class="menu-divider"></view>
-
-        <view class="menu-item" bindtap="onFeedback" hover-class="menu-item-hover">
-          <view class="menu-icon">💬</view>
-          <text class="menu-text">意见反馈</text>
-          <text class="menu-arrow">›</text>
-        </view>
-
-        <view class="menu-divider"></view>
-
-        <view class="menu-item" bindtap="onHelp" hover-class="menu-item-hover">
-          <view class="menu-icon">❓</view>
-          <text class="menu-text">使用帮助</text>
-          <text class="menu-arrow">›</text>
-        </view>
-
-        <view class="menu-divider"></view>
-
-        <view class="menu-item" bindtap="onSettings" hover-class="menu-item-hover">
-          <view class="menu-icon">⚙️</view>
-          <text class="menu-text">设置</text>
-          <text class="menu-arrow">›</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 底部版本信息 -->
-    <view class="footer">
-      <text class="footer-text">作业辅导助手 v1.0.0</text>
     </view>
   </view>
+
+  <!-- 学习档案编辑弹窗 -->
+  <view class="edit-modal" wx:if="{{showEditModal}}">
+    <view class="modal-mask" bindtap="onCloseEditModal"></view>
+    <view class="modal-content">
+      <view class="modal-header">
+        <text class="modal-title">编辑学习档案</text>
+        <view class="modal-close" bindtap="onCloseEditModal">
+          <text class="close-icon">✕</text>
+        </view>
+      </view>
+
+      <scroll-view class="modal-body" scroll-y="{{true}}">
+        <!-- 孩子姓名 -->
+        <view class="form-item">
+          <text class="form-label">孩子姓名 *</text>
+          <input
+            class="form-input"
+            placeholder="请输入孩子姓名"
+            value="{{formData.name}}"
+            bindinput="onNameInput"
+          />
+        </view>
+
+        <!-- 年级选择 -->
+        <view class="form-item">
+          <text class="form-label">年级 *</text>
+          <picker class="form-picker" mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="onGradeChange">
+            <view class="picker-value {{!formData.grade ? 'placeholder' : ''}}">
+              {{formData.grade || '请选择年级'}}
+            </view>
+          </picker>
+        </view>
+
+        <!-- 学校 -->
+        <view class="form-item">
+          <text class="form-label">学校</text>
+          <input
+            class="form-input"
+            placeholder="请输入学校名称（选填）"
+            value="{{formData.school}}"
+            bindinput="onSchoolInput"
+          />
+        </view>
+
+        <!-- 关注科目 -->
+        <view class="form-item">
+          <text class="form-label">关注科目 *</text>
+          <view class="subjects-selector">
+            <view
+              class="subject-option {{formData.subjects.includes('数学') ? 'selected' : ''}}"
+              bindtap="onToggleSubject"
+              data-subject="数学"
+            >
+              <text class="subject-text">📐 数学</text>
+            </view>
+            <view
+              class="subject-option {{formData.subjects.includes('物理') ? 'selected' : ''}}"
+              bindtap="onToggleSubject"
+              data-subject="物理"
+            >
+              <text class="subject-text">⚛️ 物理</text>
+            </view>
+            <view
+              class="subject-option {{formData.subjects.includes('化学') ? 'selected' : ''}}"
+              bindtap="onToggleSubject"
+              data-subject="化学"
+            >
+              <text class="subject-text">🧪 化学</text>
+            </view>
+            <view
+              class="subject-option {{formData.subjects.includes('英语') ? 'selected' : ''}}"
+              bindtap="onToggleSubject"
+              data-subject="英语"
+            >
+              <text class="subject-text">🔤 英语</text>
+            </view>
+            <view
+              class="subject-option {{formData.subjects.includes('语文') ? 'selected' : ''}}"
+              bindtap="onToggleSubject"
+              data-subject="语文"
+            >
+              <text class="subject-text">📖 语文</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 学习目标 -->
+        <view class="form-item">
+          <text class="form-label">学习目标</text>
+          <radio-group class="goal-selector" bindchange="onGoalChange">
+            <label class="goal-option" wx:for="{{goals}}" wx:key="value">
+              <radio value="{{item.value}}" checked="{{formData.goal === item.value}}" />
+              <text class="goal-text">{{item.label}}</text>
+            </label>
+          </radio-group>
+        </view>
+      </scroll-view>
+
+      <view class="modal-footer">
+        <button class="modal-btn secondary" bindtap="onCloseEditModal">取消</button>
+        <button class="modal-btn primary" bindtap="onSaveProfile">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 孩子切换弹窗 -->
+  <view class="child-selector-modal" wx:if="{{showChildModal}}">
+    <view class="modal-mask" bindtap="onCloseChildModal"></view>
+    <view class="modal-content small-modal">
+      <view class="modal-header">
+        <text class="modal-title">选择孩子</text>
+        <view class="modal-close" bindtap="onCloseChildModal">
+          <text class="close-icon">✕</text>
+        </view>
+      </view>
+
+      <scroll-view class="modal-body" scroll-y="{{true}}">
+        <view class="child-list">
+          <view
+            class="child-list-item {{item.id === currentChild.id ? 'active' : ''}}"
+            wx:for="{{children}}"
+            wx:key="id"
+            bindtap="onSelectChildItem"
+            data-id="{{item.id}}"
+          >
+            <image class="child-list-avatar" src="{{item.avatar || '/images/default-child-avatar.png'}}" mode="aspectFill"/>
+            <view class="child-list-info">
+              <text class="child-list-name">{{item.name}}</text>
+              <text class="child-list-grade">{{item.grade || '未设置档案'}}</text>
+            </view>
+            <view class="child-check" wx:if="{{item.id === currentChild.id}}">
+              <text class="check-icon">✓</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="add-child-btn" bindtap="onAddChild">
+          <text class="add-icon">+</text>
+          <text class="add-text">添加孩子</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 底部安全区 -->
+  <view class="safe-area-bottom"></view>
 </view>

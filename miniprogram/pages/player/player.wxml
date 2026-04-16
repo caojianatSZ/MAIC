@@ -1,134 +1,177 @@
 <!--pages/player/player.wxml-->
-<view class="container-no-padding">
-  <!-- 视频播放区域 -->
-  <view class="video-wrapper">
-    <video
-      id="classroomVideo"
-      class="video-player"
-      src="{{currentVideoUrl}}"
-      poster="{{currentPoster}}"
-      controls="{{true}}"
-      autoplay="{{false}}"
-      show-center-play-btn="{{true}}"
-      enable-progress-gesture="{{true}}"
-      object-fit="contain"
-      bindplay="onVideoPlay"
-      bindpause="onVideoPause"
-      bindended="onVideoEnd"
-      binderror="onVideoError"
-      bindtimeupdate="onTimeUpdate"
-    />
+<view class="player-container">
 
-    <!-- 播放遮罩 - 显示课程信息 -->
-    <view class="video-overlay" wx:if="{{showOverlay}}">
-      <view class="overlay-content">
-        <text class="overlay-title">{{classroomInfo.title || '课程标题'}}</text>
-        <text class="overlay-subtitle">{{classroomInfo.description || '课程描述'}}</text>
-      </view>
+  <!-- 顶部标题栏 -->
+  <view class="header-bar">
+    <view class="back-btn" bindtap="onGoBack">
+      <text class="back-icon">←</text>
     </view>
-
-    <!-- 播放按钮 -->
-    <view class="play-button-wrapper" wx:if="{{!isPlaying}}" bindtap="onPlayToggle">
-      <view class="play-button">
-        <text class="play-icon">▶</text>
-      </view>
-    </view>
+    <view class="header-title">{{classroomInfo.title || '课程播放'}}</view>
+    <view class="header-placeholder"></view>
   </view>
 
-  <!-- 场景导航 -->
-  <view class="scenes-section">
-    <view class="scenes-header">
-      <text class="section-title">📚 课程章节</text>
-      <text class="scenes-count">{{scenes.length}} 节</text>
+  <!-- 进度条 -->
+  <view class="progress-bar">
+    <view class="progress-fill" style="width: {{(currentSceneIndex + 1) / scenes.length * 100}}%"></view>
+  </view>
+
+  <!-- 场景内容区域 - 全屏 -->
+  <scroll-view class="content-area" scroll-y="{{true}}" enhanced="{{true}}">
+
+    <!-- 幻灯片场景 -->
+    <view class="scene-slide" wx:if="{{currentScene.type === 'slide'}}">
+      <view class="slide-card">
+        <!-- 场景标签 -->
+        <view class="scene-tag">
+          <text class="tag-text">第 {{currentSceneIndex + 1}} 节</text>
+        </view>
+
+        <!-- 场景标题 -->
+        <view class="scene-title-section">
+          <text class="scene-title">{{currentScene.title}}</text>
+          <text class="scene-desc">{{currentScene.description}}</text>
+        </view>
+
+        <!-- 分隔线 -->
+        <view class="divider"></view>
+
+        <!-- 幻灯片内容 -->
+        <view class="slide-body">
+          <rich-text nodes="{{currentScene.htmlContent}}" space="nbsp"></rich-text>
+        </view>
+
+        <!-- 备注区域 -->
+        <view class="remark-box" wx:if="{{currentScene.content && currentScene.content.remark}}">
+          <text class="remark-label">💡 重点</text>
+          <text class="remark-text">{{currentScene.content.remark}}</text>
+        </view>
+
+        <!-- 知识点 -->
+        <view class="keywords-box" wx:if="{{currentScene.keyPoints && currentScene.keyPoints.length > 0}}">
+          <view class="keyword-item" wx:for="{{currentScene.keyPoints}}" wx:key="*this">
+            <text class="keyword-dot">●</text>
+            <text class="keyword-text">{{item}}</text>
+          </view>
+        </view>
+      </view>
     </view>
 
-    <!-- 场景列表 -->
-    <scroll-view class="scenes-scroll" scroll-x="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
-      <view class="scenes-list">
+    <!-- 测验场景 -->
+    <view class="scene-quiz" wx:if="{{currentScene.type === 'quiz'}}">
+      <view class="quiz-card">
+        <!-- 场景标签 -->
+        <view class="scene-tag quiz-tag">
+          <text class="tag-text">📝 测验</text>
+        </view>
+
+        <!-- 测验标题 -->
+        <view class="scene-title-section">
+          <text class="scene-title">{{currentScene.title}}</text>
+          <text class="scene-desc">{{currentScene.description}}</text>
+        </view>
+
+        <!-- 测验问题 -->
+        <view class="quiz-list">
+          <view class="quiz-question" wx:for="{{currentScene.content.questions}}" wx:key="id" wx:for-item="question" wx:for-index="qIdx">
+            <!-- 问题 -->
+            <view class="question-box">
+              <text class="question-num">{{qIdx + 1}}</text>
+              <text class="question-text">{{question.question}}</text>
+            </view>
+
+            <!-- 选项 -->
+            <view class="options-group">
+              <view
+                class="quiz-option {{question.selectedAnswer === option.value ? 'option-selected' : ''}} {{question.showAnswer && question.answer.indexOf(option.value) !== -1 ? 'option-correct' : ''}}"
+                wx:for="{{question.options}}"
+                wx:key="value"
+                wx:for-item="option"
+                bindtap="onSelectOption"
+                data-q-index="{{qIdx}}"
+                data-value="{{option.value}}"
+              >
+                <view class="option-circle">
+                  <text class="option-letter">{{option.value}}</text>
+                  <text class="option-check" wx:if="{{question.selectedAnswer === option.value}}">✓</text>
+                </view>
+                <text class="option-label">{{option.label}}</text>
+              </view>
+            </view>
+
+            <!-- 答案反馈 -->
+            <view class="answer-tip" wx:if="{{question.showAnswer}}">
+              <text class="tip-text {{question.isCorrect ? 'tip-correct' : 'tip-wrong'}}">
+                {{question.isCorrect ? '✅ 回答正确' : '❌ 正确答案是 ' + question.answer.join('、')}}
+              </text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 提交按钮 -->
+        <view class="quiz-submit-area" wx:if="{{!currentScene.quizCompleted}}">
+          <button class="submit-btn" bindtap="onSubmitQuiz">提交答案</button>
+        </view>
+
+        <!-- 完成提示 -->
+        <view class="quiz-done-tip" wx:if="{{currentScene.quizCompleted}}">
+          <text class="done-icon">🎉</text>
+          <text class="done-text">本节测验完成</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部占位 -->
+    <view class="bottom-spacer"></view>
+  </scroll-view>
+
+  <!-- 底部导航栏 -->
+  <view class="bottom-nav">
+    <!-- 上一节 -->
+    <view class="nav-btn-w {{currentSceneIndex === 0 ? 'nav-disabled' : ''}}" bindtap="onPrevScene">
+      <text class="nav-icon">‹</text>
+      <text class="nav-text">上一节</text>
+    </view>
+
+    <!-- 进度指示 -->
+    <view class="nav-center">
+      <text class="progress-text">{{currentSceneIndex + 1}} / {{scenes.length}}</text>
+      <view class="progress-dots">
         <view
-          class="scene-item {{currentSceneIndex === index ? 'active' : ''}} {{scene.completed ? 'completed' : ''}}"
+          class="dot {{index <= currentSceneIndex ? 'dot-active' : ''}}"
           wx:for="{{scenes}}"
           wx:key="id"
-          bindtap="onSceneSelect"
-          data-index="{{index}}"
-        >
-          <view class="scene-number">
-            <text>{{index + 1}}</text>
-          </view>
-          <view class="scene-content">
-            <text class="scene-title">{{item.title}}</text>
-            <text class="scene-duration">{{item.duration || '1:30'}}</text>
-          </view>
-          <view class="scene-status">
-            <text wx:if="{{currentSceneIndex === index}}">▶</text>
-            <text wx:elif="{{scene.completed}}">✓</text>
-            <text wx:else></text>
-          </view>
-        </view>
+          wx:for-index="index"
+        ></view>
       </view>
-    </scroll-view>
-  </view>
+    </view>
 
-  <!-- 当前场景内容 -->
-  <view class="scene-content-section">
-    <view class="content-card">
-      <!-- 场景标题 -->
-      <view class="scene-header">
-        <text class="scene-main-title">{{currentScene.title || '章节标题'}}</text>
-        <view class="scene-badges">
-          <view class="badge badge-primary" wx:if="{{currentScene.knowledgePoints}}">
-            <text>🎯 {{currentScene.knowledgePoints[0] || '知识点'}}</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 场景文本内容 -->
-      <view class="scene-text" wx:if="{{currentScene.content}}">
-        <text class="text-content">{{currentScene.content.text || '暂无内容'}}</text>
-      </view>
-
-      <!-- 知识点标签 -->
-      <view class="knowledge-points" wx:if="{{currentScene.knowledgePoints && currentScene.knowledgePoints.length > 0}}">
-        <view class="kp-tag" wx:for="{{currentScene.knowledgePoints}}" wx:key="*this" wx:for-item="kp">
-          <text class="kp-icon">🏷️</text>
-          <text class="kp-text">{{kp}}</text>
-        </view>
-      </view>
+    <!-- 下一节 -->
+    <view class="nav-btn-w {{currentSceneIndex === scenes.length - 1 ? 'nav-disabled' : ''}}" bindtap="onNextScene">
+      <text class="nav-text">下一节</text>
+      <text class="nav-icon">›</text>
     </view>
   </view>
 
-  <!-- 课程信息卡片 -->
-  <view class="course-info-section">
-    <view class="info-card">
-      <view class="info-header">
-        <text class="info-title">📖 课程信息</text>
+  <!-- 完成课程弹窗 -->
+  <view class="complete-modal" wx:if="{{showCompleteModal}}">
+    <view class="modal-mask" bindtap="onCloseCompleteModal"></view>
+    <view class="modal-content">
+      <text class="modal-icon">🎉</text>
+      <text class="modal-title">课程完成！</text>
+      <text class="modal-desc">恭喜你完成了本课程的学习</text>
+      <view class="modal-stats">
+        <view class="stat-item">
+          <text class="stat-num">{{scenes.length}}</text>
+          <text class="stat-label">章节</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-num">{{completedCount}}</text>
+          <text class="stat-label">完成</text>
+        </view>
       </view>
-
-      <view class="info-row">
-        <text class="info-label">科目</text>
-        <text class="info-value">{{classroomInfo.subject || '未分类'}}</text>
-      </view>
-
-      <view class="info-row">
-        <text class="info-label">年级</text>
-        <text class="info-value">{{classroomInfo.grade || '通用'}}</text>
-      </view>
-
-      <view class="info-row">
-        <text class="info-label">时长</text>
-        <text class="info-value">{{classroomInfo.duration || '10分钟'}}</text>
-      </view>
+      <button class="modal-btn" bindtap="onCloseCompleteModal">知道了</button>
     </view>
   </view>
 
-  <!-- 操作按钮 -->
-  <view class="actions-section">
-    <button class="action-btn primary" bindtap="onCompleteCourse" disabled="{{allCompleted}}">
-      <text class="btn-icon">✓</text>
-      <text class="btn-text">{{allCompleted ? '已完成' : '标记完成'}}</text>
-    </button>
-  </view>
-
-  <!-- 底部安全区 -->
-  <view class="safe-area-bottom"></view>
 </view>

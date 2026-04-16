@@ -6,73 +6,174 @@ const { getBaseUrl } = require('../../utils/config')
 Page({
   data: {
     userInfo: {},
-    // 学生画像数据
-    studentProfile: null,
+    // 家长视角：孩子列表
+    children: [],
+    currentChild: {},
+    childProfile: {},
+    // 统计数据
+    stats: {
+      totalCount: 0,
+      todayCount: 0,
+      wrongCount: 0,
+      weeklyCount: 0,
+      studyMinutes: 0,
+      streakDays: 0
+    },
     // 成就数据
     achievements: [],
-    // 雷达图数据
-    radarData: null,
-    // 成长曲线数据
-    growthData: null,
-    // 标签数据
-    strongPoints: [],
-    weakPoints: [],
-    // 加载状态
-    loading: true
+    // 知识数据
+    knowledgeData: null,
+    // 编辑弹窗
+    showEditModal: false,
+    showChildModal: false,
+    period: 'week',
+    // 表单数据
+    formData: {
+      name: '',
+      grade: '',
+      school: '',
+      subjects: [],
+      goal: ''
+    },
+    // 年级选项
+    grades: ['小学一年级', '小学二年级', '小学三年级', '小学四年级', '小学五年级', '小学六年级',
+            '初一', '初二', '初三', '高一', '高二', '高三'],
+    gradeIndex: -1,
+    // 学习目标选项
+    goals: [
+      { value: 'improve', label: '提升成绩' },
+      { value: 'consolidate', label: '巩固基础' },
+      { value: 'advance', label: '超前学习' },
+      { value: 'exam', label: '应对考试' }
+    ]
   },
 
   onLoad(options) {
-    console.log('学生画像页面加载', options)
+    console.log('家长画像页面加载', options)
   },
 
   onShow() {
-    console.log('学生画像页面显示')
+    console.log('家长画像页面显示')
     this.loadUserInfo()
-    this.loadStudentProfile()
+    this.loadChildren()
+    this.loadStats()
     this.loadAchievements()
-    this.loadRadarData()
-    this.loadGrowthData()
+    this.loadKnowledgeData()
   },
 
   /**
-   * 加载用户信息
+   * 加载家长用户信息
    */
   loadUserInfo() {
     const userInfo = app.globalData.userInfo || {}
 
     this.setData({
       userInfo: {
-        nickName: userInfo.nickName || '微信用户',
+        nickName: userInfo.nickName || '家长',
         avatarUrl: userInfo.avatarUrl || ''
       }
     })
   },
 
   /**
-   * 加载学生画像
+   * 加载孩子列表
    */
-  loadStudentProfile() {
+  loadChildren() {
     const baseUrl = getBaseUrl()
     const userId = getUserId()
 
     wx.request({
-      url: `${baseUrl}/api/student/profile`,
+      url: `${baseUrl}/api/parent/children`,
       method: 'GET',
-      data: { userId },
+      data: { parentId: userId },
       success: (res) => {
-        if (res.data.success) {
-          const profile = res.data.data
+        if (res.data.success && res.data.data.children.length > 0) {
+          const children = res.data.data.children
           this.setData({
-            studentProfile: profile,
-            strongPoints: profile.strongPoints || [],
-            weakPoints: profile.weakPoints || []
+            children,
+            currentChild: children[0]
+          })
+          // 加载当前孩子的档案
+          this.loadChildProfile(children[0].id)
+          this.loadChildStats(children[0].id)
+        } else {
+          // 没有孩子，显示空状态
+          this.setData({
+            children: [],
+            currentChild: { name: '添加孩子' }
           })
         }
       },
       fail: (err) => {
-        console.error('加载学生画像失败:', err)
+        console.error('加载孩子列表失败:', err)
+        // 模拟数据用于开发测试
+        this.setData({
+          children: [
+            { id: 'child_1', name: '小明', grade: '初三', avatar: '' }
+          ],
+          currentChild: { id: 'child_1', name: '小明', grade: '初三', avatar: '' }
+        })
       }
     })
+  },
+
+  /**
+   * 加载孩子学习档案
+   */
+  loadChildProfile(childId) {
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
+
+    wx.request({
+      url: `${baseUrl}/api/parent/child-profile`,
+      method: 'GET',
+      data: { parentId: userId, childId },
+      success: (res) => {
+        if (res.data.success) {
+          this.setData({
+            childProfile: res.data.data.profile || {}
+          })
+          // 初始化表单数据
+          this.initFormData(res.data.data.profile || {})
+        }
+      },
+      fail: (err) => {
+        console.error('加载孩子档案失败:', err)
+      }
+    })
+  },
+
+  /**
+   * 加载孩子统计数据
+   */
+  loadChildStats(childId) {
+    const baseUrl = getBaseUrl()
+
+    wx.request({
+      url: `${baseUrl}/api/parent/child-stats`,
+      method: 'GET',
+      data: { childId },
+      success: (res) => {
+        if (res.data.success) {
+          this.setData({
+            stats: res.data.data.stats || {}
+          })
+        }
+      },
+      fail: (err) => {
+        console.error('加载统计数据失败:', err)
+      }
+    })
+  },
+
+  /**
+   * 加载统计数据
+   */
+  loadStats() {
+    // 使用当前选中孩子的数据
+    if (this.data.currentChild.id) {
+      this.loadChildStats(this.data.currentChild.id)
+    }
   },
 
   /**
@@ -80,125 +181,351 @@ Page({
    */
   loadAchievements() {
     const baseUrl = getBaseUrl()
-    const userId = getUserId()
+    const childId = this.data.currentChild.id
+
+    if (!childId) return
 
     wx.request({
       url: `${baseUrl}/api/achievements`,
       method: 'GET',
-      data: { userId },
+      data: { childId },
       success: (res) => {
         if (res.data.success) {
           this.setData({
-            achievements: res.data.data.achievements
+            achievements: res.data.data.achievements || []
           })
         }
       },
       fail: (err) => {
         console.error('加载成就失败:', err)
-      },
-      complete: () => {
-        this.setData({ loading: false })
       }
     })
   },
 
   /**
-   * 加载雷达图数据
+   * 加载知识数据
    */
-  loadRadarData() {
+  loadKnowledgeData() {
     const baseUrl = getBaseUrl()
-    const userId = getUserId()
+    const childId = this.data.currentChild.id
+
+    if (!childId) return
 
     wx.request({
-      url: `${baseUrl}/api/student/radar`,
+      url: `${baseUrl}/api/parent/child-knowledge`,
       method: 'GET',
-      data: { userId, subject: 'math' },
+      data: { childId },
       success: (res) => {
         if (res.data.success) {
           this.setData({
-            radarData: res.data.data
+            knowledgeData: res.data.data || {}
           })
         }
       },
       fail: (err) => {
-        console.error('加载雷达图数据失败:', err)
+        console.error('加载知识数据失败:', err)
       }
     })
   },
 
   /**
-   * 加载成长曲线数据（模拟）
+   * 初始化表单数据
    */
-  loadGrowthData() {
-    // TODO: 从后端获取真实数据
+  initFormData(profile) {
+    const gradeIndex = this.data.grades.indexOf(profile.grade || '')
+
     this.setData({
-      growthData: {
-        dates: ['1周前', '6天前', '5天前', '4天前', '3天前', '2天前', '昨天', '今天'],
-        mastery: [45, 48, 52, 55, 58, 62, 65, 70]
-      }
+      formData: {
+        name: profile.name || this.data.currentChild.name || '',
+        grade: profile.grade || '',
+        school: profile.school || '',
+        subjects: profile.subjects || [],
+        goal: profile.goal || ''
+      },
+      gradeIndex: gradeIndex >= 0 ? gradeIndex : -1
     })
   },
 
   /**
-   * 点击成就
+   * 点击编辑学习档案
    */
-  onAchievementTap(e) {
-    const { level, name, unlocked } = e.detail
+  onEditProfile() {
+    // 重新加载最新档案数据
+    this.initFormData(this.data.childProfile)
+    this.setData({ showEditModal: true })
+  },
 
-    if (unlocked) {
-      wx.showModal({
-        title: name,
-        content: `恭喜你解锁了${level}级成就！\n\n继续保持，解锁更多成就！`,
-        showCancel: false
-      })
+  /**
+   * 关闭编辑弹窗
+   */
+  onCloseEditModal() {
+    this.setData({ showEditModal: false })
+  },
+
+  /**
+   * 输入姓名
+   */
+  onNameInput(e) {
+    this.setData({
+      'formData.name': e.detail.value
+    })
+  },
+
+  /**
+   * 选择年级
+   */
+  onGradeChange(e) {
+    const index = e.detail.value
+    this.setData({
+      gradeIndex: index,
+      'formData.grade': this.data.grades[index]
+    })
+  },
+
+  /**
+   * 输入学校
+   */
+  onSchoolInput(e) {
+    this.setData({
+      'formData.school': e.detail.value
+    })
+  },
+
+  /**
+   * 切换科目选择
+   */
+  onToggleSubject(e) {
+    const subject = e.currentTarget.dataset.subject
+    const subjects = [...this.data.formData.subjects]
+    const index = subjects.indexOf(subject)
+
+    if (index > -1) {
+      subjects.splice(index, 1)
     } else {
+      subjects.push(subject)
+    }
+
+    this.setData({
+      'formData.subjects': subjects
+    })
+  },
+
+  /**
+   * 选择学习目标
+   */
+  onGoalChange(e) {
+    this.setData({
+      'formData.goal': e.detail.value
+    })
+  },
+
+  /**
+   * 保存学习档案
+   */
+  onSaveProfile() {
+    const { name, grade, subjects, goal } = this.data.formData
+
+    // 验证必填项
+    if (!name || !grade || subjects.length === 0) {
       wx.showToast({
-        title: '继续努力！',
+        title: '请填写完整信息',
         icon: 'none'
       })
+      return
+    }
+
+    const baseUrl = getBaseUrl()
+    const userId = getUserId()
+    const childId = this.data.currentChild.id
+
+    wx.request({
+      url: `${baseUrl}/api/parent/child-profile`,
+      method: 'POST',
+      data: {
+        parentId: userId,
+        childId,
+        profile: {
+          name,
+          grade,
+          school: this.data.formData.school,
+          subjects,
+          goal
+        }
+      },
+      success: (res) => {
+        if (res.data.success) {
+          wx.showToast({
+            title: '保存成功',
+            icon: 'success'
+          })
+          this.onCloseEditModal()
+          // 重新加载数据
+          this.loadChildProfile(childId)
+        } else {
+          wx.showToast({
+            title: res.data.error || '保存失败',
+            icon: 'none'
+          })
+        }
+      },
+      fail: (err) => {
+        console.error('保存失败:', err)
+        wx.showToast({
+          title: '网络错误，请重试',
+          icon: 'none'
+        })
+      }
+    })
+  },
+
+  /**
+   * 选择孩子
+   */
+  onSelectChild() {
+    if (this.data.children.length > 0) {
+      this.setData({ showChildModal: true })
+    } else {
+      // 直接跳转到添加孩子
+      this.onAddChild()
     }
   },
 
   /**
-   * 查看更多成就
+   * 关闭孩子选择弹窗
    */
-  onViewMoreAchievements() {
+  onCloseChildModal() {
+    this.setData({ showChildModal: false })
+  },
+
+  /**
+   * 选择某个孩子
+   */
+  onSelectChildItem(e) {
+    const childId = e.currentTarget.dataset.id
+    const child = this.data.children.find(c => c.id === childId)
+
+    if (child) {
+      this.setData({
+        currentChild: child,
+        showChildModal: false
+      })
+      // 重新加载该孩子的数据
+      this.loadChildProfile(childId)
+      this.loadChildStats(childId)
+      this.loadAchievements()
+      this.loadKnowledgeData()
+    }
+  },
+
+  /**
+   * 添加孩子
+   */
+  onAddChild() {
+    this.onCloseChildModal()
     wx.showToast({
-      title: '更多成就即将上线',
+      title: '添加孩子功能开发中',
+      icon: 'none'
+    })
+    // TODO: 跳转到添加孩子页面
+  },
+
+  /**
+   * 切换周期
+   */
+  onPeriodChange(e) {
+    const period = e.currentTarget.dataset.period
+    this.setData({ period })
+    this.loadStats()
+  },
+
+  /**
+   * 分享成就
+   */
+  onShareAchievement(e) {
+    const achievementId = e.currentTarget.dataset.id
+    const achievement = this.data.achievements.find(a => a.id === achievementId)
+
+    if (!achievement) return
+
+    // 生成分享图片或显示分享选项
+    wx.showActionSheet({
+      itemList: ['生成分享图片', '发送给孩子', '保存到相册'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          // 生成分享图片
+          this.generateShareImage(achievement)
+        } else if (res.tapIndex === 1) {
+          // 通过订阅消息发送给孩子
+          this.sendToChild(achievement)
+        } else if (res.tapIndex === 2) {
+          // 保存到相册
+          wx.showToast({
+            title: '保存功能开发中',
+            icon: 'none'
+          })
+        }
+      }
+    })
+  },
+
+  /**
+   * 生成分享图片
+   */
+  generateShareImage(achievement) {
+    wx.showToast({
+      title: '正在生成分享图片...',
+      icon: 'loading',
+      duration: 2000
+    })
+    // TODO: 调用后端API生成成就分享图片
+  },
+
+  /**
+   * 发送给孩子
+   */
+  sendToChild(achievement) {
+    wx.showToast({
+      title: '订阅消息功能开发中',
+      icon: 'none'
+    })
+    // TODO: 通过订阅消息发送成就通知
+  },
+
+  /**
+   * 查看全部成就
+   */
+  onViewAllAchievements() {
+    wx.showToast({
+      title: '全部成就页面开发中',
       icon: 'none'
     })
   },
 
   /**
-   * 关于我们
+   * 查看学习进度
    */
-  onAbout() {
-    wx.showModal({
-      title: '关于我们',
-      content: '作业辅导助手\n\n版本：1.0.0\n\n一款帮助家长辅导孩子作业的智能工具',
-      showCancel: false
+  onViewProgress() {
+    wx.navigateTo({
+      url: '/pages/progress/progress?childId=' + (this.data.currentChild.id || '')
     })
   },
 
   /**
-   * 意见反馈
+   * 查看错题本
    */
-  onFeedback() {
-    wx.showModal({
-      title: '意见反馈',
-      content: '感谢您的反馈！\n\n请通过以下方式联系我们：\n\n邮箱：feedback@example.com',
-      showCancel: false
+  onViewWrongQuestions() {
+    wx.navigateTo({
+      url: '/pages/wrong-questions/wrong-questions?childId=' + (this.data.currentChild.id || '')
     })
   },
 
   /**
-   * 使用帮助
+   * 查看学习报告
    */
-  onHelp() {
-    wx.showModal({
-      title: '使用帮助',
-      content: '如何使用：\n\n1. 拍照或输入作业题目\n2. 提交后获取智能讲解\n3. 查看语音和文字讲解\n4. 完成练习题巩固知识',
-      showCancel: false
+  onViewReports() {
+    wx.showToast({
+      title: '学习报告功能开发中',
+      icon: 'none'
     })
   }
 })

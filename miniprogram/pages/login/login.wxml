@@ -5,10 +5,13 @@
     <text class="close-icon">✕</text>
   </view>
 
-  <!-- Logo区域 -->
-  <view class="logo-section">
-    <text class="logo">OpenMAIC</text>
-    <text class="slogan">AI自适应学习，精准提升</text>
+  <!-- 顶部标题区 -->
+  <view class="header">
+    <view class="logo-container">
+      <image src="/images/hz-logo-clean.png" class="logo-image" mode="aspectFit" />
+    </view>
+    <text class="title">湖南弘知教育</text>
+    <text class="subtitle">AI 驱动的智能学习平台</text>
   </view>
 
   <!-- 登录方式选择 -->
@@ -51,4 +54,7 @@
       <text class="tips-item">✓ 解锁完整课程</text>
     </view>
   </view>
+
+  <!-- 底部占位 -->
+  <view class="bottom-spacer"></view>
 </view>

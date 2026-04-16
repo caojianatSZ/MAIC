@@ -1,5 +1,10 @@
 {
   "description": "湖南弘知教育 - AI智能学习平台",
+  "networkTimeout": {
+    "request": 60000,
+    "uploadFile": 120000,
+    "downloadFile": 120000
+  },
   "packOptions": {
     "ignore": [],
     "include": []

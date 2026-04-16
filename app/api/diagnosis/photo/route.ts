@@ -51,17 +51,56 @@ interface PhotoDiagnosisResponse {
   };
 }
 
+/**
+ * 工具函数：File转Base64
+ */
+async function fileToBase64(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  return `data:${file.type};base64,${buffer.toString('base64')}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body: PhotoDiagnosisRequest = await request.json();
-    const { imageUrl, imageBase64, subject = 'math', grade = '初三' } = body;
+    // 检查请求类型
+    const contentType = request.headers.get('content-type') || '';
 
-    // 验证参数
-    if (!imageUrl && !imageBase64) {
-      return apiError('MISSING_REQUIRED_FIELD', 400, '请提供图片URL或Base64');
+    let imageBase64: string | undefined;
+    let imageUrl: string | undefined;
+    let subject = 'math';
+    let grade = '初三';
+
+    if (contentType.includes('multipart/form-data')) {
+      // 处理文件上传请求
+      const formData = await request.formData();
+      const file = formData.get('file') as File;
+      subject = (formData.get('subject') as string) || 'math';
+      grade = (formData.get('grade') as string) || '初三';
+
+      if (!file) {
+        return apiError('MISSING_REQUIRED_FIELD', 400, '请上传图片文件');
+      }
+
+      log.info('开始拍照诊断(文件上传)', { subject, grade, fileName: file.name, fileSize: file.size });
+
+      // 将文件转换为Base64
+      imageBase64 = await fileToBase64(file);
+
+    } else {
+      // 处理JSON请求
+      const body: PhotoDiagnosisRequest = await request.json();
+      imageUrl = body.imageUrl;
+      imageBase64 = body.imageBase64;
+      subject = body.subject || 'math';
+      grade = body.grade || '初三';
+
+      // 验证参数
+      if (!imageUrl && !imageBase64) {
+        return apiError('MISSING_REQUIRED_FIELD', 400, '请提供图片URL或Base64');
+      }
+
+      log.info('开始拍照诊断', { subject, grade, hasImage: !!imageUrl || !!imageBase64 });
     }
-
-    log.info('开始拍照诊断', { subject, grade, hasImage: !!imageUrl || !!imageBase64 });
 
     // 步骤1: OCR识别
     log.info('步骤1: OCR识别中...');

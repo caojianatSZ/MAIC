@@ -1,5 +1,4 @@
 // pages/diagnosis/diagnosis.js
-const app = getApp()
 const { getUserId } = require('../../utils/user')
 const { getBaseUrl } = require('../../utils/config')
 const { EVENT_TYPES, DEFAULTS, PAGE_MODES } = require('../../constants/eventTypes')
@@ -64,7 +63,7 @@ Page({
    * 从后端 API 加载诊断题目
    */
   loadQuiz() {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
+    const baseUrl = getBaseUrl()
     const { selectedGrade, selectedTopic } = this.data
 
     wx.showLoading({
@@ -193,7 +192,7 @@ Page({
    * 提交诊断
    */
   submitDiagnosis() {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
+    const baseUrl = getBaseUrl()
 
     wx.showLoading({
       title: '分析中...',
@@ -437,11 +436,8 @@ Page({
     })
 
     try {
-      // 1. 转换图片为Base64
-      const imageBase64 = await this.fileToBase64(filePath)
-
-      // 2. 调用拍照诊断API
-      const result = await this.callPhotoDiagnosisAPI(imageBase64)
+      // 直接使用文件上传方式调用API
+      const result = await this.uploadPhotoForDiagnosis(filePath)
 
       wx.hideLoading()
 
@@ -462,7 +458,7 @@ Page({
         return
       }
 
-      // 3. 显示识别结果预览
+      // 显示识别结果预览
       this.showPhotoResultPreview(result)
 
     } catch (err) {
@@ -488,50 +484,106 @@ Page({
   },
 
   /**
-   * 文件转Base64
+   * 文件转Base64 (备用方法)
    */
   fileToBase64(filePath) {
     return new Promise((resolve, reject) => {
-      wx.getFileSystemManager().readFile({
-        filePath,
-        encoding: 'base64',
-        success: (res) => {
-          resolve('data:image/jpeg;base64,' + res.data)
+      console.log('开始读取文件:', filePath)
+
+      // 先检查文件是否存在
+      wx.getFileSystemManager().access({
+        path: filePath,
+        success: () => {
+          console.log('文件存在，开始读取')
+          // 文件存在，读取内容
+          wx.getFileSystemManager().readFile({
+            filePath,
+            encoding: 'base64',
+            success: (res) => {
+              console.log('文件读取成功，base64长度:', res.data?.length)
+              resolve('data:image/jpeg;base64,' + res.data)
+            },
+            fail: (err) => {
+              console.error('readFile失败:', err)
+              reject(new Error('图片读取失败'))
+            }
+          })
         },
         fail: (err) => {
-          console.error('文件读取失败', err)
-          reject(new Error('图片读取失败'))
+          console.error('文件不存在:', err)
+          // 尝试使用图片缓存
+          wx.getImageInfo({
+            src: filePath,
+            success: (imgInfo) => {
+              console.log('获取图片信息成功:', imgInfo.path)
+              // 使用获取到的路径再尝试读取
+              wx.getFileSystemManager().readFile({
+                filePath: imgInfo.path,
+                encoding: 'base64',
+                success: (res) => {
+                  console.log('通过图片信息读取成功，base64长度:', res.data?.length)
+                  resolve('data:image/jpeg;base64,' + res.data)
+                },
+                fail: (err2) => {
+                  console.error('通过图片信息读取也失败:', err2)
+                  reject(new Error('图片读取失败'))
+                }
+              })
+            },
+            fail: (err2) => {
+              console.error('获取图片信息失败:', err2)
+              reject(new Error('图片处理失败'))
+            }
+          })
         }
       })
     })
   },
 
   /**
-   * 调用拍照诊断API
+   * 上传照片进行诊断（使用文件上传方式）
    */
-  callPhotoDiagnosisAPI(imageBase64) {
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
+  uploadPhotoForDiagnosis(filePath) {
+    const baseUrl = getBaseUrl()
+    const url = `${baseUrl}/api/diagnosis/photo`
+
+    console.log('拍照诊断上传URL:', url)
+    console.log('文件路径:', filePath)
 
     return new Promise((resolve, reject) => {
-      wx.request({
-        url: `${baseUrl}/api/diagnosis/photo`,
-        method: 'POST',
-        data: {
-          imageBase64,
+      wx.uploadFile({
+        url,
+        filePath,
+        name: 'file',
+        formData: {
           subject: 'math',
           grade: '初三'
         },
+        timeout: 120000, // 2分钟超时
         success: (res) => {
-          console.log('拍照诊断API响应:', res)
-          if (res.data.success && res.data.data) {
-            resolve(res.data.data)
+          console.log('拍照诊断上传响应:', res)
+          console.log('响应状态码:', res.statusCode)
+          console.log('响应数据:', res.data)
+
+          if (res.statusCode === 200) {
+            try {
+              const data = JSON.parse(res.data)
+              if (data.success && data.data) {
+                resolve(data.data)
+              } else {
+                reject(new Error(data.error || '分析失败'))
+              }
+            } catch (e) {
+              reject(new Error('解析响应失败'))
+            }
           } else {
-            reject(new Error(res.data.error || '分析失败'))
+            reject(new Error(`服务器错误: ${res.statusCode}`))
           }
         },
         fail: (err) => {
-          console.error('API请求失败', err)
-          reject(new Error('网络请求失败'))
+          console.error('文件上传失败:', err)
+          console.error('错误详情:', JSON.stringify(err))
+          reject(new Error(`网络请求失败: ${err.errMsg || '未知错误'}`))
         }
       })
     })
