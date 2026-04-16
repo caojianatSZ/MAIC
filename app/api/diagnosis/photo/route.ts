@@ -178,15 +178,17 @@ async function performOCR(imageBase64: string): Promise<string> {
       throw new Error('图片太大，请使用小于4MB的图片');
     }
 
-    const prompt = `请仔细观察这张图片，识别并转录其中的所有内容。要求：
+    const prompt = `请仔细观察这张图片，完整识别并转录其中的所有题目内容。非常重要：请识别图片中的每一道题目，不要遗漏任何题目。
 
-1. **文字内容**：准确识别所有题目文字、选项、答案等
-2. **图表描述**：对于图片中的图表、图形、示意图等，用文字详细描述其内容
+识别要求：
+1. **完整性**：识别图片中的所有题目，包括主标题、所有子题（如(1)(2)(3)或①②③）
+2. **文字内容**：准确识别所有题目文字、选项、答案等
+3. **图表描述**：对于图片中的图表、图形、示意图等，用文字详细描述其内容
    - 坐标轴：描述x轴、y轴代表的量及单位
    - 曲线/直线：描述形状、趋势、关键点
    - 示意图：描述物体位置、运动方向、标注信息等
-3. **数学公式**：用文字描述数学公式
-4. **保持结构**：按照图片中的排版组织内容，标明题目序号
+4. **数学公式**：用文字描述数学公式
+5. **保持结构**：按照图片中的排版组织内容，标明题目序号
 
 请以结构化的格式返回，便于后续分析。`;
 
@@ -218,7 +220,7 @@ async function performOCR(imageBase64: string): Promise<string> {
           }
         ],
         temperature: 0.1,
-        max_tokens: 4000,
+        max_tokens: 8000,
         top_p: 0.7
       })
     });
@@ -241,6 +243,9 @@ async function performOCR(imageBase64: string): Promise<string> {
     if (!content) {
       throw new Error('GLM-4V返回为空');
     }
+
+    // 记录OCR识别结果用于调试
+    log.info('OCR识别结果', { textLength: content.length, preview: content.substring(0, 500) });
 
     return content;
 
