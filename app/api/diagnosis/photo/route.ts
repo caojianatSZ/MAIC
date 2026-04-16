@@ -155,8 +155,8 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 步骤1: 使用GLM-4V多模态模型分析图片内容
- * GLM-4V可以直接理解图片中的文字、图表、公式等
+ * 步骤1: 使用GLM-OCR专业OCR模型识别图片内容
+ * GLM-OCR是专门用于文档解析的轻量级高精度OCR模型（0.9B参数，SOTA水平）
  */
 async function performOCR(imageBase64: string): Promise<string> {
   const ZHIPU_API_KEY = process.env.GLM_API_KEY;
@@ -172,76 +172,55 @@ async function performOCR(imageBase64: string): Promise<string> {
       throw new Error('无效的Base64图片格式');
     }
 
-    // 限制图片大小，避免超过API限制
-    const maxSize = 4 * 1024 * 1024; // 4MB
+    // 限制图片大小，GLM-OCR支持单图≤10MB
+    const maxSize = 10 * 1024 * 1024;
     if (base64Data.length > maxSize) {
-      throw new Error('图片太大，请使用小于4MB的图片');
+      throw new Error('图片太大，请使用小于10MB的图片');
     }
 
-    const prompt = `请仔细观察这张图片，完整识别并转录其中的所有题目内容。非常重要：请识别图片中的每一道题目，不要遗漏任何题目。
+    log.info('使用GLM-OCR专业OCR模型进行识别');
 
-识别要求：
-1. **完整性**：识别图片中的所有题目，包括主标题、所有子题（如(1)(2)(3)或①②③）
-2. **文字内容**：准确识别所有题目文字、选项、答案等
-3. **图表描述**：对于图片中的图表、图形、示意图等，用文字详细描述其内容
-   - 坐标轴：描述x轴、y轴代表的量及单位
-   - 曲线/直线：描述形状、趋势、关键点
-   - 示意图：描述物体位置、运动方向、标注信息等
-4. **数学公式**：用文字描述数学公式
-5. **保持结构**：按照图片中的排版组织内容，标明题目序号
-
-请以结构化的格式返回，便于后续分析。`;
-
-    // 智谱AI GLM-4V API调用 - 使用OpenAI兼容的多模态格式
-    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+    // 智谱AI GLM-OCR API调用 - 使用专门的布局解析端点
+    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/layout_parsing', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${ZHIPU_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'glm-4v-plus',
-        stream: false,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: base64Data
-                }
-              },
-              {
-                type: 'text',
-                text: prompt
-              }
-            ]
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 16000,
-        top_p: 0.7
+        model: 'glm-ocr',
+        file: base64Data,
+        // 使用Markdown格式输出，保持表格和结构
+        output_format: 'markdown'
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      log.error('GLM-4V API错误', { status: response.status, error: errorText });
-      throw new Error(`GLM-4V请求失败: ${response.status}`);
+      log.error('GLM-OCR API错误', { status: response.status, error: errorText });
+      throw new Error(`GLM-OCR请求失败: ${response.status}`);
     }
 
     const result = await response.json();
 
     if (result.error) {
-      log.error('GLM-4V返回错误', result.error);
-      throw new Error(result.error.message || 'GLM-4V识别失败');
+      log.error('GLM-OCR返回错误', result.error);
+      throw new Error(result.error.message || 'GLM-OCR识别失败');
     }
 
-    const content = result.choices?.[0]?.message?.content;
+    // GLM-OCR返回格式：{ result: { markdown: "..." } } 或直接返回文本
+    let content = result.result?.markdown || result.result?.text || result.content || result.data;
 
     if (!content) {
-      throw new Error('GLM-4V返回为空');
+      // 如果返回的是数组格式
+      if (Array.isArray(result)) {
+        content = result.map((item: any) => item.text || item.content || '').join('\n');
+      }
+    }
+
+    if (!content || typeof content !== 'string') {
+      log.error('GLM-OCR返回格式异常', { result });
+      throw new Error('GLM-OCR返回格式异常');
     }
 
     // 记录OCR识别结果用于调试
@@ -250,7 +229,7 @@ async function performOCR(imageBase64: string): Promise<string> {
     return content;
 
   } catch (error) {
-    log.error('GLM-4V识别失败', error);
+    log.error('GLM-OCR识别失败', error);
     throw new Error('图片识别失败，请重试');
   }
 }
