@@ -200,7 +200,7 @@ async function performOCR(imageBase64: string): Promise<string> {
         'Authorization': `Bearer ${ZHIPU_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'glm-4.6v-flash',
+        model: 'glm-4v-plus',
         stream: false,
         messages: [
           {
@@ -220,7 +220,7 @@ async function performOCR(imageBase64: string): Promise<string> {
           }
         ],
         temperature: 0.1,
-        max_tokens: 8000,
+        max_tokens: 16000,
         top_p: 0.7
       })
     });
