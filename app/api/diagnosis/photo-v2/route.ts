@@ -240,10 +240,17 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // ==================== Step 4: 提取题目结构 ====================
-    log.info('Step 4: 提取题目结构...');
-    const extractedQuestions = await extractQuestions(ocrText, subject, grade);
-    log.info('题目提取完成', { count: extractedQuestions.length });
+    // ==================== Step 4: 简化题目结构 ====================
+    log.info('Step 4: 简化题目结构...');
+    // 简化处理：直接将整个 OCR 内容作为一个题目
+    // 批改函数会负责识别手写答案和判断对错
+    const extractedQuestions = [{
+      id: '1',
+      content: ocrText.substring(0, 2000), // 限制长度避免 token 超限
+      type: 'essay' as const,
+      options: undefined
+    }];
+    log.info('题目结构完成', { count: extractedQuestions.length });
 
     if (extractedQuestions.length === 0) {
       return apiError('PARSE_FAILED', 400, '未能识别到任何题目，请确保图片清晰');
@@ -642,24 +649,48 @@ ${ocrText}
       });
       throw new Error('GLM 返回无效的 JSON');
     }
-    const content = result.choices?.[0]?.message?.content || '';
 
-    // 解析 JSON 响应
-    const cleanContent = content
+    // GLM-5 是推理模型，答案可能在 reasoning_content 或 content 中
+    const message = result.choices?.[0]?.message;
+    const content = message?.reasoning_content || message?.content || '';
+
+    // 解析 JSON 响应（处理常见的转义问题）
+    let cleanContent = content
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')
       .trim();
+
+    // 修复常见的 JSON 转义问题
+    // 1. 移除控制字符
+    cleanContent = cleanContent.replace(/[\x00-\x1F\x7F]/g, '');
+    // 2. 修复双反斜杠问题（LaTeX 公式）
+    cleanContent = cleanContent.replace(/\\\\([{}%$])/g, '\\$1');
+    // 3. 修复无效的转义序列
+    cleanContent = cleanContent.replace(/\\(?!["\\/bfnrt])/g, '\\\\');
 
     const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('无法从响应中提取 JSON');
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    const questions = parsed.questions || [];
-
-    log.info('题目提取成功', { count: questions.length });
-    return questions;
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      const questions = parsed.questions || [];
+      log.info('题目提取成功', { count: questions.length });
+      return questions;
+    } catch (jsonError) {
+      log.warn('JSON 解析失败，尝试清理后重试', { error: jsonError instanceof Error ? jsonError.message : String(jsonError) });
+      // 尝试更激进的清理
+      let cleaned = jsonMatch[0];
+      // 移除所有注释
+      cleaned = cleaned.replace(/\/\/.*$/gm, '');
+      // 移除控制字符
+      cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
+      const parsed = JSON.parse(cleaned);
+      const questions = parsed.questions || [];
+      log.info('题目提取成功（清理后）', { count: questions.length });
+      return questions;
+    }
 
   } catch (error) {
     log.error('题目提取失败', error);

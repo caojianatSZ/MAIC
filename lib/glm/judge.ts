@@ -132,12 +132,18 @@ export async function judgeHandwrittenAnswers(
       throw new Error(result.error.message);
     }
 
-    const content = result.choices?.[0]?.message?.content;
+    // GLM-5 是推理模型，答案可能在 reasoning_content 或 content 中
+    const message = result.choices?.[0]?.message;
+    const content = message?.reasoning_content || message?.content;
     if (!content) {
       throw new Error('GLM 返回为空');
     }
 
-    log.info('GLM 响应成功', { contentLength: content.length, model });
+    log.info('GLM 响应成功', {
+      contentLength: content.length,
+      model,
+      hasReasoningContent: !!message?.reasoning_content
+    });
 
     // 解析 JSON 响应
     const judgment = parseJudgmentResponse(content);
