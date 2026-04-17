@@ -608,7 +608,7 @@ Page({
   },
 
   /**
-   * 提交照片进行诊断 V2（支持复核提示）
+   * 提交照片进行诊断 V2（支持异步任务和进度反馈）
    */
   submitPhotoV2(filePath) {
     const baseUrl = getBaseUrl()
@@ -618,6 +618,7 @@ Page({
     console.log('文件路径:', filePath)
 
     return new Promise((resolve, reject) => {
+      // 第一步：上传文件获取 taskId
       wx.uploadFile({
         url,
         filePath,
@@ -627,7 +628,7 @@ Page({
           grade: '初三',
           userId: getUserId()
         },
-        timeout: 120000, // 2分钟超时
+        timeout: 30000, // 30秒超时（只用于上传）
         success: (res) => {
           console.log('拍照诊断V2上传响应:', res)
           console.log('响应状态码:', res.statusCode)
@@ -636,9 +637,12 @@ Page({
           if (res.statusCode === 200) {
             try {
               const data = JSON.parse(res.data)
-              if (data.success) {
-                // V2 API 返回的数据格式
-                resolve(data.data || data)
+              if (data.success && data.taskId) {
+                // 进入轮询模式
+                this.pollTaskStatus(data.taskId, resolve, reject)
+              } else if (data.data) {
+                // 兼容直接返回结果的情况
+                resolve(data.data)
               } else {
                 reject(new Error(data.error || '分析失败'))
               }
@@ -657,6 +661,74 @@ Page({
         }
       })
     })
+  },
+
+  /**
+   * 轮询任务状态
+   */
+  pollTaskStatus(taskId, resolve, reject) {
+    const baseUrl = getBaseUrl()
+    const statusUrl = `${baseUrl}/api/diagnosis/photo-v2?taskId=${taskId}`
+    const maxAttempts = 120 // 最多轮询 2 分钟（每秒一次）
+    let attempts = 0
+
+    const poll = () => {
+      attempts++
+
+      wx.request({
+        url: statusUrl,
+        method: 'GET',
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            const progress = res.data
+            console.log('任务进度:', progress)
+
+            // 更新进度提示
+            if (progress.stepMessage) {
+              wx.showLoading({
+                title: progress.stepMessage,
+                mask: true
+              })
+            }
+
+            if (progress.status === 'completed' && progress.result) {
+              wx.hideLoading()
+              resolve(progress.result)
+            } else if (progress.status === 'failed') {
+              wx.hideLoading()
+              reject(new Error(progress.error || '处理失败'))
+            } else if (attempts < maxAttempts) {
+              // 继续轮询
+              setTimeout(poll, 1000)
+            } else {
+              wx.hideLoading()
+              reject(new Error('处理超时，请重试'))
+            }
+          } else {
+            // 请求失败，继续轮询
+            if (attempts < maxAttempts) {
+              setTimeout(poll, 1000)
+            } else {
+              wx.hideLoading()
+              reject(new Error('处理超时，请重试'))
+            }
+          }
+        },
+        fail: (err) => {
+          console.error('轮询状态失败:', err)
+          // 继续尝试
+          if (attempts < maxAttempts) {
+            setTimeout(poll, 1000)
+          } else {
+            wx.hideLoading()
+            reject(new Error('处理超时，请重试'))
+          }
+        }
+      })
+    }
+
+    // 开始轮询
+    poll()
   },
 
   /**
