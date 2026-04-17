@@ -36,6 +36,7 @@ import { validateJudgmentResult, calculateReviewNeed } from '@/lib/validation/an
 import { edukgAdapter } from '@/lib/edukg/adapter';
 import { PrismaClient } from '@prisma/client';
 import { saveWrongQuestion } from '@/lib/wrong-questions/service';
+import { createTask, updateProgress, completeTask, failTask, getProgress } from '@/lib/diagnosis/progress';
 
 const log = createLogger('PhotoV2');
 
@@ -54,12 +55,25 @@ export const maxDuration = 60;
 const CONFIDENCE_THRESHOLD_HIGH = parseFloat(process.env.CORRECTION_CONFIDENCE_THRESHOLD_HIGH || '0.8');
 
 /**
- * GET 请求 - API 说明
+ * GET 请求 - API 说明或查询任务状态
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const taskId = searchParams.get('taskId');
+
+  // 查询任务状态
+  if (taskId) {
+    const progress = getProgress(taskId);
+    if (!progress) {
+      return NextResponse.json({ error: '任务不存在或已过期' }, { status: 404 });
+    }
+    return NextResponse.json(progress);
+  }
+
+  // API 说明
   return NextResponse.json({
     message: '拍照诊断 V2 API',
-    version: '2.0',
+    version: '2.1',
     method: 'POST',
     features: [
       '图片预处理（Sharp 压缩）',
@@ -71,7 +85,8 @@ export async function GET() {
       '  - 低置信度：GLM-4V-Plus-0111 视觉模型',
       '防幻觉校验层',
       'EduKG 知识点匹配',
-      '生成诊断总结'
+      '生成诊断总结',
+      '实时进度反馈（轮询 /api/diagnosis/photo-v2?taskId=xxx）'
     ],
     parameters: {
       imageBase64: '图片 Base64 编码（可选）',
@@ -91,6 +106,17 @@ export async function GET() {
       '7. 知识点匹配',
       '8. 生成总结'
     ],
+    progress: {
+      polling: 'GET /api/diagnosis/photo-v2?taskId=<taskId>',
+      response: {
+        taskId: '任务ID',
+        status: 'processing/completed/failed',
+        currentStep: '当前步骤（1-8）',
+        totalSteps: '总步骤数',
+        stepMessage: '当前步骤描述',
+        result: '完成时的完整结果（仅 status=completed 时有）'
+      }
+    },
     confidenceThresholds: {
       high: '≥ 0.8 (使用 GLM-5/GLM-4.7 文本模型)',
       low: '< 0.8 (使用 GLM-4V-Plus-0111 视觉模型)'
@@ -99,9 +125,33 @@ export async function GET() {
 }
 
 /**
- * POST 请求 - 拍照诊断
+ * POST 请求 - 拍照诊断（异步处理模式）
  */
 export async function POST(request: NextRequest) {
+  // 生成任务ID
+  const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  // 创建任务进度
+  createTask(taskId, 8);
+
+  // 异步处理任务，不阻塞响应
+  processDiagnosisTask(taskId, request).catch((error) => {
+    log.error('任务处理失败', { taskId, error });
+    failTask(taskId, error instanceof Error ? error.message : '处理失败');
+  });
+
+  // 立即返回 taskId
+  return NextResponse.json({
+    success: true,
+    taskId,
+    message: '任务已创建，请轮询 /api/diagnosis/photo-v2?taskId=' + taskId + ' 获取进度'
+  });
+}
+
+/**
+ * 异步处理诊断任务
+ */
+async function processDiagnosisTask(taskId: string, request: NextRequest) {
   const startTime = Date.now();
 
   try {
@@ -146,16 +196,16 @@ export async function POST(request: NextRequest) {
 
     // 参数校验
     if (!imageBase64 && !imageUrl) {
-      return apiError('MISSING_REQUIRED_FIELD', 400, '请提供图片 Base64 或 URL');
+      throw new Error('请提供图片 Base64 或 URL');
     }
 
     if (!subject || !grade || !userId) {
-      return apiError('MISSING_REQUIRED_FIELD', 400, '请提供学科、年级和用户 ID');
+      throw new Error('请提供学科、年级和用户 ID');
     }
 
     const validSubjects = ['math', 'physics', 'chemistry', 'chinese', 'english'];
     if (!validSubjects.includes(subject)) {
-      return apiError('INVALID_REQUEST', 400, `无效的学科: ${subject}`);
+      throw new Error(`无效的学科: ${subject}`);
     }
 
     log.info('开始拍照诊断 V2', { subject, grade, userId, mode, hasImage: !!(imageBase64 || imageUrl) });
@@ -165,6 +215,7 @@ export async function POST(request: NextRequest) {
     const isUrl = !imageBase64;
 
     // ==================== Step 1: 图片预处理 ====================
+    updateProgress(taskId, 1, '正在处理图片...');
     log.info('Step 1: 图片预处理...');
     const preprocessedImage = await preprocessImage(imageData, isUrl);
     log.info('图片预处理完成', {
@@ -173,6 +224,7 @@ export async function POST(request: NextRequest) {
     });
 
     // ==================== Step 2: 模式检测 ====================
+    updateProgress(taskId, 2, '正在检测题目类型...');
     let detectedMode: CorrectionMode = 'batch';
     if (mode === 'auto') {
       log.info('Step 2: 模式检测中...');
@@ -187,6 +239,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ==================== Step 3: TextIn OCR 识别 ====================
+    updateProgress(taskId, 3, '正在识别文字（OCR）...');
     log.info('Step 3: TextIn OCR 识别中...');
     const textinClient = getTextinClient();
 
@@ -241,6 +294,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ==================== Step 4: 简化题目结构 ====================
+    updateProgress(taskId, 4, '正在分析题目结构...');
     log.info('Step 4: 简化题目结构...');
     // 简化处理：直接将整个 OCR 内容作为一个题目
     // 批改函数会负责识别手写答案和判断对错
@@ -253,10 +307,11 @@ export async function POST(request: NextRequest) {
     log.info('题目结构完成', { count: extractedQuestions.length });
 
     if (extractedQuestions.length === 0) {
-      return apiError('PARSE_FAILED', 400, '未能识别到任何题目，请确保图片清晰');
+      throw new Error('未能识别到任何题目，请确保图片清晰');
     }
 
     // ==================== Step 5: 分层批改 ====================
+    updateProgress(taskId, 5, '正在批改题目...');
     log.info('Step 5: 分层批改中...', {
       ocrConfidence: ocrValidation.confidence,
       strategy: ocrValidation.confidence >= 0.8 ? 'text-only (GLM-5/4.7)' : 'visual-calibration (GLM-4V-Plus-0111)'
@@ -303,6 +358,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ==================== Step 6: 防幻觉校验 ====================
+    updateProgress(taskId, 6, '正在校验结果...');
     log.info('Step 6: 防幻觉校验中...');
     const validatedQuestions: QuestionJudgment[] = [];
     let lowConfidenceCount = 0;
@@ -355,6 +411,7 @@ export async function POST(request: NextRequest) {
     });
 
     // ==================== Step 7: 知识点匹配 ====================
+    updateProgress(taskId, 7, '正在匹配知识点...');
     log.info('Step 7: 知识点匹配中...');
 
     for (const question of validatedQuestions) {
@@ -367,6 +424,7 @@ export async function POST(request: NextRequest) {
     log.info('知识点匹配完成');
 
     // ==================== Step 8: 生成总结 ====================
+    updateProgress(taskId, 8, '正在生成报告...');
     const correctCount = validatedQuestions.filter(q => q.judgment.isCorrect).length;
     const totalCount = validatedQuestions.length;
     const score = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
@@ -428,15 +486,12 @@ export async function POST(request: NextRequest) {
       log.error('保存记录或触发成就失败', err);
     });
 
-    return apiSuccess(response as unknown as Record<string, unknown>);
+    // 标记任务完成
+    completeTask(taskId, response);
 
   } catch (error) {
     log.error('拍照诊断 V2 失败', error);
-    return apiError(
-      'INTERNAL_ERROR',
-      500,
-      error instanceof Error ? error.message : '拍照诊断失败，请稍后重试'
-    );
+    failTask(taskId, error instanceof Error ? error.message : '拍照诊断失败，请稍后重试');
   }
 }
 
