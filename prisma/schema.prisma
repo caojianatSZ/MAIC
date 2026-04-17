@@ -44,6 +44,8 @@ model User {
   userAchievements UserAchievement[]
   studentProfile StudentProfile?
   studyRecords StudyRecord[]
+  paperCorrectionRecords PaperCorrectionRecord[]
+  wrongQuestions WrongQuestion[]
 
   @@map("users")
 }
@@ -500,7 +502,8 @@ model ClassroomKnowledgePoint {
 // 批改记录
 model PaperCorrectionRecord {
   id                String   @id @default(cuid())
-  userId            String
+  userId            String   @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject           String
   grade             String
   mode              String   // single / batch
@@ -513,6 +516,7 @@ model PaperCorrectionRecord {
   lowConfidenceCount Int     @default(0) @map("low_confidence_count")  // 低置信度题目数量
   createdAt         DateTime @default(now()) @map("created_at")
 
+  @@index([userId])
   @@index([userId, createdAt])
   @@index([subject])
   @@index([needsReview])  // 用于查询待复核列表
@@ -522,8 +526,9 @@ model PaperCorrectionRecord {
 // 错题本
 model WrongQuestion {
   id               String   @id @default(cuid())
-  userId           String
-  questionId       String   @map("question_id")
+  userId           String   @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId       String   @map("question_id")  // 外部题库ID（如EduKG知识点ID）
   subject          String
   questionContent  String   @map("question_content")
   studentAnswer    String?  @map("student_answer")
@@ -538,6 +543,7 @@ model WrongQuestion {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@unique([userId, questionId])
+  @@index([userId])
   @@index([userId, subject])
   @@index([userId, mastered])
   @@index([userId, needsReview])  // 用于查询待复核错题
