@@ -3,7 +3,7 @@
 export interface JudgmentValidationResult {
   isValid: boolean;
   needsReview: boolean;
-  reviewReason: string;
+  reviewReason: ReviewReason;
   adjustedConfidence: number;
   warnings: string[];
 }

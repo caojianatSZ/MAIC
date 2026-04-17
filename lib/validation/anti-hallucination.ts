@@ -198,7 +198,7 @@ export function calculateReviewNeed(params: {
   hasValidationErrors: boolean;
 }): {
   needsReview: boolean;
-  reviewReason: string;
+  reviewReason: ReviewReason;
 } {
   const { lowConfidenceCount, totalQuestions, hasValidationErrors } = params;
 
@@ -220,6 +220,6 @@ export function calculateReviewNeed(params: {
 
   return {
     needsReview: false,
-    reviewReason: ''
+    reviewReason: REVIEW_REASONS.LOW_CONFIDENCE  // 无需复核时使用默认值
   };
 }
