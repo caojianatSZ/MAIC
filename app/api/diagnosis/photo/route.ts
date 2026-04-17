@@ -3,6 +3,7 @@ import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { edukgAdapter } from '@/lib/edukg/adapter';
 import { createLogger } from '@/lib/logger';
 import sharp from 'sharp';
+import { getTextinClient } from '@/lib/textin/client';
 
 const log = createLogger('Photo Diagnosis');
 
@@ -171,10 +172,48 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 步骤1: 使用GLM-4V视觉模型识别图片内容
- * GLM-4V可以理解图片内容，并按要求格式化数学公式
+ * 步骤1: OCR识别图片内容
+ * 优先使用TextIn专业OCR，失败时降级到GLM-4V
  */
 async function performOCR(imageBase64: string): Promise<string> {
+  // 尝试使用TextIn专业OCR
+  try {
+    log.info('尝试使用TextIn专业OCR进行识别');
+    const textinClient = getTextinClient();
+    const result = await textinClient.recognizePaper(imageBase64);
+
+    // 校验OCR结果
+    const validation = textinClient.validateResult(result);
+
+    if (!validation.isValid) {
+      log.warn('TextIn校验未通过，使用降级方案', {
+        errors: validation.errors,
+        warnings: validation.warnings
+      });
+      throw new Error('TextIn校验失败');
+    }
+
+    log.info('TextIn OCR识别成功', {
+      confidence: result.confidence,
+      markdownLength: result.markdown.length,
+      warnings: validation.warnings.length
+    });
+
+    // 返回markdown格式的识别结果
+    return result.markdown;
+
+  } catch (error) {
+    log.warn('TextIn OCR失败，使用GLM-4V降级方案', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return performOCRFallback(imageBase64);
+  }
+}
+
+/**
+ * 降级方案：使用GLM-4V视觉模型识别图片内容
+ */
+async function performOCRFallback(imageBase64: string): Promise<string> {
   const ZHIPU_API_KEY = process.env.GLM_API_KEY;
 
   if (!ZHIPU_API_KEY) {
@@ -191,7 +230,7 @@ async function performOCR(imageBase64: string): Promise<string> {
       throw new Error('图片太大，请使用小于10MB的图片');
     }
 
-    log.info('使用GLM-4V视觉模型进行OCR识别', { mimeType, base64Length: base64Data.length });
+    log.info('使用GLM-4V视觉模型进行OCR识别（降级方案）', { mimeType, base64Length: base64Data.length });
 
     // 构建OCR识别的prompt，要求正确格式化公式
     const ocrPrompt = `请识别这张图片中的所有题目内容。
@@ -256,12 +295,12 @@ async function performOCR(imageBase64: string): Promise<string> {
     }
 
     // 记录OCR识别结果
-    log.info('OCR识别结果', { textLength: content.length, preview: content.substring(0, 500) });
+    log.info('GLM-4V降级OCR识别结果', { textLength: content.length, preview: content.substring(0, 500) });
 
     return content;
 
   } catch (error) {
-    log.error('GLM-4V识别失败', error);
+    log.error('GLM-4V降级识别失败', error);
     throw new Error('图片识别失败，请重试');
   }
 }/**
