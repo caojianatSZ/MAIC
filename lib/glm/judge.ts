@@ -25,6 +25,17 @@ export async function judgeHandwrittenAnswers(
 
     const prompt = buildJudgmentPrompt(ocrText, questions);
 
+    // GLM API 要求 base64 图片使用 base64:// 前缀
+    // 而不是 data:image/xxx;base64, 格式
+    const glmImageUrl = imageBase64.includes(',')
+      ? `base64://${imageBase64.split(',')[1]}`
+      : `base64://${imageBase64}`;
+
+    log.info('GLM 图片格式转换', {
+      originalPrefix: imageBase64.substring(0, 30),
+      convertedPrefix: glmImageUrl.substring(0, 30)
+    });
+
     const response = await fetch(GLM_API_URL, {
       method: 'POST',
       headers: {
@@ -38,7 +49,7 @@ export async function judgeHandwrittenAnswers(
           content: [
             {
               type: 'image_url',
-              image_url: { url: imageBase64 }
+              image_url: { url: glmImageUrl }
             },
             {
               type: 'text',
