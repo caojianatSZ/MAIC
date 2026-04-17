@@ -31,8 +31,8 @@ export async function judgeHandwrittenAnswers(
     // 根据置信度选择模型
     const useHighConfidencePath = ocrConfidence >= 0.8;
     const model = useHighConfidencePath
-      ? (process.env.GLM_JUDGMENT_MODEL || 'glm-4-air')  // 高置信度用文本模型（glm-4-air 更快更直接）
-      : 'glm-4v-plus-0111';                            // 低置信度用视觉模型
+      ? (process.env.GLM_JUDGMENT_MODEL || 'glm-4.7')  // 高置信度用文本模型（glm-4.7 平衡速度和准确性）
+      : 'glm-4v-plus-0111';                             // 低置信度用视觉模型
 
     log.info('批改开始', {
       questionCount: questions.length,
