@@ -56,7 +56,7 @@ export async function judgeHandwrittenAnswers(
           content: prompt
         }],
         temperature: 0.1,
-        max_tokens: 4000
+        max_tokens: 8000  // 增加以避免截断
       };
       log.info('使用文本模型批改', { model });
     } else {
@@ -237,62 +237,67 @@ function buildTextOnlyPrompt(ocrText: string, questions: QuestionForJudgment[]):
     return desc;
   }).join('\n');
 
-  return `你是一个专业的阅卷老师。以下是试卷 OCR 识别的全部文字内容（包括印刷题目和学生手写答案）：
+  return `你是专业阅卷老师。从以下 OCR 文本中找出学生手写答案并判题。
 
-【OCR 识别的完整内容】
+【OCR 内容】
 ${ocrText}
 
-【题目列表】
+【题目】
 ${questionsList}
 
-请从 OCR 文本中找出学生的手写答案，并判断对错。
+【重要】直接返回 JSON，不要任何解释文字：
+{"questions":[{"questionId":"1","studentAnswer":"答案","isCorrect":true,"correctAnswer":"正确答案","analysis":"解析","confidence":0.9}]}
 
-返回 JSON 格式（必须是有效的 JSON，不要有 markdown 代码块标记）：
-{
-  "questions": [
-    {
-      "questionId": "题目编号",
-      "studentAnswer": "从 OCR 中提取的学生答案",
-      "isCorrect": true/false,
-      "correctAnswer": "正确答案",
-      "analysis": "简要解析（100字以内）",
-      "confidence": 0.95
-    }
-  ]
-}
-
-注意事项：
-1. studentAnswer 必须从 OCR 文本中提取，寻找手写答案的特征（如括号、勾选、填空等）
-2. isCorrect 基于题目内容和提取的答案判断
-3. **confidence 非常重要**：
-   - 如果 OCR 文本清晰且答案明确，confidence 设为 0.9-1.0
-   - 如果 OCR 文本有干扰但能判断，confidence 设为 0.7-0.9
-   - 如果无法确定答案，confidence 设为 0.5-0.7
-   - 如果完全找不到答案，confidence 设为 0
-4. 如果某个题目无法找到学生答案，isCorrect 设为 false，studentAnswer 为空字符串，confidence 设为 0
-5. 只返回纯 JSON，不要有其他说明文字`;
+规则：
+1. 答案清晰→confidence 0.9-1.0
+2. 答案模糊→confidence 0.7-0.9
+3. 无答案→confidence 0, isCorrect false`;
 }
 
 /**
  * 解析批改响应
+ * 处理推理模型的特殊情况
  */
 function parseJudgmentResponse(content: string): BatchJudgmentResult {
+  // 首先尝试直接解析（如果内容本身就是纯 JSON）
+  try {
+    const trimmed = content.trim();
+    if (trimmed.startsWith('{')) {
+      return JSON.parse(trimmed);
+    }
+  } catch {
+    // 继续尝试其他方法
+  }
+
   // 清理可能的 markdown 代码块
   const cleanContent = content
     .replace(/```json\n?/g, '')
     .replace(/```\n?/g, '')
     .trim();
 
-  // 提取 JSON 对象
-  const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('无法从响应中提取 JSON');
+  // 提取 JSON 对象 - 使用更精确的模式匹配
+  // 查找最后一个完整的 JSON 对象（推理模型可能在最后输出答案）
+  const jsonMatches = cleanContent.match(/\{["\s]*questions["\s]*:[\s\S]*?\n\s*\}/g);
+  if (jsonMatches && jsonMatches.length > 0) {
+    // 取最后一个匹配（应该是最终答案）
+    const lastMatch = jsonMatches[jsonMatches.length - 1];
+    try {
+      return JSON.parse(lastMatch);
+    } catch (error) {
+      log.error('JSON 解析失败（最后匹配）', { content: lastMatch.substring(0, 500) });
+    }
   }
 
-  try {
-    return JSON.parse(jsonMatch[0]);
-  } catch (error) {
-    log.error('JSON 解析失败', { content: cleanContent.substring(0, 500) });
-    throw new Error('批改响应 JSON 解析失败');
+  // 尝试找到任何类似 JSON 的结构
+  const simpleMatch = cleanContent.match(/\{[\s\S]*\}/);
+  if (simpleMatch) {
+    try {
+      return JSON.parse(simpleMatch[0]);
+    } catch (error) {
+      log.error('JSON 解析失败（简单匹配）', { content: simpleMatch[0].substring(0, 500) });
+    }
   }
+
+  log.error('无法提取 JSON', { content: cleanContent.substring(0, 1000) });
+  throw new Error('无法从响应中提取有效的 JSON');
 }
