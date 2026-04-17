@@ -293,17 +293,12 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       };
     }
 
-    // ==================== Step 4: 简化题目结构 ====================
+    // ==================== Step 4: 提取题目结构 ====================
     updateProgress(taskId, 4, '正在分析题目结构...');
-    log.info('Step 4: 简化题目结构...');
-    // 简化处理：直接将整个 OCR 内容作为一个题目
-    // 批改函数会负责识别手写答案和判断对错
-    const extractedQuestions = [{
-      id: '1',
-      content: ocrText.substring(0, 2000), // 限制长度避免 token 超限
-      type: 'essay' as const,
-      options: undefined
-    }];
+    log.info('Step 4: 提取题目结构...');
+
+    // 使用 GLM 提取题目结构（识别多道题目）
+    let extractedQuestions = await extractQuestions(ocrText, subject, grade);
     log.info('题目结构完成', { count: extractedQuestions.length });
 
     if (extractedQuestions.length === 0) {

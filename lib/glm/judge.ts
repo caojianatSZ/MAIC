@@ -142,11 +142,23 @@ export async function judgeHandwrittenAnswers(
     log.info('GLM 响应成功', {
       contentLength: content.length,
       model,
-      hasReasoningContent: !!message?.reasoning_content
+      hasReasoningContent: !!message?.reasoning_content,
+      contentPreview: content.substring(0, 500)
     });
 
     // 解析 JSON 响应
     const judgment = parseJudgmentResponse(content);
+
+    // 详细日志：解析结果
+    log.info('批改结果解析', {
+      questionCount: judgment.questions.length,
+      questions: judgment.questions.map(q => ({
+        id: q.questionId,
+        answer: q.studentAnswer,
+        confidence: q.confidence,
+        isCorrect: q.isCorrect
+      }))
+    });
 
     log.info('批改完成', {
       questionCount: judgment.questions.length,
