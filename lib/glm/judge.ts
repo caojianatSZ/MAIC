@@ -32,7 +32,7 @@ export async function judgeHandwrittenAnswers(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'glm-4v-plus',
+        model: 'glm-4v',
         messages: [{
           role: 'user',
           content: [
