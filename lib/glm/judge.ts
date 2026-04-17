@@ -8,12 +8,19 @@ const log = createLogger('GLMJudge');
 const GLM_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 
 /**
- * 使用 GLM-4V-Plus 进行手写答案识别和批改
+ * 分层批改策略：根据 OCR 置信度选择模型
+ *
+ * 成本优化策略：
+ * - OCR 高置信度（≥0.8）：使用 GLM-5/GLM-4.7 纯文本推理（快速、便宜）
+ * - OCR 低置信度（<0.8）：使用 GLM-4V-Plus-0111 视觉校准（高精度）
+ *
+ * @param ocrConfidence TextIn OCR 识别置信度 (0-1)
  */
 export async function judgeHandwrittenAnswers(
   imageBase64: string,
   ocrText: string,
-  questions: QuestionForJudgment[]
+  questions: QuestionForJudgment[],
+  ocrConfidence: number = 0.8
 ): Promise<BatchJudgmentResult> {
   const apiKey = process.env.GLM_API_KEY;
   if (!apiKey) {
@@ -21,29 +28,53 @@ export async function judgeHandwrittenAnswers(
   }
 
   try {
-    log.info('GLM-4V-Plus 批改开始', { questionCount: questions.length });
+    // 根据置信度选择模型
+    const useHighConfidencePath = ocrConfidence >= 0.8;
+    const model = useHighConfidencePath
+      ? (process.env.GLM_JUDGMENT_MODEL || 'glm-5')  // 高置信度用文本模型
+      : 'glm-4v-plus-0111';                          // 低置信度用视觉模型
 
-    const prompt = buildJudgmentPrompt(ocrText, questions);
-
-    // GLM API 要求 base64 图片使用 base64:// 前缀
-    // 而不是 data:image/xxx;base64, 格式
-    const glmImageUrl = imageBase64.includes(',')
-      ? `base64://${imageBase64.split(',')[1]}`
-      : `base64://${imageBase64}`;
-
-    log.info('GLM 图片格式转换', {
-      originalPrefix: imageBase64.substring(0, 30),
-      convertedPrefix: glmImageUrl.substring(0, 30)
+    log.info('批改开始', {
+      questionCount: questions.length,
+      ocrConfidence,
+      model,
+      strategy: useHighConfidencePath ? 'text-only' : 'visual-calibration'
     });
 
-    const response = await fetch(GLM_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'glm-4v',
+    const prompt = useHighConfidencePath
+      ? buildTextOnlyPrompt(ocrText, questions)  // 文本模型：从 OCR 文本提取答案
+      : buildVisualPrompt(ocrText, questions);   // 视觉模型：识别手写答案
+
+    let requestBody: any;
+
+    if (useHighConfidencePath) {
+      // 高置信度路径：纯文本推理（快速、便宜）
+      requestBody = {
+        model,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }],
+        temperature: 0.1,
+        max_tokens: 4000
+      };
+      log.info('使用文本模型批改', { model });
+    } else {
+      // 低置信度路径：视觉校准（高精度）
+      // GLM API 需要纯 base64 字符串，不包含 data:image 前缀
+      const glmImageUrl = imageBase64.includes(',')
+        ? imageBase64.split(',')[1]
+        : imageBase64;
+
+      log.info('GLM 图片信息', {
+        originalPrefix: imageBase64.substring(0, 40),
+        hasDataPrefix: imageBase64.includes(','),
+        imageLength: imageBase64.length,
+        glmUrlLength: glmImageUrl.length
+      });
+
+      requestBody = {
+        model,
         messages: [{
           role: 'user',
           content: [
@@ -59,7 +90,17 @@ export async function judgeHandwrittenAnswers(
         }],
         temperature: 0.1,
         max_tokens: 8000
-      })
+      };
+      log.info('使用视觉模型校准', { model });
+    }
+
+    const response = await fetch(GLM_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -96,15 +137,16 @@ export async function judgeHandwrittenAnswers(
       throw new Error('GLM 返回为空');
     }
 
-    log.info('GLM 响应成功', { contentLength: content.length });
+    log.info('GLM 响应成功', { contentLength: content.length, model });
 
     // 解析 JSON 响应
     const judgment = parseJudgmentResponse(content);
 
-    log.info('GLM 批改完成', {
+    log.info('批改完成', {
       questionCount: judgment.questions.length,
       correctCount: judgment.questions.filter(q => q.isCorrect).length,
-      avgConfidence: calculateAvgConfidence(judgment.questions)
+      avgConfidence: calculateAvgConfidence(judgment.questions),
+      strategy: useHighConfidencePath ? 'text-only' : 'visual-calibration'
     });
 
     return judgment;
@@ -125,9 +167,10 @@ function calculateAvgConfidence(questions: { confidence: number }[]): number {
 }
 
 /**
- * 构建批改 prompt（强调置信度评估）
+ * 构建视觉批改 prompt（GLM-4V-Plus-0111）
+ * 用于识别手写答案并判断对错
  */
-function buildJudgmentPrompt(ocrText: string, questions: QuestionForJudgment[]): string {
+function buildVisualPrompt(ocrText: string, questions: QuestionForJudgment[]): string {
   const questionsList = questions.map(q => {
     let desc = `- 题目 ${q.id}: ${q.content}`;
     if (q.options && q.options.length > 0) {
@@ -169,6 +212,58 @@ ${questionsList}
    - 如果手写模糊或不确定，confidence 设为 0.5-0.7
    - 如果完全无法识别或判断，confidence 设为 0.5 以下
 4. 如果某个题目无法识别学生答案，isCorrect 设为 false，studentAnswer 为空字符串，confidence 设为 0
+5. 只返回纯 JSON，不要有其他说明文字`;
+}
+
+/**
+ * 构建文本批改 prompt（GLM-5/GLM-4.7）
+ * 用于从 OCR 文本中提取答案并判断对错
+ *
+ * 注意：这个 prompt 假设 OCR 文本中已经包含了学生的手写答案
+ * TextIn OCR 应该能识别到图片中的所有文字内容（包括手写）
+ */
+function buildTextOnlyPrompt(ocrText: string, questions: QuestionForJudgment[]): string {
+  const questionsList = questions.map(q => {
+    let desc = `- 题目 ${q.id}: ${q.content}`;
+    if (q.options && q.options.length > 0) {
+      desc += `\n  选项: ${q.options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join(' | ')}`;
+    }
+    return desc;
+  }).join('\n');
+
+  return `你是一个专业的阅卷老师。以下是试卷 OCR 识别的全部文字内容（包括印刷题目和学生手写答案）：
+
+【OCR 识别的完整内容】
+${ocrText}
+
+【题目列表】
+${questionsList}
+
+请从 OCR 文本中找出学生的手写答案，并判断对错。
+
+返回 JSON 格式（必须是有效的 JSON，不要有 markdown 代码块标记）：
+{
+  "questions": [
+    {
+      "questionId": "题目编号",
+      "studentAnswer": "从 OCR 中提取的学生答案",
+      "isCorrect": true/false,
+      "correctAnswer": "正确答案",
+      "analysis": "简要解析（100字以内）",
+      "confidence": 0.95
+    }
+  ]
+}
+
+注意事项：
+1. studentAnswer 必须从 OCR 文本中提取，寻找手写答案的特征（如括号、勾选、填空等）
+2. isCorrect 基于题目内容和提取的答案判断
+3. **confidence 非常重要**：
+   - 如果 OCR 文本清晰且答案明确，confidence 设为 0.9-1.0
+   - 如果 OCR 文本有干扰但能判断，confidence 设为 0.7-0.9
+   - 如果无法确定答案，confidence 设为 0.5-0.7
+   - 如果完全找不到答案，confidence 设为 0
+4. 如果某个题目无法找到学生答案，isCorrect 设为 false，studentAnswer 为空字符串，confidence 设为 0
 5. 只返回纯 JSON，不要有其他说明文字`;
 }
 

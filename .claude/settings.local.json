@@ -80,7 +80,10 @@
       "Bash(chmod +x /tmp/update_glm_api.sh)",
       "Bash(/tmp/update_glm_api.sh)",
       "Bash(chmod +x /tmp/test-wrong-questions-api.sh)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill *)",
+      "Read(//Users/caojian/Downloads/**)"
     ]
   }
 }

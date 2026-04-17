@@ -10,7 +10,9 @@
  * 2. 模式检测（auto/single/batch）
  * 3. TextIn OCR 识别 + 后处理校验
  * 4. 提取题目结构
- * 5. GLM-4V-Plus 批改
+ * 5. 分层批改（根据 OCR 置信度选择模型）
+ *    - 高置信度（≥0.8）：GLM-5/GLM-4.7 文本模型
+ *    - 低置信度（<0.8）：GLM-4V-Plus-0111 视觉模型
  * 6. 防幻觉校验
  * 7. 知识点匹配
  * 8. 生成总结
@@ -64,7 +66,9 @@ export async function GET() {
       '模式自动检测（单题/整卷）',
       'TextIn 专业 OCR 识别',
       'OCR 结果后处理校验',
-      'GLM-4V-Plus 手写批改',
+      '分层批改策略（成本优化）',
+      '  - 高置信度：GLM-5/GLM-4.7 文本模型',
+      '  - 低置信度：GLM-4V-Plus-0111 视觉模型',
       '防幻觉校验层',
       'EduKG 知识点匹配',
       '生成诊断总结'
@@ -82,11 +86,15 @@ export async function GET() {
       '2. 模式检测',
       '3. TextIn OCR 识别',
       '4. 提取题目结构',
-      '5. GLM-4V-Plus 批改',
+      '5. 分层批改（根据 OCR 置信度选择模型）',
       '6. 防幻觉校验',
       '7. 知识点匹配',
       '8. 生成总结'
-    ]
+    ],
+    confidenceThresholds: {
+      high: '≥ 0.8 (使用 GLM-5/GLM-4.7 文本模型)',
+      low: '< 0.8 (使用 GLM-4V-Plus-0111 视觉模型)'
+    }
   });
 }
 
@@ -241,8 +249,11 @@ export async function POST(request: NextRequest) {
       return apiError('PARSE_FAILED', 400, '未能识别到任何题目，请确保图片清晰');
     }
 
-    // ==================== Step 5: GLM-4V-Plus 批改 ====================
-    log.info('Step 5: GLM-4V-Plus 批改中...');
+    // ==================== Step 5: 分层批改 ====================
+    log.info('Step 5: 分层批改中...', {
+      ocrConfidence: ocrValidation.confidence,
+      strategy: ocrValidation.confidence >= 0.8 ? 'text-only (GLM-5/4.7)' : 'visual-calibration (GLM-4V-Plus-0111)'
+    });
     const questionsForJudgment: QuestionForJudgment[] = extractedQuestions.map(q => ({
       id: q.id,
       content: q.content,
@@ -250,16 +261,39 @@ export async function POST(request: NextRequest) {
       options: q.options
     }));
 
-    const judgmentResult = await judgeHandwrittenAnswers(
-      preprocessedImage,
-      ocrText,
-      questionsForJudgment
-    );
+    let judgmentResult;
+    try {
+      // 分层批改策略：根据 OCR 置信度选择模型
+      // 高置信度（≥0.8）→ GLM-5/GLM-4.7 文本推理（快速便宜）
+      // 低置信度（<0.8）→ GLM-4V-Plus-0111 视觉校准（高精度）
+      judgmentResult = await judgeHandwrittenAnswers(
+        preprocessedImage,
+        ocrText,
+        questionsForJudgment,
+        ocrValidation.confidence
+      );
 
-    log.info('GLM 批改完成', {
-      questionCount: judgmentResult.questions.length,
-      avgConfidence: judgmentResult.questions.reduce((sum, q) => sum + q.confidence, 0) / judgmentResult.questions.length
-    });
+      log.info('GLM 批改完成', {
+        questionCount: judgmentResult.questions.length,
+        avgConfidence: judgmentResult.questions.reduce((sum, q) => sum + q.confidence, 0) / judgmentResult.questions.length,
+        ocrConfidence: ocrValidation.confidence,
+        strategy: ocrValidation.confidence >= 0.8 ? 'text-only' : 'visual-calibration'
+      });
+    } catch (glmError) {
+      log.warn('GLM 批改失败，使用降级方案', glmError);
+
+      // 降级方案：基于OCR结果生成默认批改结果
+      judgmentResult = {
+        questions: extractedQuestions.map(q => ({
+          questionId: q.id,
+          studentAnswer: '',
+          isCorrect: false,
+          correctAnswer: '需手动确认',
+          analysis: 'AI批改服务暂时不可用，请查看OCR识别结果并手动确认',
+          confidence: 0.1
+        }))
+      };
+    }
 
     // ==================== Step 6: 防幻觉校验 ====================
     log.info('Step 6: 防幻觉校验中...');
