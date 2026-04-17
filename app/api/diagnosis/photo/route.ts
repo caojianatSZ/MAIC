@@ -345,6 +345,34 @@ ${ocrText}
 }
 
 /**
+ * 检测题目所属学科
+ */
+async function detectSubject(questionContent: string): Promise<string> {
+  // 基于关键词进行快速检测
+  const physicsKeywords = ['功', '功率', '力', '速度', '加速度', '摩擦', '动能', '势能', '电压', '电流', '电阻', '磁场', '光', '热', '能量', '牛顿', '杠杆', '滑轮'];
+  const chemistryKeywords = ['化学', '反应', '元素', '化合物', '酸', '碱', '盐', '溶液', '摩尔', '离子', '分子', '原子'];
+  const biologyKeywords = ['细胞', '基因', '遗传', '生物', '植物', '动物', '生态系统', '光合作用', '呼吸'];
+
+  for (const keyword of physicsKeywords) {
+    if (questionContent.includes(keyword)) {
+      return 'physics';
+    }
+  }
+  for (const keyword of chemistryKeywords) {
+    if (questionContent.includes(keyword)) {
+      return 'chemistry';
+    }
+  }
+  for (const keyword of biologyKeywords) {
+    if (questionContent.includes(keyword)) {
+      return 'biology';
+    }
+  }
+
+  return 'math'; // 默认数学
+}
+
+/**
  * 步骤3: 匹配EduKG知识点
  */
 async function matchKnowledgePoints(
@@ -352,13 +380,18 @@ async function matchKnowledgePoints(
   subject: string
 ): Promise<Array<{ id: string; name: string; uri?: string }>> {
   try {
+    // 首先检测学科
+    const detectedSubject = await detectSubject(questionContent);
+
     // 使用GLM提取关键词
     const GLM_API_KEY = process.env.GLM_API_KEY;
     if (!GLM_API_KEY) {
       return [];
     }
 
-    const prompt = `请从以下数学题目中提取2-3个最重要的知识点关键词。
+    const subjectName = detectedSubject === 'physics' ? '物理' : detectedSubject === 'chemistry' ? '化学' : detectedSubject === 'biology' ? '生物' : '数学';
+
+    const prompt = `请从以下${subjectName}题目中提取2-3个最重要的知识点关键词。
 
 题目：${questionContent}
 
@@ -389,7 +422,7 @@ async function matchKnowledgePoints(
 
     for (const keyword of keywords.slice(0, 3)) {
       try {
-        const searchResults = await edukgAdapter.searchKnowledgePoints(keyword, subject);
+        const searchResults = await edukgAdapter.searchKnowledgePoints(keyword, detectedSubject);
 
         // searchKnowledgePoints 返回的格式
         if (searchResults && searchResults.length > 0) {

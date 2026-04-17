@@ -646,11 +646,81 @@ export class EduKGAdapter {
     try {
       console.log(`[EduKG] 搜索知识点: ${keyword} in ${subject || 'all'}`);
 
-      // TODO: 实际调用EduKG搜索API
-      return [];
+      const sessionId = await this.getSessionId();
+      if (sessionId === 'mock_id') {
+        // Mock 模式返回空
+        return [];
+      }
+
+      // 使用实体搜索接口
+      const searchUrl = 'https://edukg.cn/openapi/common/totalSearch';
+
+      // 构建请求参数
+      const params = new URLSearchParams();
+      params.append('searchText', keyword);
+      params.append('id', sessionId);
+
+      const response = await fetchWithIgnoreSSL(searchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        },
+        body: params.toString(),
+        signal: AbortSignal.timeout(this.config.timeout || 10000),
+        ignoreSSL: this.config.ignoreSSL,
+      });
+
+      if (!response.ok) {
+        console.warn(`[EduKG] 搜索失败: ${response.status}`);
+        return [];
+      }
+
+      const data = await response.json();
+
+      // 检查响应状态
+      if (data.code !== '0' && data.code !== 0) {
+        console.warn(`[EduKG] 搜索返回错误: ${data.msg || data.message}`);
+        return [];
+      }
+
+      // 提取知识点列表
+      const results: any[] = [];
+      const instanceList = data.data?.instanceList || [];
+
+      for (const instance of instanceList) {
+        results.push({
+          id: instance.instanceId,
+          uri: instance.instanceUri,
+          label: instance.instanceLabel || instance.instanceName,
+          name: instance.instanceName,
+          type: instance.instanceType,
+          category: instance.category
+        });
+      }
+
+      // 同时包含主实体
+      if (data.data?.instanceInfo) {
+        const mainInfo = Array.isArray(data.data.instanceInfo)
+          ? data.data.instanceInfo[0]
+          : data.data.instanceInfo;
+        if (mainInfo) {
+          results.unshift({
+            id: mainInfo.instanceId,
+            uri: mainInfo.instanceUri,
+            label: mainInfo.instanceLabel || mainInfo.instanceName,
+            name: mainInfo.instanceName,
+            type: mainInfo.instanceType,
+            category: mainInfo.category
+          });
+        }
+      }
+
+      console.log(`[EduKG] 搜索到 ${results.length} 个知识点`);
+      return results;
+
     } catch (error) {
       console.error('[EduKG] 搜索知识点失败:', error);
-      throw new Error(`搜索知识点失败: ${error}`);
+      return [];
     }
   }
 
