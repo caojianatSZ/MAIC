@@ -141,8 +141,9 @@ OpenMAIC/
    - 解锁成就
    - 更新学生画像
 
-2. **事件类型** (`constants/eventTypes.js`)
+2. **事件类型** (`miniprogram/constants/eventTypes.js`)
    - EVENT_TYPES: `quiz_finished`, `diagnosis_finished`, `lesson_learned`, `streak`
+   - 批改相关: `correction_finished`, `perfect_score`, `high_score`, `wrong_question_mastered`, `review_completed`
    - ACHIEVEMENT_LEVELS: `bronze`, `silver`, `gold`, `diamond`, `king`
    - MASTERY_LEVELS: `mastered`, `partial`, `weak`
 
@@ -179,44 +180,75 @@ OpenMAIC/
 ### 试卷拍照批改 V2（防幻觉增强版）
 
 **技术架构**:
-- **GLM-OCR**: 专业 OCR，返回印刷内容和手写答案识别
-- **后处理校验层**: 题号连续性、答案区域、文本长度验证
-- **GLM-4V-Plus**: 逻辑批改和答案解析
+- **TextIn xParse**: 专业 OCR，返回印刷内容 + confidence
+- **后处理校验层**: 题号连续性、答案区域、文本长度、confidence 阈值
+- **GLM-4V-Plus**: 手写答案识别和逻辑批改
 - **防幻觉校验层**: 答案合理性检查、置信度过滤、人工复核标记
 
 **API 端点**:
 ```
-POST /api/diagnosis/photo
+POST /api/diagnosis/photo-v2
+GET  /api/diagnosis/photo-v2  (API 说明)
+POST /api/wrong-questions     (错题本管理)
+GET  /api/wrong-questions?review=true (待复核列表)
 ```
 
 **响应格式（含复核标记）**:
 ```typescript
 {
+  mode: 'single' | 'batch',
   questions: [{
+    id: string,
+    content: string,
+    type: 'choice' | 'fill_blank' | 'essay',
+    studentAnswer?: string,
     judgment: {
-      needsReview: boolean,    // 是否需要人工复核
-      reviewReason: string,    // 复核原因
+      isCorrect: boolean,
+      correctAnswer: string,
+      analysis: string,
       confidence: number,      // 调整后置信度
+      originalConfidence: number,  // LLM 原始置信度
+      needsReview: boolean,    // 是否需要人工复核
+      reviewReason?: string,   // 复核原因
       warnings: string[]       // 警告信息
-    }
+    },
+    knowledgePoints: Array<{
+      id: string,
+      name: string,
+      masteryLevel: 'mastered' | 'partial' | 'weak'
+    }>
   }],
   summary: {
+    totalQuestions: number,
+    correctCount: number,
+    score: number,
+    weakKnowledgePoints: string[],
+    lowConfidenceCount: number,
     needsReview: boolean,     // 整体是否需要复核
-    lowConfidenceCount: number // 低置信度题目数量
+    reviewReason?: string
   },
   ocrValidation: {
     isValid: boolean,
+    confidence: number,
     warnings: string[],
     errors: string[]
   }
 }
 ```
 
+**置信度阈值**:
+- `confidence < 0.6`: 标记"需要人工复核"
+- `0.6 ≤ confidence < 0.8`: 输出结果但标记"请家长确认"
+- `confidence ≥ 0.8`: 自动判题结果可直接使用
+
 **核心模块**:
-- `lib/glm/ocr.ts` - GLM-OCR 客户端
+- `lib/textin/client.ts` - TextIn OCR 客户端
+- `lib/textin/types.ts` - TextIn 类型定义
 - `lib/glm/judge.ts` - GLM-4V-Plus 批改客户端
-- `lib/validation/ocr.ts` - OCR 后处理校验
-- `lib/wrong-questions/` - 错题服务
+- `lib/glm/types.ts` - 批改类型定义
+- `lib/validation/anti-hallucination.ts` - 防幻觉校验
+- `lib/wrong-questions/service.ts` - 错题服务
+- `lib/diagnosis/mode-detector.ts` - 模式检测
 
 **小程序页面**:
 - `pages/review-list/` - 待复核列表
