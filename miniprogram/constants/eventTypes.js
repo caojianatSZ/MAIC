@@ -7,7 +7,11 @@ const EVENT_TYPES = {
   DIAGNOSIS_FINISHED: 'diagnosis_finished',
   LESSON_COMPLETED: 'lesson_completed',
   LESSON_LEARNED: 'lesson_learned',
-  STREAK: 'streak'
+  STREAK: 'streak',
+  // 批改相关事件
+  CORRECTION_FINISHED: 'correction_finished',
+  PERFECT_SCORE: 'perfect_score',
+  HIGH_SCORE: 'high_score'
 }
 
 /**

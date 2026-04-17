@@ -374,7 +374,7 @@ export class AchievementEngine {
 
     // 从今天开始向前检查连续天数
     let streak = 0
-    let checkDate = new Date(today)
+    const checkDate = new Date(today)
 
     while (true) {
       const dateStr = checkDate.toISOString()

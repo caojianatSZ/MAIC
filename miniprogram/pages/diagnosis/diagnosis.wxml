@@ -294,20 +294,64 @@
 
   <!-- 拍照结果预览 -->
   <view class="photo-result-section" wx:if="{{mode === 'photo_result'}}">
+
+    <!-- OCR 状态条 -->
+    <view class="ocr-status" wx:if="{{ocrConfidence > 0}}">
+      <text class="ocr-status-label">AI识别置信度</text>
+      <view class="ocr-confidence-bar">
+        <view class="ocr-confidence-fill" style="width: {{ocrConfidence * 100}}%"></view>
+      </view>
+      <text class="ocr-confidence-value">{{Math.round(ocrConfidence * 100)}}%</text>
+    </view>
+
+    <!-- 整卷复核提示横幅 -->
+    <view class="review-banner" wx:if="{{needsReview}}">
+      <view class="review-banner-icon">⚠️</view>
+      <view class="review-banner-content">
+        <text class="review-banner-title">需要复核</text>
+        <text class="review-banner-text" wx:if="{{reviewWarnings.length > 0}}">
+          {{reviewWarnings[0]}}
+        </text>
+      </view>
+    </view>
+
     <view class="preview-header">
       <text class="preview-title">识别成功！</text>
       <text class="preview-subtitle">共识别到 {{photoQuestions.length}} 道题目</text>
     </view>
 
     <scroll-view class="questions-preview" scroll-y>
-      <view class="preview-question" wx:for="{{photoQuestions}}" wx:key="id">
-        <view class="question-number">题目 {{item.id}}</view>
-        <view class="question-content">{{item.content}}</view>
+      <view class="preview-question {{item.needsReview ? 'needs-review' : ''}}" wx:for="{{photoQuestions}}" wx:key="id">
+
+        <!-- 题目标题栏（编号 + 复核标记 + 置信度） -->
+        <view class="question-header">
+          <view class="question-number">{{item.id}}</view>
+
+          <!-- 复核标记 -->
+          <view class="review-badge" wx:if="{{item.needsReview}}">
+            <text class="review-badge-text">需确认</text>
+          </view>
+
+          <!-- 置信度信息 -->
+          <view class="confidence-info" wx:if="{{item.confidence > 0}}">
+            <text class="confidence-value">{{Math.round(item.confidence * 100)}}%</text>
+          </view>
+        </view>
+
+        <!-- 警告信息 -->
+        <view class="question-warnings" wx:if="{{item.warnings && item.warnings.length > 0}}">
+          <text class="warning-icon">⚠️</text>
+          <text class="warning-text" wx:for="{{item.warnings}}" wx:for-item="warn" wx:key="*this">
+            {{warn}}
+          </text>
+        </view>
+
+        <rich-text class="question-content" nodes="{{item.content}}"></rich-text>
 
         <!-- 选项 -->
         <view class="question-options" wx:if="{{item.type === 'choice' && item.options}}">
           <view class="option-item" wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="idx" wx:key="*this">
-            <text class="option-label">{{idx === 0 ? 'A' : idx === 1 ? 'B' : idx === 2 ? 'C' : 'D'}}. {{opt}}</text>
+            <rich-text class="option-text" nodes="{{opt}}"></rich-text>
           </view>
         </view>
 

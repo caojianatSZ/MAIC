@@ -175,7 +175,7 @@ async function calculateStreak(userId: string): Promise<number> {
   today.setHours(0, 0, 0, 0)
 
   let streak = 0
-  let checkDate = today
+  const checkDate = today
 
   // 向前查找连续打卡记录
   while (true) {

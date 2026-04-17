@@ -1,0 +1,124 @@
+<!--pages/wrong-questions/wrong-questions.wxml-->
+<view class="container">
+  <!-- 页面头部 -->
+  <view class="page-header">
+    <text class="page-title">错题本</text>
+    <text class="page-subtitle">收录 {{statistics.total}} 道错题，未掌握 {{statistics.unmastered}} 道</text>
+  </view>
+
+  <!-- 科目筛选 -->
+  <view class="subject-filter">
+    <scroll-view scroll-x="{{true}}" class="filter-scroll">
+      <view class="filter-list">
+        <view
+          class="filter-item {{subjectFilter === item ? 'active' : ''}}"
+          wx:for="{{subjects}}"
+          wx:key="*this"
+          bindtap="onSubjectChange"
+          data-subject="{{item}}"
+        >
+          <text class="filter-text">{{subjectNames[item]}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 状态 Tab -->
+  <view class="tab-container">
+    <view
+      class="tab-item {{currentTab === item.key ? 'active' : ''}}"
+      wx:for="{{tabs}}"
+      wx:key="key"
+      bindtap="onTabChange"
+      data-tab="{{item.key}}"
+    >
+      <text class="tab-text">{{item.name}}</text>
+      <view class="tab-indicator" wx:if="{{currentTab === item.key}}"></view>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-container" wx:if="{{!loading && empty}}">
+    <text class="empty-icon">📚</text>
+    <text class="empty-title">{{currentTab === 'mastered' ? '还没有掌握的题目' : '错题本是空的'}}</text>
+    <text class="empty-desc">{{currentTab === 'mastered' ? '继续加油，掌握更多知识点！' : '通过做题来收集错题吧！'}}</text>
+  </view>
+
+  <!-- 错题列表 -->
+  <view class="questions-list" wx:if="{{!loading && !empty}}">
+    <view
+      class="question-card {{item.isMastered ? 'mastered-card' : ''}}"
+      wx:for="{{questions}}"
+      wx:key="id"
+      bindtap="onQuestionTap"
+      data-questionid="{{item.questionId}}"
+      data-subject="{{item.subject}}"
+    >
+      <!-- 卡片头部 -->
+      <view class="card-header">
+        <view class="subject-badge subject-{{item.subject}}">
+          <text class="subject-text">{{item.subject === 'math' ? '数学' : item.subject === 'physics' ? '物理' : item.subject === 'chemistry' ? '化学' : item.subject === 'english' ? '英语' : '语文'}}</text>
+        </view>
+        <view class="mastery-badge {{item.isMastered ? 'mastered' : 'practicing'}}">
+          <text class="mastery-text">{{item.isMastered ? '✓ 已掌握' : '练习中'}}</text>
+        </view>
+      </view>
+
+      <!-- 题目内容 -->
+      <view class="question-content">
+        <text class="question-text">{{item.questionContent}}</text>
+      </view>
+
+      <!-- 答案区域 -->
+      <view class="answer-section">
+        <view class="answer-label">
+          <text class="label-icon">📝</text>
+          <text class="label-text">你的答案</text>
+        </view>
+        <text class="answer-value">{{item.studentAnswer || '未填写'}}</text>
+      </view>
+
+      <view class="answer-section correct">
+        <view class="answer-label">
+          <text class="label-icon">✓</text>
+          <text class="label-text">正确答案</text>
+        </view>
+        <text class="answer-value">{{item.correctAnswer || '暂无'}}</text>
+      </view>
+
+      <!-- 知识点标签 -->
+      <view class="knowledge-points" wx:if="{{item.knowledgePoints && item.knowledgePoints.length > 0}}">
+        <view class="knowledge-tag" wx:for="{{item.knowledgePoints}}" wx:key="id" wx:for-item="kp">
+          <text class="knowledge-tag-text">{{kp.name}}</text>
+        </view>
+      </view>
+
+      <!-- 卡片底部 -->
+      <view class="card-footer">
+        <text class="add-time">{{item.createdAt}}</text>
+        <view
+          class="master-btn"
+          wx:if="{{!item.isMastered}}"
+          catchtap="markAsMastered"
+          data-questionid="{{item.questionId}}"
+        >
+          <text class="master-btn-text">标记掌握</text>
+        </view>
+        <view class="mastered-label" wx:else>
+          <text class="mastered-label-text">🎉 已掌握</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="footer-tip" wx:if="{{!loading && !empty}}">
+    <text class="tip-text">点击题目可查看详情</text>
+  </view>
+</view>

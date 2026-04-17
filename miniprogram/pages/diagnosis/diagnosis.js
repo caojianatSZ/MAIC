@@ -30,6 +30,10 @@ Page({
     photoImage: null,
     photoAnalyzing: false,
     photoQuestions: [],
+    // 拍照诊断 V2 数据
+    ocrConfidence: 0,          // OCR整体置信度
+    needsReview: false,         // 是否需要整卷复核
+    reviewWarnings: [],         // 复核警告信息
     // 诊断设置
     selectedGrade: '初三',  // 默认初三
     selectedTopic: '二次函数',  // 默认二次函数
@@ -436,8 +440,8 @@ Page({
     })
 
     try {
-      // 直接使用文件上传方式调用API
-      const result = await this.uploadPhotoForDiagnosis(filePath)
+      // 使用 V2 API 调用，支持复核提示
+      const result = await this.submitPhotoV2(filePath)
 
       wx.hideLoading()
 
@@ -458,8 +462,20 @@ Page({
         return
       }
 
-      // 显示识别结果预览
-      this.showPhotoResultPreview(result)
+      // 保存 V2 返回的复核数据
+      this.setData({
+        ocrConfidence: result.judgment?.ocrConfidence || 0,
+        needsReview: result.summary?.needsReview || false,
+        reviewWarnings: result.judgment?.warnings || []
+      })
+
+      // 检查是否需要整卷复核
+      if (result.summary?.needsReview) {
+        this.showReviewModal(result)
+      } else {
+        // 显示识别结果预览
+        this.showPhotoResultPreview(result)
+      }
 
     } catch (err) {
       wx.hideLoading()
@@ -592,12 +608,207 @@ Page({
   },
 
   /**
+   * 提交照片进行诊断 V2（支持复核提示）
+   */
+  submitPhotoV2(filePath) {
+    const baseUrl = getBaseUrl()
+    const url = `${baseUrl}/api/diagnosis/photo-v2`
+
+    console.log('拍照诊断V2上传URL:', url)
+    console.log('文件路径:', filePath)
+
+    return new Promise((resolve, reject) => {
+      wx.uploadFile({
+        url,
+        filePath,
+        name: 'file',
+        formData: {
+          subject: 'math',
+          grade: '初三',
+          userId: getUserId()
+        },
+        timeout: 120000, // 2分钟超时
+        success: (res) => {
+          console.log('拍照诊断V2上传响应:', res)
+          console.log('响应状态码:', res.statusCode)
+          console.log('响应数据:', res.data)
+
+          if (res.statusCode === 200) {
+            try {
+              const data = JSON.parse(res.data)
+              if (data.success) {
+                // V2 API 返回的数据格式
+                resolve(data.data || data)
+              } else {
+                reject(new Error(data.error || '分析失败'))
+              }
+            } catch (e) {
+              console.error('解析响应失败:', e)
+              reject(new Error('解析响应失败'))
+            }
+          } else {
+            reject(new Error(`服务器错误: ${res.statusCode}`))
+          }
+        },
+        fail: (err) => {
+          console.error('文件上传失败:', err)
+          console.error('错误详情:', JSON.stringify(err))
+          reject(new Error(`网络请求失败: ${err.errMsg || '未知错误'}`))
+        }
+      })
+    })
+  },
+
+  /**
+   * 显示复核提示对话框
+   */
+  showReviewModal(result) {
+    const confidence = result.judgment?.ocrConfidence || 0
+    const warnings = result.judgment?.warnings || []
+    const needsManualConfirm = result.summary?.needsManualConfirm || false
+
+    let message = `AI识别置信度: ${Math.round(confidence * 100)}%\n\n`
+
+    if (warnings.length > 0) {
+      message += '可能的问题:\n'
+      warnings.forEach((w, i) => {
+        message += `${i + 1}. ${w}\n`
+      })
+    }
+
+    if (needsManualConfirm) {
+      message += '\n建议逐题确认后再生成诊断。'
+    }
+
+    wx.showModal({
+      title: '需要复核',
+      content: message,
+      confirmText: '查看详情',
+      cancelText: '重新拍照',
+      success: (res) => {
+        if (res.confirm) {
+          // 显示识别结果预览
+          this.showPhotoResultPreview(result)
+        } else {
+          this.choosePhoto()
+        }
+      }
+    })
+  },
+
+  /**
+   * 清理OCR返回的文本格式
+   * 移除HTML标签、Markdown标记等，将LaTeX公式转换为HTML或图片
+   */
+  cleanOcrText(text) {
+    if (!text) return ''
+
+    let result = text
+
+    // 移除不需要的HTML标签（保留下标上标标签）
+    result = result.replace(/<(?!\/?sub|\/?sup)[^>]+>/g, '')
+
+    // 移除Markdown标题
+    result = result.replace(/^#{1,6}\s*/gm, '')
+
+    // 移除图片标记
+    result = result.replace(/!\[.*?\]\([^)]*\)/g, '')
+
+    // 处理LaTeX公式
+    result = this.convertLatexFormulas(result)
+
+    // 清理多余的空格
+    result = result.replace(/\s+/g, ' ').trim()
+
+    return result
+  },
+
+  /**
+   * 转换LaTeX公式
+   * 复杂公式转换为图片，简单公式转换为HTML
+   * 支持格式: \(...\), \[...\], $...$
+   */
+  convertLatexFormulas(text) {
+    // 首先处理 \(...\) 格式（行内公式）
+    text = text.replace(/\\\(([^)]+)\\\)/g, (match, formula) => {
+      return this.processLatexFormula(formula)
+    })
+
+    // 然后处理 \[...\] 格式（行间公式）
+    text = text.replace(/\\\[([^\]]+)\\\]/g, (match, formula) => {
+      return this.processLatexFormula(formula)
+    })
+
+    // 最后处理 $...$ 格式
+    text = text.replace(/\$([^$]+)\$/g, (match, formula) => {
+      return this.processLatexFormula(formula)
+    })
+
+    return text
+  },
+
+  /**
+   * 处理单个LaTeX公式
+   */
+  processLatexFormula(formula) {
+    let trimmed = formula.trim()
+
+    // 先将常见的希腊字母单词转换为LaTeX命令
+    trimmed = trimmed
+      .replace(/\bomega\b/g, '\\omega')
+      .replace(/\balpha\b/g, '\\alpha')
+      .replace(/\bbeta\b/g, '\\beta')
+      .replace(/\bgamma\b/g, '\\gamma')
+      .replace(/\bdelta\b/g, '\\delta')
+      .replace(/\btheta\b/g, '\\theta')
+      .replace(/\blambda\b/g, '\\lambda')
+      .replace(/\bmu\b/g, '\\mu')
+      .replace(/\bsigma\b/g, '\\sigma')
+      .replace(/\bpi\b/g, '\\pi')
+      .replace(/\bphi\b/g, '\\phi')
+      .replace(/\bpsii\b/g, '\\psi')
+      .replace(/\brho\b/g, '\\rho')
+
+    // 检测是否是复杂公式（包含分数、根号、希腊字母等）
+    const isComplex = /\\frac|\\sqrt|\\sum|\\int|\\prod|\\lim|\\infty|\\le|\\ge|\\ne|\\approx|\\times|\\div|\\partial|\\nabla|\\alpha|\\beta|\\gamma|\\delta|\\theta|\\pi|\\lambda|\\mu|\\sigma|\\omega|\\phi|\\psi|\\rho/.test(trimmed)
+
+    if (isComplex) {
+      // 复杂公式转为图片URL（使用CodeCogs API）
+      const encodedFormula = encodeURIComponent(trimmed)
+      // 使用符合小程序rich-text规范的img标签
+      const imgTag = `<img src="https://latex.codecogs.com/png.latex?${encodedFormula}" style="display:inline;vertical-align:middle;max-height:1.5em;" />`
+      console.log('复杂公式转换:', formula, '->', imgTag)
+      return imgTag
+    } else {
+      // 简单公式转换为HTML下标/上标
+      let htmlFormula = trimmed
+        .replace(/_\{([^}]+)\}/g, '<sub>$1</sub>')
+        .replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>')
+        .replace(/_([a-zA-Z0-9])/g, '<sub>$1</sub>')
+        .replace(/\^([a-zA-Z0-9])/g, '<sup>$1</sup>')
+      console.log('简单公式转换:', formula, '->', htmlFormula)
+      return htmlFormula
+    }
+  },
+
+  /**
    * 显示拍照识别结果预览
    */
   showPhotoResultPreview(data) {
+    // 清理题目内容和选项的格式
+    const cleanedQuestions = (data.questions || []).map(q => ({
+      ...q,
+      content: this.cleanOcrText(q.content),
+      options: q.options ? q.options.map(opt => this.cleanOcrText(opt)) : [],
+      // V2 字段：置信度和复核标记
+      confidence: q.confidence || 0,
+      needsReview: q.needsReview || false,
+      warnings: q.warnings || []
+    }))
+
     this.setData({
-      photoQuestions: data.questions,
-      ocrText: data.ocrText,
+      photoQuestions: cleanedQuestions,
+      ocrText: this.cleanOcrText(data.ocrText || ''),
       mode: 'photo_result'
     })
   },

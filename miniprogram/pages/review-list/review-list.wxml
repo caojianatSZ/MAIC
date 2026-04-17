@@ -1,0 +1,110 @@
+<!--pages/review-list/review-list.wxml-->
+<view class="container">
+  <!-- 页面头部 -->
+  <view class="page-header">
+    <text class="page-title">待复核错题</text>
+    <text class="page-subtitle">需要人工确认的题目</text>
+  </view>
+
+  <!-- 科目筛选 -->
+  <view class="subject-filter">
+    <scroll-view scroll-x="{{true}}" class="filter-scroll">
+      <view class="filter-list">
+        <view
+          class="filter-item {{subjectFilter === item ? 'active' : ''}}"
+          wx:for="{{subjects}}"
+          wx:key="*this"
+          bindtap="onSubjectChange"
+          data-subject="{{item}}"
+        >
+          <text class="filter-text">{{subjectNames[item]}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-container" wx:if="{{!loading && empty}}">
+    <text class="empty-icon">✓</text>
+    <text class="empty-title">太棒了！</text>
+    <text class="empty-desc">当前没有需要复核的错题</text>
+  </view>
+
+  <!-- 错题列表 -->
+  <view class="questions-list" wx:if="{{!loading && !empty}}">
+    <view
+      class="question-card"
+      wx:for="{{questions}}"
+      wx:key="id"
+      bindtap="onQuestionTap"
+      data-questionid="{{item.questionId}}"
+      data-subject="{{item.subject}}"
+    >
+      <!-- 卡片头部 -->
+      <view class="card-header">
+        <view class="subject-badge subject-{{item.subject}}">
+          <text class="subject-text">{{item.subject === 'math' ? '数学' : item.subject === 'physics' ? '物理' : item.subject === 'chemistry' ? '化学' : item.subject === 'english' ? '英语' : '语文'}}</text>
+        </view>
+        <view class="confidence-info">
+          <text class="confidence-label">置信度</text>
+          <view class="confidence-bar-wrapper">
+            <view
+              class="confidence-bar"
+              style="width: {{item.confidence * 100}}%; background: {{item.confidence >= 0.8 ? '#10b981' : item.confidence >= 0.5 ? '#f59e0b' : '#ef4444'}}"
+            ></view>
+          </view>
+          <text class="confidence-value">{{(item.confidence * 100).toFixed(0)}}%</text>
+        </view>
+      </view>
+
+      <!-- 题目内容 -->
+      <view class="question-content">
+        <text class="question-text">{{item.questionContent}}</text>
+      </view>
+
+      <!-- 学生答案 -->
+      <view class="answer-section">
+        <view class="answer-label">
+          <text class="label-icon">📝</text>
+          <text class="label-text">学生答案</text>
+        </view>
+        <text class="answer-value">{{item.studentAnswer || '未填写'}}</text>
+      </view>
+
+      <!-- 正确答案 -->
+      <view class="answer-section correct">
+        <view class="answer-label">
+          <text class="label-icon">✓</text>
+          <text class="label-text">正确答案</text>
+        </view>
+        <text class="answer-value">{{item.correctAnswer || '暂无'}}</text>
+      </view>
+
+      <!-- 置信度低时的提示 -->
+      <view class="low-confidence-tip" wx:if="{{item.confidence < 0.7}}">
+        <text class="tip-icon">⚠️</text>
+        <text class="tip-text">置信度较低，建议仔细核对</text>
+      </view>
+
+      <!-- 卡片底部 -->
+      <view class="card-footer">
+        <text class="review-time">{{item.createdAt}}</text>
+        <view class="review-btn">
+          <text class="btn-text">去复核</text>
+          <text class="btn-arrow">›</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="footer-tip" wx:if="{{!loading && !empty}}">
+    <text class="tip-text">点击题目可查看详情并进行复核</text>
+  </view>
+</view>

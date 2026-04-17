@@ -150,7 +150,7 @@ ${questionsList}
  */
 function parseJudgmentResponse(content: string): BatchJudgmentResult {
   // 清理可能的 markdown 代码块
-  let cleanContent = content
+  const cleanContent = content
     .replace(/```json\n?/g, '')
     .replace(/```\n?/g, '')
     .trim();

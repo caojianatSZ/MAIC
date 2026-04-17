@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 如果有邀请码，先验证并获取机构信息
-    let organizationId: string | null = null;
+    const organizationId: string | null = null;
     if (inviteCode) {
       // TODO: 验证邀请码并获取机构ID
       // 这里需要实现邀请码验证逻辑

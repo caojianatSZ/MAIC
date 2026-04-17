@@ -176,6 +176,52 @@ OpenMAIC/
 - `app/api/diagnosis/analyze/route.ts` - 诊断分析API
 - `lib/achievements/engine.ts` - 成就检查引擎
 
+### 试卷拍照批改 V2（防幻觉增强版）
+
+**技术架构**:
+- **GLM-OCR**: 专业 OCR，返回印刷内容和手写答案识别
+- **后处理校验层**: 题号连续性、答案区域、文本长度验证
+- **GLM-4V-Plus**: 逻辑批改和答案解析
+- **防幻觉校验层**: 答案合理性检查、置信度过滤、人工复核标记
+
+**API 端点**:
+```
+POST /api/diagnosis/photo
+```
+
+**响应格式（含复核标记）**:
+```typescript
+{
+  questions: [{
+    judgment: {
+      needsReview: boolean,    // 是否需要人工复核
+      reviewReason: string,    // 复核原因
+      confidence: number,      // 调整后置信度
+      warnings: string[]       // 警告信息
+    }
+  }],
+  summary: {
+    needsReview: boolean,     // 整体是否需要复核
+    lowConfidenceCount: number // 低置信度题目数量
+  },
+  ocrValidation: {
+    isValid: boolean,
+    warnings: string[],
+    errors: string[]
+  }
+}
+```
+
+**核心模块**:
+- `lib/glm/ocr.ts` - GLM-OCR 客户端
+- `lib/glm/judge.ts` - GLM-4V-Plus 批改客户端
+- `lib/validation/ocr.ts` - OCR 后处理校验
+- `lib/wrong-questions/` - 错题服务
+
+**小程序页面**:
+- `pages/review-list/` - 待复核列表
+- `pages/wrong-questions/` - 错题本
+
 ## 重要约定
 
 ### 用户ID管理

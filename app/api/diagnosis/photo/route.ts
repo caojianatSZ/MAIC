@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { edukgAdapter } from '@/lib/edukg/adapter';
 import { createLogger } from '@/lib/logger';
+import sharp from 'sharp';
 
 const log = createLogger('Photo Diagnosis');
 
@@ -52,12 +53,27 @@ interface PhotoDiagnosisResponse {
 }
 
 /**
- * 工具函数：File转Base64
+ * 工具函数：File转Base64（JPEG转PNG，使用极简格式）
+ * GLM-4V只支持PNG格式，且对格式有严格要求
  */
 async function fileToBase64(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  return `data:${file.type};base64,${buffer.toString('base64')}`;
+  const inputBuffer = Buffer.from(arrayBuffer);
+
+  // 使用Sharp将图片转换为PNG格式
+  // 限制图片尺寸为512x512以内，使用最基础的PNG格式
+  const pngBuffer = await sharp(inputBuffer)
+    .resize(512, 512, {
+      fit: 'inside',
+      withoutEnlargement: true
+    })
+    .png({
+      compressionLevel: 6
+    })
+    .toBuffer();
+
+  // GLM-4V只支持PNG格式的base64图片
+  return `data:image/png;base64,${pngBuffer.toString('base64')}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -155,8 +171,8 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 步骤1: 使用GLM-OCR专业OCR模型识别图片内容
- * GLM-OCR是专门用于文档解析的轻量级高精度OCR模型（0.9B参数，SOTA水平）
+ * 步骤1: 使用GLM-4V视觉模型识别图片内容
+ * GLM-4V可以理解图片内容，并按要求格式化数学公式
  */
 async function performOCR(imageBase64: string): Promise<string> {
   const ZHIPU_API_KEY = process.env.GLM_API_KEY;
@@ -166,69 +182,89 @@ async function performOCR(imageBase64: string): Promise<string> {
   }
 
   try {
-    // GLM-OCR需要带前缀的base64格式
-    // 如果没有前缀，添加默认的image/jpeg前缀
-    const fileData = imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
-
-    // 限制图片大小，GLM-OCR支持单图≤10MB
+    // 提取MIME类型和base64数据
+    const mimeMatch = imageBase64.match(/^data:([^;]+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
     const base64Data = imageBase64.split(',')[1] || imageBase64;
     const maxSize = 10 * 1024 * 1024;
     if (base64Data.length > maxSize) {
       throw new Error('图片太大，请使用小于10MB的图片');
     }
 
-    log.info('使用GLM-OCR专业OCR模型进行识别');
+    log.info('使用GLM-4V视觉模型进行OCR识别', { mimeType, base64Length: base64Data.length });
 
-    // 智谱AI GLM-OCR API调用 - 使用专门的布局解析端点
-    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/layout_parsing', {
+    // 构建OCR识别的prompt，要求正确格式化公式
+    const ocrPrompt = `请识别这张图片中的所有题目内容。
+
+重要格式要求：
+1. 数学公式必须使用LaTeX格式，并用$符号包裹
+2. 例如：下标F_{1}、上标v^{2}、分数\\frac{a}{b}、根号\\sqrt{x}、希腊字母\\alpha、\\beta、\\omega等
+3. 题目编号要保留（如：1、2、(1)、2011·江苏等）
+4. 选择题选项要完整提取（A、B、C、D）
+5. 只返回识别的文本内容，不要有额外的说明
+
+请按Markdown格式返回所有题目内容。`;
+
+    // 使用GLM-4V进行图片识别，保留原始MIME类型
+    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${ZHIPU_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'glm-ocr',
-        file: fileData
+        model: 'glm-4v',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Data}`
+                }
+              },
+              {
+                type: 'text',
+                text: ocrPrompt
+              }
+            ]
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 16000
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      log.error('GLM-OCR API错误', { status: response.status, error: errorText });
-      throw new Error(`GLM-OCR请求失败: ${response.status}`);
+      log.error('GLM-4V API错误', { status: response.status, error: errorText });
+      throw new Error(`GLM-4V请求失败: ${response.status}`);
     }
 
     const result = await response.json();
 
     if (result.error) {
-      log.error('GLM-OCR返回错误', result.error);
-      throw new Error(result.error.message || 'GLM-OCR识别失败');
+      log.error('GLM-4V返回错误', result.error);
+      throw new Error(result.error.message || 'GLM-4V识别失败');
     }
 
-    // 记录原始返回结果用于调试
-    log.info('GLM-OCR原始返回', { type: typeof result, keys: Object.keys(result) });
+    const content = result.choices?.[0]?.message?.content;
 
-    // GLM-OCR返回格式：{ md_results: "..." }
-    let content = result.md_results || result.result?.markdown || result.result?.text || result.markdown || result.text || result.data || result.content;
-
-    // 确保content是字符串
-    if (!content || typeof content !== 'string') {
-      log.error('GLM-OCR返回格式异常', { result, contentType: typeof content });
-      throw new Error('GLM-OCR返回格式异常');
+    if (!content) {
+      throw new Error('GLM-4V返回为空');
     }
 
-    // 记录OCR识别结果用于调试
+    // 记录OCR识别结果
     log.info('OCR识别结果', { textLength: content.length, preview: content.substring(0, 500) });
 
     return content;
 
   } catch (error) {
-    log.error('GLM-OCR识别失败', error);
+    log.error('GLM-4V识别失败', error);
     throw new Error('图片识别失败，请重试');
   }
-}
-
-/**
+}/**
  * 步骤2: AI分析题目结构
  */
 async function analyzeQuestions(
@@ -242,17 +278,17 @@ async function analyzeQuestions(
     throw new Error('GLM服务未配置');
   }
 
-  const prompt = `你是一个专业的数学题目分析专家。请从以下OCR识别的文本中提取数学题目。
+  const prompt = `你是一个专业的学科题目分析专家。请从以下OCR识别的文本中提取所有题目（可能是数学、物理、化学等科目）。
 
 文本内容：
 ${ocrText}
 
-请分析并返回JSON格式：
+请分析并返回JSON格式，务必提取文本中的所有题目：
 {
   "questions": [
     {
-      "id": "题目编号（如1、2、(1)等）",
-      "content": "题目完整内容",
+      "id": "题目编号（如1、2、22、(1)等，如果图片中没有明确编号，按顺序编为Q1、Q2、Q3...）",
+      "content": "题目完整内容（包括题干）",
       "type": "题目类型（choice选择题/fill_blank填空题/essay解答题/unknown未知）",
       "options": ["选项A内容", "选项B内容", "选项C内容", "选项D内容"],  // 仅选择题有
       "studentAnswer": "学生填写的答案（如果识别到）"  // 可选
@@ -260,13 +296,14 @@ ${ocrText}
   ]
 }
 
-注意：
-1. 题目编号可以是数字、括号数字等
-2. 选择题要提取所有选项
-3. 如果能识别出学生填写的答案（如打了勾、填写的字母等），请包含studentAnswer字段
-4. 填空题的答案可能是横线后的内容
-5. 解答题可能没有标准答案格式
-6. 只返回有效的题目，忽略无法识别的内容`;
+重要注意事项：
+1. 必须提取文本中的所有题目，不要遗漏任何一道题
+2. 题目编号可以包含年份信息（如"2011·江苏·4.3分"）或纯数字编号
+3. 选择题要提取所有选项（A、B、C、D等）
+4. 如果能识别出学生填写的答案（如打了勾、填写的字母等），请包含studentAnswer字段
+5. 填空题的答案可能是横线后的内容
+6. 解答题可能没有标准答案格式
+7. 如果图片中包含多个小题，请分别提取`;
 
   try {
     const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
@@ -276,7 +313,7 @@ ${ocrText}
         'Authorization': `Bearer ${GLM_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'glm-4-flash',
+        model: 'glm-4',
         messages: [
           {
             role: 'user',
@@ -284,7 +321,7 @@ ${ocrText}
           }
         ],
         temperature: 0.1,
-        max_tokens: 2000
+        max_tokens: 16000
       })
     });
 
@@ -300,14 +337,41 @@ ${ocrText}
       throw new Error('AI返回为空');
     }
 
-    // 解析JSON响应
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    // 记录AI返回的原始内容用于调试
+    log.info('AI分析原始返回', { contentLength: content.length, preview: content.substring(0, 1000) });
+
+    // 解析JSON响应 - 首先移除markdown代码块标记
+    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+
+    // 提取JSON对象（从第一个{到最后一个}）
+    const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('无法解析AI返回的JSON');
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    const questions: Question[] = parsed.questions || [];
+    log.info('AI分析JSON匹配', { matchLength: jsonMatch[0].length });
+
+    let questions: Question[] = [];
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      questions = parsed.questions || [];
+    } catch (parseError: unknown) {
+      // 如果直接解析失败，尝试修复常见的JSON问题
+      const errorMsg = parseError instanceof Error ? parseError.message : String(parseError);
+      log.warn('JSON解析失败，尝试修复', { error: errorMsg });
+
+      // 尝试使用Function构造函数（比eval安全）解析
+      try {
+        const jsonString = jsonMatch[0];
+        const parseFn = new Function('return ' + jsonString);
+        const parsed = parseFn();
+        questions = parsed.questions || [];
+      } catch (fnError: unknown) {
+        throw new Error(`JSON解析失败: ${errorMsg}`);
+      }
+    }
+
+    log.info('AI分析解析结果', { questionsCount: questions.length });
 
     // 初始化知识点字段
     questions.forEach(q => {

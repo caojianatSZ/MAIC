@@ -75,7 +75,12 @@
       "Bash(dig corp0.hz-college.com +short)",
       "Bash(host corp0.hz-college.com)",
       "Bash(nc -z -v -w 5 corp0.hz-college.com 443)",
-      "Bash(timeout 5 bash -c \"echo > /dev/tcp/corp0.hz-college.com/443\")"
+      "Bash(timeout 5 bash -c \"echo > /dev/tcp/corp0.hz-college.com/443\")",
+      "Bash(cat)",
+      "Bash(chmod +x /tmp/update_glm_api.sh)",
+      "Bash(/tmp/update_glm_api.sh)",
+      "Bash(chmod +x /tmp/test-wrong-questions-api.sh)",
+      "Read(//tmp/**)"
     ]
   }
 }

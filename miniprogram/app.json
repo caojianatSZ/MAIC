@@ -13,7 +13,9 @@
     "pages/progress/progress",
     "pages/profile/profile",
     "pages/checkin/checkin",
-    "pages/parent-settings/parent-settings"
+    "pages/parent-settings/parent-settings",
+    "pages/review-list/review-list",
+    "pages/wrong-questions/wrong-questions"
   ],
   "window": {
     "backgroundTextStyle": "light",
