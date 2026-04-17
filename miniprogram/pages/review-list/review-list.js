@@ -49,7 +49,11 @@ Page({
         method: 'GET',
         success: (res) => {
           if (res.data.success) {
-            const questions = res.data.data.questions || [];
+            const questions = (res.data.data.questions || []).map(q => ({
+              ...q,
+              confidencePercent: Math.round(q.confidence * 100),
+              confidenceColor: q.confidence >= 0.8 ? '#10b981' : q.confidence >= 0.5 ? '#f59e0b' : '#ef4444'
+            }));
             this.setData({
               questions,
               loading: false,

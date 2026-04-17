@@ -56,10 +56,10 @@
           <view class="confidence-bar-wrapper">
             <view
               class="confidence-bar"
-              style="width: {{item.confidence * 100}}%; background: {{item.confidence >= 0.8 ? '#10b981' : item.confidence >= 0.5 ? '#f59e0b' : '#ef4444'}}"
+              style="width: {{item.confidencePercent}}%; background: {{item.confidenceColor}}"
             ></view>
           </view>
-          <text class="confidence-value">{{(item.confidence * 100).toFixed(0)}}%</text>
+          <text class="confidence-value">{{item.confidencePercent}}%</text>
         </view>
       </view>
 
