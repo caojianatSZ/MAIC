@@ -12,9 +12,9 @@ const log = createLogger('Photo Diagnosis');
  * POST /api/diagnosis/photo
  *
  * 流程：
- * 1. OCR识别题目内容
- * 2. 使用AI分析题目结构和知识点
- * 3. 匹配EduKG知识点
+ * 1. TextIn OCR 识别题目内容（印刷+手写）
+ * 2. 使用 GLM-4V 分析题目结构和答案
+ * 3. 匹配 EduKG 知识点
  * 4. 如果有答案，判断对错
  * 5. 生成诊断结果
  */
@@ -45,6 +45,7 @@ interface Question {
 
 interface PhotoDiagnosisResponse {
   ocrText: string;
+  ocrConfidence?: number;
   questions: Question[];
   summary: {
     totalQuestions: number;
@@ -119,14 +120,17 @@ export async function POST(request: NextRequest) {
       log.info('开始拍照诊断', { subject, grade, hasImage: !!imageUrl || !!imageBase64 });
     }
 
-    // 步骤1: OCR识别
-    log.info('步骤1: OCR识别中...');
-    const ocrText = await performOCR(imageUrl || imageBase64!);
-    log.info('OCR识别完成', { textLength: ocrText.length });
+    // 步骤1: TextIn OCR识别（印刷+手写）
+    log.info('步骤1: TextIn OCR识别中...');
+    const ocrResult = await performTextInOCR(imageBase64!);
+    log.info('TextIn OCR识别完成', {
+      textLength: ocrResult.text.length,
+      confidence: ocrResult.confidence
+    });
 
-    // 步骤2: 使用AI分析题目
-    log.info('步骤2: AI分析题目中...');
-    const questions = await analyzeQuestions(ocrText, subject, grade);
+    // 步骤2: 使用 GLM-4V 分析题目结构
+    log.info('步骤2: GLM-4V分析题目中...');
+    const questions = await analyzeQuestions(ocrResult.text, subject, grade);
     log.info('题目分析完成', { questionCount: questions.length });
 
     // 步骤3: 为每个题目匹配EduKG知识点
@@ -153,7 +157,8 @@ export async function POST(request: NextRequest) {
     const summary = generateSummary(questions);
 
     const response: PhotoDiagnosisResponse = {
-      ocrText,
+      ocrText: ocrResult.text,
+      ocrConfidence: ocrResult.confidence,
       questions,
       summary
     };
@@ -172,13 +177,12 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 步骤1: OCR识别图片内容
- * 优先使用TextIn专业OCR，失败时降级到GLM-4V
+ * 步骤1: 使用 TextIn 专业 OCR 进行识别
+ * TextIn 可以识别印刷内容 + 手写答案
  */
-async function performOCR(imageBase64: string): Promise<string> {
-  // 尝试使用TextIn专业OCR
+async function performTextInOCR(imageBase64: string): Promise<{ text: string; confidence?: number }> {
   try {
-    log.info('尝试使用TextIn专业OCR进行识别');
+    log.info('使用TextIn专业OCR进行识别');
     const textinClient = getTextinClient();
     const result = await textinClient.recognizePaper(imageBase64);
 
@@ -186,11 +190,11 @@ async function performOCR(imageBase64: string): Promise<string> {
     const validation = textinClient.validateResult(result);
 
     if (!validation.isValid) {
-      log.warn('TextIn校验未通过，使用降级方案', {
+      log.warn('TextIn校验未通过', {
         errors: validation.errors,
         warnings: validation.warnings
       });
-      throw new Error('TextIn校验失败');
+      throw new Error('OCR识别质量不佳，请重新拍照');
     }
 
     log.info('TextIn OCR识别成功', {
@@ -199,112 +203,20 @@ async function performOCR(imageBase64: string): Promise<string> {
       warnings: validation.warnings.length
     });
 
-    // 返回markdown格式的识别结果
-    return result.markdown;
+    return {
+      text: result.markdown,
+      confidence: result.confidence
+    };
 
   } catch (error) {
-    log.warn('TextIn OCR失败，使用GLM-4V降级方案', {
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return performOCRFallback(imageBase64);
+    log.error('TextIn OCR识别失败', error);
+    throw error;
   }
 }
 
 /**
- * 降级方案：使用GLM-4V视觉模型识别图片内容
- */
-async function performOCRFallback(imageBase64: string): Promise<string> {
-  const ZHIPU_API_KEY = process.env.GLM_API_KEY;
-
-  if (!ZHIPU_API_KEY) {
-    throw new Error('GLM服务未配置，请设置GLM_API_KEY');
-  }
-
-  try {
-    // 提取MIME类型和base64数据
-    const mimeMatch = imageBase64.match(/^data:([^;]+);base64,/);
-    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-    const base64Data = imageBase64.split(',')[1] || imageBase64;
-    const maxSize = 10 * 1024 * 1024;
-    if (base64Data.length > maxSize) {
-      throw new Error('图片太大，请使用小于10MB的图片');
-    }
-
-    log.info('使用GLM-4V视觉模型进行OCR识别（降级方案）', { mimeType, base64Length: base64Data.length });
-
-    // 构建OCR识别的prompt，要求正确格式化公式
-    const ocrPrompt = `请识别这张图片中的所有题目内容。
-
-重要格式要求：
-1. 数学公式必须使用LaTeX格式，并用$符号包裹
-2. 例如：下标F_{1}、上标v^{2}、分数\\frac{a}{b}、根号\\sqrt{x}、希腊字母\\alpha、\\beta、\\omega等
-3. 题目编号要保留（如：1、2、(1)、2011·江苏等）
-4. 选择题选项要完整提取（A、B、C、D）
-5. 只返回识别的文本内容，不要有额外的说明
-
-请按Markdown格式返回所有题目内容。`;
-
-    // 使用GLM-4V进行图片识别，保留原始MIME类型
-    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ZHIPU_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'glm-4v',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Data}`
-                }
-              },
-              {
-                type: 'text',
-                text: ocrPrompt
-              }
-            ]
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 16000
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      log.error('GLM-4V API错误', { status: response.status, error: errorText });
-      throw new Error(`GLM-4V请求失败: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    if (result.error) {
-      log.error('GLM-4V返回错误', result.error);
-      throw new Error(result.error.message || 'GLM-4V识别失败');
-    }
-
-    const content = result.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('GLM-4V返回为空');
-    }
-
-    // 记录OCR识别结果
-    log.info('GLM-4V降级OCR识别结果', { textLength: content.length, preview: content.substring(0, 500) });
-
-    return content;
-
-  } catch (error) {
-    log.error('GLM-4V降级识别失败', error);
-    throw new Error('图片识别失败，请重试');
-  }
-}/**
  * 步骤2: AI分析题目结构
+ * 使用 GLM-4V 分析 TextIn 返回的 markdown 内容
  */
 async function analyzeQuestions(
   ocrText: string,
@@ -352,7 +264,7 @@ ${ocrText}
         'Authorization': `Bearer ${GLM_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'glm-4',
+        model: 'glm-4-flash',
         messages: [
           {
             role: 'user',
@@ -360,7 +272,7 @@ ${ocrText}
           }
         ],
         temperature: 0.1,
-        max_tokens: 16000
+        max_tokens: 4000
       })
     });
 
@@ -606,18 +518,6 @@ function generateSummary(questions: Question[]): {
 }
 
 /**
- * 工具函数：Blob转Base64
- */
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
  * GET请求说明
  */
 export async function GET() {
@@ -631,8 +531,8 @@ export async function GET() {
       grade: '年级（可选，默认初三）'
     },
     flow: [
-      '1. OCR识别题目内容',
-      '2. AI分析题目结构和知识点',
+      '1. TextIn OCR识别题目内容（印刷+手写）',
+      '2. GLM-4V分析题目结构和答案',
       '3. 匹配EduKG知识点',
       '4. 如果有答案，判断对错',
       '5. 生成诊断结果'
@@ -645,6 +545,7 @@ export async function GET() {
       },
       response: {
         ocrText: '识别的完整文本',
+        ocrConfidence: 0.95,
         questions: [
           {
             id: '1',

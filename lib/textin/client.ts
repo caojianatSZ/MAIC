@@ -5,7 +5,8 @@ import type { TextinResult, ValidationResult, ValidationError, ValidationWarning
 
 const log = createLogger('TextInClient');
 
-const TEXTIN_API_URL = 'https://api.textin.com/xparse/v3/paper';
+// 正确的 TextIn API 端点
+const TEXTIN_API_URL = 'https://api.textin.com/ai/service/v1/pdf_to_markdown';
 
 export interface TextinClientOptions {
   appId?: string;
@@ -26,30 +27,39 @@ export class TextinClient {
   }
 
   /**
-   * 识别试卷内容（返回完整结果，含 confidence）
+   * 识别试卷内容，返回 markdown 格式
+   * 使用 TextIn pdf_to_markdown API
    */
   async recognizePaper(imageBase64: string): Promise<TextinResult> {
     try {
       log.info('TextIn OCR 识别开始');
 
+      // 将 base64 转换为 Buffer
       const base64Data = imageBase64.includes(',')
         ? imageBase64.split(',')[1]
         : imageBase64;
+      const imageBuffer = Buffer.from(base64Data, 'base64');
 
-      const response = await fetch(TEXTIN_API_URL, {
+      // 构建请求参数
+      const params = new URLSearchParams({
+        dpi: '144',
+        get_image: 'none',
+        markdown_details: '1',
+        parse_mode: 'scan',
+        table_flavor: 'html',
+        apply_document_tree: '1',
+        formula_level: '0'
+      });
+
+      // 发送请求
+      const response = await fetch(`${TEXTIN_API_URL}?${params.toString()}`, {
         method: 'POST',
         headers: {
           'x-ti-app-id': this.appId,
           'x-ti-secret-code': this.secretCode,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/octet-stream'
         },
-        body: JSON.stringify({
-          image_base64: base64Data,
-          // 请求返回详细信息和置信度
-          return_text_blocks: true,
-          return_formula_blocks: true,
-          return_confidence: true
-        })
+        body: imageBuffer
       });
 
       if (!response.ok) {
@@ -61,7 +71,18 @@ export class TextinClient {
       const result = await response.json() as {
         code: number;
         message: string;
-        result?: TextinResult;
+        result?: {
+          markdown: string;
+          pages?: Array<{
+            page_id: number;
+            content: Array<{
+              text: string;
+              score: number;
+              type: string;
+            }>;
+          }>;
+        };
+        x_request_id?: string;
       };
 
       if (result.code !== 200) {
@@ -69,27 +90,36 @@ export class TextinClient {
         throw new Error(`TextIn error: ${result.message}`);
       }
 
-      if (!result.result) {
+      if (!result.result || !result.result.markdown) {
         throw new Error('TextIn 返回结果为空');
       }
 
-      // 如果 TextIn 没有返回 confidence，根据 text_blocks 计算平均置信度
-      if (!result.result.confidence && result.result.text_blocks) {
-        const confidences = result.result.text_blocks
-          .map(b => b.confidence)
-          .filter((c): c is number => c !== undefined);
-        if (confidences.length > 0) {
-          result.result.confidence = confidences.reduce((a, b) => a + b, 0) / confidences.length;
+      // 计算平均置信度
+      let confidence: number | undefined;
+      if (result.result.pages) {
+        const scores: number[] = [];
+        result.result.pages.forEach(page => {
+          page.content.forEach(item => {
+            if (item.score !== undefined) {
+              scores.push(item.score);
+            }
+          });
+        });
+        if (scores.length > 0) {
+          confidence = scores.reduce((a, b) => a + b, 0) / scores.length;
         }
       }
 
       log.info('TextIn OCR 识别成功', {
         markdownLength: result.result.markdown.length,
-        confidence: result.result.confidence,
-        textBlocksCount: result.result.text_blocks?.length
+        confidence,
+        pagesCount: result.result.pages?.length
       });
 
-      return result.result;
+      return {
+        markdown: result.result.markdown,
+        confidence
+      };
 
     } catch (error) {
       log.error('TextIn OCR 识别失败', error);
@@ -104,15 +134,18 @@ export class TextinClient {
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
 
-    if (!result.text_blocks) {
-      return {
-        isValid: false,
-        errors: [{ type: 'abnormal_text_length', message: '未识别到文本块', severity: 'error' }],
-        warnings: []
-      };
+    const markdown = result.markdown || '';
+
+    // 1. 检查内容长度
+    if (markdown.length < 50) {
+      errors.push({
+        type: 'content_too_short',
+        message: '识别内容过短，可能识别失败',
+        severity: 'error'
+      });
     }
 
-    // 1. 检查整体置信度
+    // 2. 检查整体置信度
     if (result.confidence !== undefined && result.confidence < 0.7) {
       warnings.push({
         type: 'low_confidence',
@@ -120,65 +153,14 @@ export class TextinClient {
       });
     }
 
-    // 2. 检查低置信度文本块
-    result.text_blocks.forEach((block, index) => {
-      if (block.confidence !== undefined && block.confidence < 0.6) {
-        warnings.push({
-          type: 'low_confidence',
-          blockIndex: index,
-          confidence: block.confidence,
-          message: `文本块 ${index} 置信度较低: ${(block.confidence * 100).toFixed(1)}%`
-        });
-      }
-    });
-
-    // 3. 检查题号连续性
-    const questionBlocks = result.text_blocks.filter(b => b.type === 'question_number');
-    const questionNumbers = questionBlocks
-      .map(b => b.question_number)
-      .filter((n): n is string => n !== undefined);
-
-    if (questionNumbers.length > 1) {
-      const gaps = this.detectGapsInSequence(questionNumbers);
-      if (gaps.length > 0) {
-        errors.push({
-          type: 'gap_in_sequence',
-          message: `题号不连续，可能遗漏题目: ${gaps.join(', ')}`,
-          severity: 'error'
-        });
-      }
-    }
-
-    // 4. 检查答案区域是否为空
-    const answerBlocks = result.text_blocks.filter(b => b.type === 'answer');
-    const emptyAnswers = answerBlocks.filter(b => !b.text || b.text.trim().length === 0);
-    if (emptyAnswers.length > 0) {
-      errors.push({
-        type: 'empty_answer_area',
-        message: `${emptyAnswers.length} 个答案区域为空`,
-        severity: 'error'
+    // 3. 检查是否有题目编号
+    const hasQuestionNumber = /^\s*\d+[\.\、]|^\s*\([1-9]\)|^\s*[一二三四五六七八九十]+[\.\、]/m.test(markdown);
+    if (!hasQuestionNumber && markdown.length > 100) {
+      warnings.push({
+        type: 'no_question_number',
+        message: '未检测到明显的题目编号，可能识别不完整'
       });
     }
-
-    // 5. 检查文本长度异常
-    result.text_blocks.forEach((block, index) => {
-      const text = block.text || '';
-      if (text.length > 500) {
-        errors.push({
-          type: 'abnormal_text_length',
-          blockIndex: index,
-          message: `文本块 ${index} 长度异常 (${text.length} 字符)，可能识别错误`,
-          severity: 'error'
-        });
-      }
-      if (text.length < 3 && block.type === 'question') {
-        warnings.push({
-          type: 'abnormal_text_length',
-          blockIndex: index,
-          message: `题目文本过短，可能识别不完整`
-        });
-      }
-    });
 
     const isValid = errors.filter(e => e.severity === 'error').length === 0;
 
@@ -191,32 +173,8 @@ export class TextinClient {
     return {
       isValid,
       errors,
-      warnings,
-      filteredBlocks: isValid ? result.text_blocks : undefined
+      warnings
     };
-  }
-
-  /**
-   * 检测题号序列中的缺口
-   */
-  private detectGapsInSequence(numbers: string[]): string[] {
-    const gaps: string[] = [];
-    const numericNumbers = numbers
-      .map(n => parseInt(n.replace(/\D/g, ''), 10))
-      .filter(n => !isNaN(n))
-      .sort((a, b) => a - b);
-
-    for (let i = 1; i < numericNumbers.length; i++) {
-      const prev = numericNumbers[i - 1];
-      const curr = numericNumbers[i];
-      if (curr - prev > 1) {
-        for (let n = prev + 1; n < curr; n++) {
-          gaps.push(n.toString());
-        }
-      }
-    }
-
-    return gaps;
   }
 }
 
