@@ -492,3 +492,54 @@ model ClassroomKnowledgePoint {
   @@index([knowledgePointId])
   @@map("classroom_knowledge_points")
 }
+
+// ============================================
+// 试卷拍照批改模块
+// ============================================
+
+// 批改记录
+model PaperCorrectionRecord {
+  id                String   @id @default(cuid())
+  userId            String
+  subject           String
+  grade             String
+  mode              String   // single / batch
+  imageUrl          String?
+  totalQuestions    Int      @map("total_questions")
+  correctCount      Int      @map("correct_count")
+  score             Float?
+  needsReview       Boolean  @default(false) @map("needs_review")  // 是否需要人工复核
+  reviewReason      String?  @map("review_reason")  // 复核原因
+  lowConfidenceCount Int     @default(0) @map("low_confidence_count")  // 低置信度题目数量
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([subject])
+  @@index([needsReview])  // 用于查询待复核列表
+  @@map("paper_correction_records")
+}
+
+// 错题本
+model WrongQuestion {
+  id               String   @id @default(cuid())
+  userId           String
+  questionId       String   @map("question_id")
+  subject          String
+  questionContent  String   @map("question_content")
+  studentAnswer    String?  @map("student_answer")
+  correctAnswer    String?  @map("correct_answer")
+  analysis         String?
+  knowledgePoints  Json?    @map("knowledge_points")
+  wrongCount       Int      @default(1) @map("wrong_count")
+  mastered         Boolean  @default(false)
+  needsReview      Boolean  @default(false) @map("needs_review")  // 是否需要人工复核
+  confidence       Float?   // 识别置信度
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, questionId])
+  @@index([userId, subject])
+  @@index([userId, mastered])
+  @@index([userId, needsReview])  // 用于查询待复核错题
+  @@map("wrong_questions")
+}
