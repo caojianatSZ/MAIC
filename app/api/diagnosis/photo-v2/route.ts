@@ -170,9 +170,12 @@ export async function POST(request: NextRequest) {
       log.info('Step 2: 模式检测中...');
       detectedMode = await detectMode(preprocessedImage);
       log.info('模式检测完成', { mode: detectedMode });
-    } else {
-      detectedMode = mode;
+    } else if (mode === 'single' || mode === 'batch') {
+      detectedMode = mode as CorrectionMode;
       log.info('使用指定模式', { mode: detectedMode });
+    } else {
+      // 默认使用 batch 模式
+      log.info('无效的模式，使用默认 batch 模式', { mode });
     }
 
     // ==================== Step 3: TextIn OCR 识别 ====================
