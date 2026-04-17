@@ -467,10 +467,23 @@ async function fallbackOCR(imageBase64: string): Promise<{
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      log.error('fallbackOCR GLM 错误', { status: response.status, error: errorText });
       throw new Error(`GLM 请求失败: ${response.status}`);
     }
 
-    const result = await response.json();
+    // 安全解析 JSON
+    const responseText = await response.text();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      log.error('fallbackOCR JSON 解析失败', {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        responseText: responseText.substring(0, 1000)
+      });
+      throw new Error('GLM 返回无效的 JSON');
+    }
     const content = result.choices?.[0]?.message?.content || '';
 
     // 清理可能的 markdown 标记
@@ -548,10 +561,23 @@ ${ocrText}
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      log.error('extractQuestions GLM 错误', { status: response.status, error: errorText });
       throw new Error(`GLM 请求失败: ${response.status}`);
     }
 
-    const result = await response.json();
+    // 安全解析 JSON
+    const responseText = await response.text();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      log.error('extractQuestions JSON 解析失败', {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        responseText: responseText.substring(0, 1000)
+      });
+      throw new Error('GLM 返回无效的 JSON');
+    }
     const content = result.choices?.[0]?.message?.content || '';
 
     // 解析 JSON 响应
@@ -683,7 +709,18 @@ async function extractKeywords(
       })
     });
 
-    const result = await response.json();
+    // 安全解析 JSON
+    const responseText = await response.text();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      log.warn('extractKeywords JSON 解析失败', {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        responseText: responseText.substring(0, 500)
+      });
+      return [];
+    }
     const content = result.choices?.[0]?.message?.content?.trim() || '';
 
     return content.split(/\s+/).filter((k: string) => k.length > 0);

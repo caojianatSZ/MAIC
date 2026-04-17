@@ -57,7 +57,23 @@ export async function judgeHandwrittenAnswers(
       throw new Error(`GLM request failed: ${response.status}`);
     }
 
-    const result = await response.json();
+    // 先获取原始响应文本以处理可能的JSON解析错误
+    const responseText = await response.text();
+    log.info('GLM API 原始响应', {
+      responseLength: responseText.length,
+      responsePreview: responseText.substring(0, 500)
+    });
+
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      log.error('GLM JSON 解析失败', {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        responseText: responseText.substring(0, 1000)
+      });
+      throw new Error(`GLM API 返回无效的 JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+    }
 
     if (result.error) {
       log.error('GLM 业务错误', result.error);
