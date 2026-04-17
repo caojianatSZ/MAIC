@@ -68,7 +68,15 @@ export class TextinClient {
         throw new Error(`TextIn request failed: ${response.status}`);
       }
 
-      const result = await response.json() as {
+      // 先获取原始响应文本进行调试
+      const responseText = await response.text();
+      log.info('TextIn API 原始响应', {
+        status: response.status,
+        responseLength: responseText.length,
+        responsePreview: responseText.substring(0, 500)
+      });
+
+      let result: {
         code: number;
         message: string;
         result?: {
@@ -84,6 +92,16 @@ export class TextinClient {
         };
         x_request_id?: string;
       };
+
+      try {
+        result = JSON.parse(responseText) as typeof result;
+      } catch (parseError) {
+        log.error('TextIn JSON 解析失败', {
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+          responseText: responseText.substring(0, 1000)
+        });
+        throw new Error(`TextIn API 返回无效的 JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
 
       if (result.code !== 200) {
         log.error('TextIn 业务错误', { code: result.code, message: result.message });
