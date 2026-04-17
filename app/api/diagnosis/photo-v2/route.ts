@@ -97,17 +97,44 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // 解析请求
-    const body: PhotoDiagnosisV2Request = await request.json();
+    // 解析请求 - 支持 JSON 和 multipart/form-data 两种格式
+    let imageBase64: string | undefined;
+    let imageUrl: string | undefined;
+    let mode = 'auto';
+    let subject = '';
+    let grade = '';
+    let userId = '';
 
-    const {
-      imageBase64,
-      imageUrl,
-      mode = 'auto',
-      subject,
-      grade,
-      userId
-    } = body;
+    const contentType = request.headers.get('content-type') || '';
+
+    if (contentType.includes('multipart/form-data')) {
+      // 处理 multipart/form-data 格式（微信小程序 wx.uploadFile）
+      const formData = await request.formData();
+      const file = formData.get('file') as File;
+
+      subject = (formData.get('subject') as string) || '';
+      grade = (formData.get('grade') as string) || '';
+      userId = (formData.get('userId') as string) || '';
+      mode = (formData.get('mode') as string) || 'auto';
+
+      if (file) {
+        // 将文件转换为 base64
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        imageBase64 = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+      }
+
+      log.info('收到 multipart/form-data 请求', { subject, grade, userId, mode, hasFile: !!file });
+    } else {
+      // 处理 JSON 格式
+      const body: PhotoDiagnosisV2Request = await request.json();
+      imageBase64 = body.imageBase64;
+      imageUrl = body.imageUrl;
+      mode = body.mode || 'auto';
+      subject = body.subject || '';
+      grade = body.grade || '';
+      userId = body.userId || '';
+    }
 
     // 参数校验
     if (!imageBase64 && !imageUrl) {
