@@ -158,10 +158,150 @@ export class TextinClient {
   }
 
   /**
+   * 从结构化数据中提取题目（优化版）
+   * 针对物理试卷格式优化
+   */
+  extractQuestionsFromStructured(structuredData: StructuredData[]): Array<{
+    id: string;
+    content: string;
+    type: 'choice' | 'fill_blank' | 'essay';
+    options?: string[];
+  }> {
+    if (!structuredData || structuredData.length === 0) {
+      return [];
+    }
+
+    log.info('TextIn 结构化数据详情', {
+      totalItems: structuredData.length,
+      items: structuredData.slice(0, 30).map(item => ({
+        type: item.type,
+        subType: item.sub_type,
+        outlineLevel: item.outline_level,
+        textPreview: this.extractTextFromContent(item)?.substring(0, 50)
+      }))
+    });
+
+    // 第一步：过滤和分类内容
+    const items = structuredData
+      .map(item => ({ item, text: this.extractTextFromContent(item)?.trim() }))
+      .filter(({ text }) => text && text.length > 0);
+
+    // 第二步：识别题目边界
+    const questions: Array<{
+      id: string;
+      content: string;
+      type: 'choice' | 'fill_blank' | 'essay';
+      options?: string[];
+    }> = [];
+
+    let currentQuestion: {
+      lines: string[];
+      options: string[];
+      hasOptionStart: boolean;
+    } | null = null;
+    let questionNum = 0;
+
+    for (const { item, text } of items) {
+      // 跳过标题
+      if (item.type === 'text_title' || item.outline_level <= 1) {
+        log.info('跳过标题', { text, level: item.outline_level });
+        // 如果有当前题目，先保存
+        if (currentQuestion && currentQuestion.lines.length > 0) {
+          this.saveQuestion(questions, currentQuestion, questionNum++);
+        }
+        currentQuestion = null;
+        continue;
+      }
+
+      // 检测题目开始的模式
+      const isNewQuestion = this.isQuestionStart(text);
+
+      // 检测选项
+      const isOption = /^([A-D])[.、)\]]\s*/.test(text);
+
+      if (isNewQuestion && currentQuestion && currentQuestion.lines.length > 2) {
+        // 保存上一题
+        this.saveQuestion(questions, currentQuestion, questionNum++);
+        currentQuestion = { lines: [text], options: [], hasOptionStart: false };
+      } else if (isOption && currentQuestion) {
+        currentQuestion.options.push(text);
+        currentQuestion.hasOptionStart = true;
+        currentQuestion.lines.push(text);
+      } else if (currentQuestion || text.length > 5) {
+        // 添加到当前题目或开始新题目
+        if (!currentQuestion) {
+          currentQuestion = { lines: [text], options: [], hasOptionStart: false };
+        } else {
+          currentQuestion.lines.push(text);
+        }
+      }
+    }
+
+    // 保存最后一题
+    if (currentQuestion && currentQuestion.lines.length > 0) {
+      this.saveQuestion(questions, currentQuestion, questionNum);
+    }
+
+    log.info('结构化数据提取完成', {
+      count: questions.length,
+      questions: questions.map(q => ({ id: q.id, contentPreview: q.content.substring(0, 40) }))
+    });
+
+    return questions;
+  }
+
+  /**
+   * 判断是否是题目开始
+   */
+  private isQuestionStart(text: string): boolean {
+    // 数字编号开头
+    if (/^\d+[.、．]\s*/.test(text)) {
+      return true;
+    }
+    // 年份开头（但选项除外）
+    if (/^\(\d{4}[^A-D]/.test(text)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 保存题目
+   */
+  private saveQuestion(
+    questions: Array<{
+      id: string;
+      content: string;
+      type: 'choice' | 'fill_blank' | 'essay';
+      options?: string[];
+    }>,
+    currentQuestion: { lines: string[]; options: string[]; hasOptionStart: boolean },
+    num: number
+  ): void {
+    const content = currentQuestion.lines.join('\n');
+    const numText = currentQuestion.lines[0]?.match(/^(\d+)/)?.[1];
+    const questionNum = numText ? parseInt(numText, 10) : (num + 1);
+
+    questions.push({
+      id: String(questionNum),
+      content: content,
+      type: this.detectQuestionType(content, currentQuestion.options),
+      options: currentQuestion.options.length > 0 ? [...currentQuestion.options] : undefined
+    });
+
+    log.info('保存题目', {
+      id: questionNum,
+      contentLength: content.length,
+      linesCount: currentQuestion.lines.length,
+      optionsCount: currentQuestion.options.length
+    });
+  }
+
+  /**
    * 从结构化数据中提取题目
    * 利用 TextIn 的 outline_level 和 type 信息
    */
-  extractQuestionsFromStructured(structuredData: StructuredData[]): Array<{
+  extractQuestionsFromStructured_OLD(structuredData: StructuredData[]): Array<{
     id: string;
     content: string;
     type: 'choice' | 'fill_blank' | 'essay';
