@@ -710,36 +710,60 @@ ${ocrText}
       .replace(/```\n?/g, '')
       .trim();
 
-    // 修复常见的 JSON 转义问题
-    // 1. 移除控制字符
-    cleanContent = cleanContent.replace(/[\x00-\x1F\x7F]/g, '');
-    // 2. 修复双反斜杠问题（LaTeX 公式）
-    cleanContent = cleanContent.replace(/\\\\([{}%$])/g, '\\$1');
-    // 3. 修复无效的转义序列
-    cleanContent = cleanContent.replace(/\\(?!["\\/bfnrt])/g, '\\\\');
+    log.info('extractQuestions 原始内容', { contentLength: cleanContent.length, preview: cleanContent.substring(0, 500) });
 
+    // 更安全的 JSON 清理：先移除所有内容中的反斜杠（除了 JSON 必需的）
+    // 然后重新构建合法的 JSON
     const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      log.warn('无法找到 JSON 对象');
       throw new Error('无法从响应中提取 JSON');
     }
 
+    let jsonStr = jsonMatch[0];
+
     try {
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonStr);
       const questions = parsed.questions || [];
       log.info('题目提取成功', { count: questions.length });
       return questions;
     } catch (jsonError) {
-      log.warn('JSON 解析失败，尝试清理后重试', { error: jsonError instanceof Error ? jsonError.message : String(jsonError) });
-      // 尝试更激进的清理
-      let cleaned = jsonMatch[0];
-      // 移除所有注释
-      cleaned = cleaned.replace(/\/\/.*$/gm, '');
-      // 移除控制字符
-      cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
-      const parsed = JSON.parse(cleaned);
-      const questions = parsed.questions || [];
-      log.info('题目提取成功（清理后）', { count: questions.length });
-      return questions;
+      log.warn('JSON 解析失败，尝试修复转义', {
+        error: jsonError instanceof Error ? jsonError.message : String(jsonError),
+        jsonPreview: jsonStr.substring(0, 500)
+      });
+
+      // 尝试修复：移除所有无效转义
+      let fixed = jsonStr;
+
+      // 1. 移除 content 字段中的无效转义（LaTeX 公式导致的）
+      fixed = fixed.replace(/"content":\s*"[^"]*\\[^\\"(?:[^"\\]|\\.)*"[^"]*"/g, (match) => {
+        // 提取 content 值
+        const contentMatch = match.match(/"content":\s*"(.*)"/);
+        if (contentMatch) {
+          let contentValue = contentMatch[1];
+          // 移除反斜杠转义（保留必要的双引号转义）
+          contentValue = contentValue.replace(/\\"/g, '"');   // 双引号
+          contentValue = contentValue.replace(/\\\\/g, '\\'); // 单反斜杠
+          contentValue = contentValue.replace(/\\n/g, '\n');  // 换行
+          contentValue = contentValue.replace(/\\t/g, '\t');  // 制表符
+          // 重新转义 JSON 必需的字符
+          contentValue = contentValue.replace(/"/g, '\\"');   // 双引号
+          contentValue = contentValue.replace(/\n/g, '\\n');  // 换行
+          return `"content": "${contentValue}"`;
+        }
+        return match;
+      });
+
+      try {
+        const parsed = JSON.parse(fixed);
+        const questions = parsed.questions || [];
+        log.info('题目提取成功（修复后）', { count: questions.length });
+        return questions;
+      } catch (retryError) {
+        log.error('JSON 修复失败', { error: retryError instanceof Error ? retryError.message : String(retryError) });
+        throw new Error('无法解析 GLM 返回的 JSON');
+      }
     }
 
   } catch (error) {
@@ -752,6 +776,7 @@ ${ocrText}
 
 /**
  * 简单题目提取（降级方案）
+ * 改进版：能识别更多格式的题目编号
  */
 function simpleExtractQuestions(ocrText: string): Array<{
   id: string;
@@ -771,35 +796,95 @@ function simpleExtractQuestions(ocrText: string): Array<{
 
   let currentQuestion: string[] = [];
   let questionNum = 0;
+  let lastQuestionStart = -1;
 
-  for (const line of lines) {
-    // 检测题目编号
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // 检测题目编号 - 更多模式
+    // 模式1: "1." "2." 等
+    // 模式2: "(2011" "(2013" 等年份开头（物理试卷常见）
+    // 模式3: "图17-" 等图片标记后跟选项
     const numMatch = line.match(/^(\d+)[.、．]\s*/);
-    if (numMatch) {
+    const yearMatch = line.match(/^\((\d{4})/);
+    const optionMatch = line.match(/^[A-D][.、)\]]\s*/);
+
+    // 检测新题目开始
+    const isNewQuestion = numMatch || (yearMatch && lastQuestionStart < i - 5);
+
+    if (isNewQuestion) {
       // 保存上一题
       if (currentQuestion.length > 0) {
+        const content = currentQuestion.join('\n');
         questions.push({
-          id: String(questionNum),
-          content: currentQuestion.join('\n'),
-          type: detectQuestionType(currentQuestion.join('\n'))
+          id: String(questionNum || questions.length + 1),
+          content: content,
+          type: detectQuestionType(content)
         });
       }
-      questionNum = parseInt(numMatch[1], 10);
+
+      questionNum = numMatch ? parseInt(numMatch[1], 10) : questions.length + 1;
       currentQuestion = [line];
-    } else {
+      lastQuestionStart = i;
+    } else if (optionMatch && currentQuestion.length > 0) {
+      // 选项添加到当前题目
+      currentQuestion.push(line);
+    } else if (currentQuestion.length > 0 || line.length > 10) {
+      // 非空行添加到当前题目
       currentQuestion.push(line);
     }
   }
 
   // 保存最后一题
   if (currentQuestion.length > 0) {
+    const content = currentQuestion.join('\n');
     questions.push({
       id: String(questionNum || questions.length + 1),
-      content: currentQuestion.join('\n'),
-      type: detectQuestionType(currentQuestion.join('\n'))
+      content: content,
+      type: detectQuestionType(content)
     });
   }
 
+  // 如果仍然只有1道题，尝试按段落分割
+  if (questions.length <= 1 && ocrText.length > 500) {
+    log.info('尝试按段落分割题目');
+    const chunks = [];
+    let chunk = [];
+
+    for (const line of lines) {
+      // 检测可能的题目边界
+      if (line.match(/^[A-D][.、)\]]/) ||
+          line.match(/^\(\d{4}/) ||
+          line.match(/^(图|图表)/) ||
+          chunk.length > 20) {
+        if (chunk.length > 0) {
+          chunks.push(chunk.join('\n'));
+        }
+        chunk = [line];
+      } else {
+        chunk.push(line);
+      }
+    }
+    if (chunk.length > 0) {
+      chunks.push(chunk.join('\n'));
+    }
+
+    // 重新构建题目列表
+    const rebuiltQuestions = chunks
+      .filter(c => c.trim().length > 20)
+      .map((content, idx) => ({
+        id: String(idx + 1),
+        content: content,
+        type: detectQuestionType(content)
+      }));
+
+    if (rebuiltQuestions.length > 1) {
+      log.info('按段落分割成功', { count: rebuiltQuestions.length });
+      return rebuiltQuestions;
+    }
+  }
+
+  log.info('简单提取完成', { count: questions.length });
   return questions;
 }
 
