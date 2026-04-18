@@ -460,14 +460,32 @@ export class TextinClient {
   }
 
   /**
-   * 从 content 字段中提取文本
+   * 从结构化数据中提取文本
+   * 优先使用 text 字段，其次尝试 content 字段
    */
   private extractTextFromContent(item: StructuredData): string {
+    // 优先使用直接的 text 字段
+    if (item.text && typeof item.text === 'string') {
+      return item.text;
+    }
+
+    // 其次尝试 content 字段
+    if (!item.content) {
+      return '';
+    }
+
     if (typeof item.content === 'string') {
       return item.content;
     }
     if (Array.isArray(item.content)) {
-      return item.content.map(c => typeof c === 'string' ? c : '').join('');
+      // content 可能是数字索引数组，无法转换为文本
+      // 尝试其中的字符串项
+      const strings = item.content.filter(c => typeof c === 'string');
+      if (strings.length > 0) {
+        return strings.join('');
+      }
+      // 如果是数字数组，返回空（需要原始文档数据）
+      return '';
     }
     if (typeof item.content === 'object' && item.content !== null) {
       return JSON.stringify(item.content);

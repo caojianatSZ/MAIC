@@ -664,29 +664,37 @@ function buildLayoutHint(structuredData: any[]): string {
   // 分析结构化数据，提取布局信息
   const hints: string[] = [];
   const titleItems: string[] = [];
-  const bodyItems: string[] = [];
+
+  // 辅助函数：提取文本（优先使用 text 字段）
+  const extractText = (item: any): string => {
+    if (item.text && typeof item.text === 'string') {
+      return item.text;
+    }
+    if (typeof item.content === 'string') {
+      return item.content;
+    }
+    if (Array.isArray(item.content)) {
+      const strings = item.content.filter((c: any) => typeof c === 'string');
+      return strings.join('');
+    }
+    return '';
+  };
 
   // 按位置排序并分类
   const sorted = structuredData
-    .filter(item => {
-      const text = typeof item.content === 'string' ? item.content :
-                   Array.isArray(item.content) ? item.content.map((c: any) => typeof c === 'string' ? c : '').join('') :
-                   String(item.content || '');
-      return text && text.trim().length > 0;
-    })
     .map((item: any) => {
-      const text = typeof item.content === 'string' ? item.content :
-                   Array.isArray(item.content) ? item.content.map((c: any) => typeof c === 'string' ? c : '').join('') :
-                   String(item.content || '');
+      const text = extractText(item);
       const pos = item.pos || [];
       return {
         text: text.trim(),
         type: item.type || 'unknown',
+        subType: item.sub_type,
         outlineLevel: item.outline_level || 99,
         y: pos[1] || 0,
         x: pos[0] || 0
       };
     })
+    .filter((item: any) => item.text && item.text.length > 0)
     .sort((a: any, b: any) => a.y - b.y);
 
   // 提取标题和题目编号

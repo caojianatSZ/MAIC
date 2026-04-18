@@ -15,7 +15,8 @@ export interface TextinResult {
 
 // TextIn 返回的结构化数据
 export interface StructuredData {
-  content: ContentItem[];
+  content?: number[] | ContentItem[];  // 字符索引数组或内容项数组
+  text?: string;                       // 直接的文本内容（优先使用）
   id: number;
   outline_level: number;
   pos: number[];
