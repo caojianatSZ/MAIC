@@ -674,7 +674,7 @@ ${ocrText}
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'glm-4-flash',
+        model: 'glm-4.7',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
         max_tokens: 8000
@@ -917,7 +917,7 @@ async function extractKeywords(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'glm-4-flash',
+        model: 'glm-4.5-air',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
         max_tokens: 100
