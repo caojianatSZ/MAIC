@@ -158,8 +158,8 @@ export class TextinClient {
   }
 
   /**
-   * 从结构化数据中提取题目（优化版）
-   * 针对物理试卷格式优化
+   * 从结构化数据中提取题目（基于位置的优化版）
+   * 利用 TextIn 的位置信息(pos)来更准确地分割题目
    */
   extractQuestionsFromStructured(structuredData: StructuredData[]): Array<{
     id: string;
@@ -171,22 +171,45 @@ export class TextinClient {
       return [];
     }
 
-    log.info('TextIn 结构化数据详情', {
-      totalItems: structuredData.length,
-      items: structuredData.slice(0, 30).map(item => ({
+    log.info('开始基于位置提取题目', { totalItems: structuredData.length });
+
+    // 第一步：解析所有内容，包含位置信息
+    type PositionedItem = {
+      text: string;
+      y: number;      // 顶部 Y 坐标
+      x: number;      // 左侧 X 坐标
+      height: number; // 高度
+      type: string;
+      subType?: string;
+      outlineLevel: number;
+    };
+
+    const items: PositionedItem[] = [];
+    for (const item of structuredData) {
+      const text = this.extractTextFromContent(item);
+      if (!text || text.trim().length === 0) continue;
+
+      const pos = item.pos || [];
+      items.push({
+        text: text.trim(),
+        y: pos[1] || 0,
+        x: pos[0] || 0,
+        height: (pos[5] || 0) - (pos[1] || 0),
         type: item.type,
         subType: item.sub_type,
-        outlineLevel: item.outline_level,
-        textPreview: this.extractTextFromContent(item)?.substring(0, 50)
-      }))
+        outlineLevel: item.outline_level
+      });
+    }
+
+    // 按 Y 坐标排序（从上到下）
+    items.sort((a, b) => a.y - b.y);
+
+    log.info('排序后的内容项', {
+      count: items.length,
+      sample: items.slice(0, 10).map(i => ({ y: i.y, text: i.text.substring(0, 40) }))
     });
 
-    // 第一步：过滤和分类内容
-    const items = structuredData
-      .map(item => ({ item, text: this.extractTextFromContent(item)?.trim() }))
-      .filter(({ text }) => text && text.length > 0);
-
-    // 第二步：识别题目边界
+    // 第二步：检测题目边界（基于 Y 坐标的跳跃）
     const questions: Array<{
       id: string;
       content: string;
@@ -194,60 +217,99 @@ export class TextinClient {
       options?: string[];
     }> = [];
 
-    let currentQuestion: {
-      lines: string[];
-      options: string[];
-      hasOptionStart: boolean;
-    } | null = null;
-    let questionNum = 0;
+    let currentQuestionLines: PositionedItem[] = [];
+    let lastY = 0;
+    const lineHeightThreshold = 80; // 行高阈值，超过此值认为是新题目
+    const titleYThreshold = 150; // 标题后的阈值
 
-    for (const { item, text } of items) {
+    for (const item of items) {
       // 跳过标题
-      if (item.type === 'text_title' || item.outline_level <= 1) {
-        log.info('跳过标题', { text, level: item.outline_level });
-        // 如果有当前题目，先保存
-        if (currentQuestion && currentQuestion.lines.length > 0) {
-          this.saveQuestion(questions, currentQuestion, questionNum++);
+      if (item.outlineLevel <= 1) {
+        log.info('跳过标题', { text: item.text, level: item.outlineLevel });
+        if (currentQuestionLines.length > 0) {
+          this.finishQuestion(questions, currentQuestionLines);
+          currentQuestionLines = [];
         }
-        currentQuestion = null;
         continue;
       }
 
-      // 检测题目开始的模式
-      const isNewQuestion = this.isQuestionStart(text);
+      // 检测是否是新题目开始（Y 坐标跳跃较大）
+      const yGap = currentQuestionLines.length > 0 ? item.y - lastY : 0;
+      const isNewQuestion = yGap > lineHeightThreshold;
 
-      // 检测选项
-      const isOption = /^([A-D])[.、)\]]\s*/.test(text);
+      // 检测题目编号
+      const hasQuestionNum = /^\d+[.、．]/.test(item.text);
+      const hasYearPrefix = /^\(\d{4}/.test(item.text);
+      const isQuestionStart = hasQuestionNum || (hasYearPrefix && currentQuestionLines.length > 3);
 
-      if (isNewQuestion && currentQuestion && currentQuestion.lines.length > 2) {
+      if (isNewQuestion || isQuestionStart) {
         // 保存上一题
-        this.saveQuestion(questions, currentQuestion, questionNum++);
-        currentQuestion = { lines: [text], options: [], hasOptionStart: false };
-      } else if (isOption && currentQuestion) {
-        currentQuestion.options.push(text);
-        currentQuestion.hasOptionStart = true;
-        currentQuestion.lines.push(text);
-      } else if (currentQuestion || text.length > 5) {
-        // 添加到当前题目或开始新题目
-        if (!currentQuestion) {
-          currentQuestion = { lines: [text], options: [], hasOptionStart: false };
-        } else {
-          currentQuestion.lines.push(text);
+        if (currentQuestionLines.length > 0) {
+          this.finishQuestion(questions, currentQuestionLines);
         }
+        currentQuestionLines = [item];
+      } else {
+        currentQuestionLines.push(item);
       }
+
+      lastY = item.y;
     }
 
     // 保存最后一题
-    if (currentQuestion && currentQuestion.lines.length > 0) {
-      this.saveQuestion(questions, currentQuestion, questionNum);
+    if (currentQuestionLines.length > 0) {
+      this.finishQuestion(questions, currentQuestionLines);
     }
 
-    log.info('结构化数据提取完成', {
+    log.info('基于位置提取完成', {
       count: questions.length,
       questions: questions.map(q => ({ id: q.id, contentPreview: q.content.substring(0, 40) }))
     });
 
     return questions;
+  }
+
+  /**
+   * 完成一道题的构建
+   */
+  private finishQuestion(
+    questions: Array<{
+      id: string;
+      content: string;
+      type: 'choice' | 'fill_blank' | 'essay';
+      options?: string[];
+    }>,
+    lines: PositionedItem[]
+  ): void {
+    if (lines.length === 0) return;
+
+    // 分离题干和选项
+    const contentLines: string[] = [];
+    const options: string[] = [];
+
+    for (const line of lines) {
+      if (/^[A-D][.、)\]]/.test(line.text)) {
+        options.push(line.text);
+      } else {
+        contentLines.push(line.text);
+      }
+    }
+
+    const content = contentLines.join('\n');
+    const numMatch = content.match(/^(\d+)/);
+    const id = numMatch ? numMatch[1] : String(questions.length + 1);
+
+    questions.push({
+      id,
+      content,
+      type: this.detectQuestionType(content, options),
+      options: options.length > 0 ? options : undefined
+    });
+
+    log.info('完成题目', {
+      id,
+      linesCount: lines.length,
+      optionsCount: options.length
+    });
   }
 
   /**

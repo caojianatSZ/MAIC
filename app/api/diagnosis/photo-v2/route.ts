@@ -300,19 +300,10 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     updateProgress(taskId, 4, '正在分析题目结构...');
     log.info('Step 4: 提取题目结构...');
 
-    // 优先使用 TextIn 结构化数据提取题目
-    let extractedQuestions;
-    if (ocrStructuredData && ocrStructuredData.length > 0) {
-      log.info('尝试从 TextIn 结构化数据提取题目');
-      extractedQuestions = textinClient['extractQuestionsFromStructured'](ocrStructuredData);
-      log.info('TextIn 结构化提取结果', { count: extractedQuestions.length });
-    }
-
-    // 如果结构化数据提取失败或结果太少，使用 GLM 提取
-    if (!extractedQuestions || extractedQuestions.length < 2) {
-      log.info('使用 GLM 提取题目结构');
-      extractedQuestions = await extractQuestions(ocrText, subject, grade);
-    }
+    // 优先使用 GLM 从 markdown 中提取题目结构（更准确）
+    // GLM 对试卷格式理解更好，能准确识别题目边界
+    log.info('使用 GLM 提取题目结构');
+    const extractedQuestions = await extractQuestions(ocrText, subject, grade);
 
     log.info('题目结构完成', { count: extractedQuestions.length });
 
