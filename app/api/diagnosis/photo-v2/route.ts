@@ -710,6 +710,12 @@ async function extractQuestions(
   // 构建布局提示
   const layoutHint = buildLayoutHint(structuredData || []);
 
+  log.info('extractQuestions 布局提示', {
+    hasStructuredData: !!structuredData,
+    structuredDataCount: structuredData?.length || 0,
+    layoutHint: layoutHint || '无'
+  });
+
   const prompt = `你是一个专业的题目分析专家。请从以下 OCR 识别的文本中提取所有题目。
 
 【学科】${subject}
@@ -728,6 +734,18 @@ ${ocrText}
     }
   ]
 }
+
+【重要规则 - 防止过度分割】
+1. 题目边界识别：只有以 "数字+标点" 开头的行才是新题目开始（如 "1." "2、" "3．"）
+2. 选项归属：A. B. C. D. 开头的行属于上一道题，不是独立题目
+3. 年份题目：(201x) 开头的是选择题题干的一部分
+4. 公式行：$$ 或 $ 包含的数学公式属于题目内容
+5. 图片说明：图x-x、表x-x 等属于题目内容
+6. 答案解析：如果有"答案""解析"等关键词，说明内容，不是题目
+
+【示例】
+正确分割：题目1 + A选项 + B选项 + C选项 + D选项 = 1道题
+错误分割：题目1 = 1题, A选项 = 1题, B选项 = 1题...
 
 注意事项：
 1. 如果提供了【文档布局分析】，请参考其中标注的题目边界来确定题目分割
