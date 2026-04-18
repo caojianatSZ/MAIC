@@ -303,7 +303,25 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     // 使用 GLM 从 markdown 中提取题目，同时利用 TextIn 的结构化信息作为辅助
     // 结构化信息包含：标题层级、位置坐标、类型分类，可帮助 LLM 更准确地识别题目边界
     log.info('使用 GLM 提取题目结构（含结构化信息辅助）');
-    const extractedQuestions = await extractQuestions(ocrText, subject, grade, ocrStructuredData);
+    let extractedQuestions = await extractQuestions(ocrText, subject, grade, ocrStructuredData);
+
+    // 如果题目数量异常（超过10道），使用视觉模型重新提取
+    // 这通常是因为文本解析将选项误识别为独立题目
+    if (extractedQuestions.length > 10) {
+      log.warn(`题目数量异常 (${extractedQuestions.length} 道)，使用视觉模型重新提取`);
+      updateProgress(taskId, 4, '题目数量异常，使用视觉模型重新识别...');
+      try {
+        extractedQuestions = await extractQuestionsWithVision(
+          preprocessedImage,
+          subject,
+          grade,
+          Math.min(extractedQuestions.length, 10) // 预期不超过10道
+        );
+      } catch (visionError) {
+        log.error('视觉模型提取失败，使用文本提取结果', visionError);
+        // 保持文本提取结果
+      }
+    }
 
     log.info('题目结构完成', { count: extractedQuestions.length });
 
@@ -844,6 +862,119 @@ ${ocrText}
     // 降级方案：尝试简单解析
     return simpleExtractQuestions(ocrText);
   }
+}
+
+/**
+ * 使用视觉模型从图片中直接提取题目结构
+ * 当文本提取结果数量异常时使用
+ */
+async function extractQuestionsWithVision(
+  imageBase64: string,
+  subject: string,
+  grade: string,
+  expectedCount?: number
+): Promise<Array<{
+  id: string;
+  content: string;
+  type: 'choice' | 'fill_blank' | 'essay';
+  options?: string[];
+}>> {
+  const apiKey = process.env.GLM_API_KEY;
+  if (!apiKey) {
+    throw new Error('GLM_API_KEY 未配置');
+  }
+
+  // GLM API 需要纯 base64
+  const glmImageUrl = imageBase64.includes(',')
+    ? imageBase64.split(',')[1]
+    : imageBase64;
+
+  const prompt = `你是一个专业的题目分析专家。请从这张试卷图片中直接识别并提取所有题目。
+
+【学科】${subject}
+【年级】${grade}
+${expectedCount ? `【预期题目数量】约 ${expectedCount} 道题` : ''}
+
+请仔细观察图片，识别每一道完整题目（包括题干和选项），返回 JSON 格式：
+{
+  "questions": [
+    {
+      "id": "题目编号",
+      "content": "题目完整内容",
+      "type": "题目类型",
+      "options": ["选项A", "选项B", "选项C", "选项D"]
+    }
+  ]
+}
+
+【重要】
+1. 直接从图片中识别题目，不要依赖 OCR 文本
+2. 一道选择题 = 题干 + A/B/C/D 选项，不要拆分成多题
+3. 按图片中题目的实际位置和编号顺序提取
+4. 只返回纯 JSON`;
+
+  log.info('使用视觉模型提取题目', { subject, grade, expectedCount });
+
+  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'glm-4v-plus-0111',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: glmImageUrl }
+          },
+          {
+            type: 'text',
+            text: prompt
+          }
+        ]
+      }],
+      temperature: 0.1,
+      max_tokens: 8000
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    log.error('extractQuestionsWithVision GLM 错误', { status: response.status, error: errorText });
+    throw new Error(`GLM 视觉请求失败: ${response.status}`);
+  }
+
+  const responseText = await response.text();
+  let result;
+  try {
+    result = JSON.parse(responseText);
+  } catch (parseError) {
+    log.error('extractQuestionsWithVision JSON 解析失败', {
+      error: parseError instanceof Error ? parseError.message : String(parseError),
+      responseText: responseText.substring(0, 1000)
+    });
+    throw new Error('GLM 返回无效的 JSON');
+  }
+
+  const content = result.choices?.[0]?.message?.content || '';
+  const cleanContent = content
+    .replace(/```json\n?/g, '')
+    .replace(/```\n?/g, '')
+    .trim();
+
+  const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    log.warn('视觉模型：无法找到 JSON 对象');
+    throw new Error('无法从响应中提取 JSON');
+  }
+
+  const parsed = JSON.parse(jsonMatch[0]);
+  const questions = parsed.questions || [];
+  log.info('视觉模型题目提取成功', { count: questions.length });
+  return questions;
 }
 
 /**
