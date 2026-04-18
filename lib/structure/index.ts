@@ -12,8 +12,7 @@ export type { BBox, OCRBlock, Question } from './builder';
 // 核心功能
 export {
   rebuildStructure,
-  fromTextInStructured,
-  sortBlocks
+  fromTextInStructured
 } from './builder';
 
 export {
