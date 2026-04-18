@@ -31,7 +31,7 @@ export async function judgeHandwrittenAnswers(
     // 根据置信度选择模型（使用 Code Plan 套餐支持的模型）
     const useHighConfidencePath = ocrConfidence >= 0.8;
     const model = useHighConfidencePath
-      ? (process.env.GLM_JUDGMENT_MODEL || 'glm-5.1')       // 高置信度用文本模型（最强模型）
+      ? (process.env.GLM_JUDGMENT_MODEL || 'glm-5-turbo')   // 高置信度用文本模型（快速且准确）
       : 'glm-4v-plus-0111';                                  // 低置信度用视觉模型（最准确）
 
     log.info('批改开始', {
@@ -94,14 +94,19 @@ export async function judgeHandwrittenAnswers(
       log.info('使用视觉模型校准', { model });
     }
 
+    // 创建 AbortController 用于超时控制
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 分钟超时
+
     const response = await fetch(GLM_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(requestBody)
-    });
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
 
     if (!response.ok) {
       const errorText = await response.text();
