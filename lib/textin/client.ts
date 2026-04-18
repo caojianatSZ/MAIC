@@ -13,6 +13,19 @@ export interface TextinClientOptions {
   secretCode?: string;
 }
 
+/**
+ * 带位置信息的文本项
+ */
+interface PositionedItem {
+  text: string;
+  y: number;      // 顶部 Y 坐标
+  x: number;      // 左侧 X 坐标
+  height: number; // 高度
+  type: string;
+  subType?: string;
+  outlineLevel: number;
+}
+
 export class TextinClient {
   private appId: string;
   private secretCode: string;
@@ -174,16 +187,6 @@ export class TextinClient {
     log.info('开始基于位置提取题目', { totalItems: structuredData.length });
 
     // 第一步：解析所有内容，包含位置信息
-    type PositionedItem = {
-      text: string;
-      y: number;      // 顶部 Y 坐标
-      x: number;      // 左侧 X 坐标
-      height: number; // 高度
-      type: string;
-      subType?: string;
-      outlineLevel: number;
-    };
-
     const items: PositionedItem[] = [];
     for (const item of structuredData) {
       const text = this.extractTextFromContent(item);
