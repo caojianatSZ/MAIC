@@ -887,7 +887,14 @@ async function crossValidateAndMergeQuestions(
   const apiKey = process.env.GLM_API_KEY;
   if (!apiKey) {
     // 降级：优先使用视觉模型结果（更准确）
-    return visionQuestions.length > 0 ? visionQuestions : textQuestions;
+    const result = visionQuestions.length > 0 ? visionQuestions : textQuestions;
+    // 确保 type 是正确的字面量类型
+    return result.map(q => ({
+      ...q,
+      type: (q.type === 'choice' || q.type === 'fill_blank' || q.type === 'essay')
+        ? q.type as 'choice' | 'fill_blank' | 'essay'
+        : detectQuestionType(q.content)
+    }));
   }
 
   const textSummary = textQuestions.map((q, i) => `${i + 1}. [${q.id}] ${q.content.substring(0, 30)}...`).join('\n');
