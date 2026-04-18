@@ -733,28 +733,13 @@ ${ocrText}
         jsonPreview: jsonStr.substring(0, 500)
       });
 
-      // 尝试修复：移除所有无效转义
-      let fixed = jsonStr;
+      // 尝试更简单的清理方案：移除所有反斜杠（除了必需的 JSON 转义）
+      let fixed = jsonStr
+        .replace(/\\n/g, ' ')   // 换行符改为空格
+        .replace(/\\t/g, ' ')   // 制表符改为空格
+        .replace(/\\r/g, ' ');  // 回车符改为空格
 
-      // 1. 移除 content 字段中的无效转义（LaTeX 公式导致的）
-      fixed = fixed.replace(/"content":\s*"[^"]*\\[^\\"(?:[^"\\]|\\.)*"[^"]*"/g, (match) => {
-        // 提取 content 值
-        const contentMatch = match.match(/"content":\s*"(.*)"/);
-        if (contentMatch) {
-          let contentValue = contentMatch[1];
-          // 移除反斜杠转义（保留必要的双引号转义）
-          contentValue = contentValue.replace(/\\"/g, '"');   // 双引号
-          contentValue = contentValue.replace(/\\\\/g, '\\'); // 单反斜杠
-          contentValue = contentValue.replace(/\\n/g, '\n');  // 换行
-          contentValue = contentValue.replace(/\\t/g, '\t');  // 制表符
-          // 重新转义 JSON 必需的字符
-          contentValue = contentValue.replace(/"/g, '\\"');   // 双引号
-          contentValue = contentValue.replace(/\n/g, '\\n');  // 换行
-          return `"content": "${contentValue}"`;
-        }
-        return match;
-      });
-
+      // 尝试再次解析
       try {
         const parsed = JSON.parse(fixed);
         const questions = parsed.questions || [];
