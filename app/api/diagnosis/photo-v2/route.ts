@@ -833,8 +833,8 @@ function simpleExtractQuestions(ocrText: string): Array<{
   // 如果仍然只有1道题，尝试按段落分割
   if (questions.length <= 1 && ocrText.length > 500) {
     log.info('尝试按段落分割题目');
-    const chunks = [];
-    let chunk = [];
+    const chunks: string[] = [];
+    let chunk: string[] = [];
 
     for (const line of lines) {
       // 检测可能的题目边界
