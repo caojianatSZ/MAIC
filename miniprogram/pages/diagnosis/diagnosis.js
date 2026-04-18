@@ -786,7 +786,7 @@ Page({
     // 移除图片标记
     result = result.replace(/!\[.*?\]\([^)]*\)/g, '')
 
-    // 处理LaTeX公式
+    // 处理LaTeX公式（放在最后，避免被前面的替换影响）
     result = this.convertLatexFormulas(result)
 
     // 清理多余的空格
@@ -802,17 +802,17 @@ Page({
    */
   convertLatexFormulas(text) {
     // 首先处理 \(...\) 格式（行内公式）
-    text = text.replace(/\\\(([^)]+)\\\)/g, (match, formula) => {
+    text = text.replace(/\\\(([^)]+?)\\\)/g, (match, formula) => {
       return this.processLatexFormula(formula)
     })
 
     // 然后处理 \[...\] 格式（行间公式）
-    text = text.replace(/\\\[([^\]]+)\\\]/g, (match, formula) => {
+    text = text.replace(/\\\[([^\]]+?)\\\]/g, (match, formula) => {
       return this.processLatexFormula(formula)
     })
 
-    // 最后处理 $...$ 格式
-    text = text.replace(/\$([^$]+)\$/g, (match, formula) => {
+    // 最后处理 $...$ 格式（非贪婪匹配，避免跨多个公式）
+    text = text.replace(/\$([^$]+?)\$/g, (match, formula) => {
       return this.processLatexFormula(formula)
     })
 
@@ -825,41 +825,26 @@ Page({
   processLatexFormula(formula) {
     let trimmed = formula.trim()
 
-    // 先将常见的希腊字母单词转换为LaTeX命令
-    trimmed = trimmed
-      .replace(/\bomega\b/g, '\\omega')
-      .replace(/\balpha\b/g, '\\alpha')
-      .replace(/\bbeta\b/g, '\\beta')
-      .replace(/\bgamma\b/g, '\\gamma')
-      .replace(/\bdelta\b/g, '\\delta')
-      .replace(/\btheta\b/g, '\\theta')
-      .replace(/\blambda\b/g, '\\lambda')
-      .replace(/\bmu\b/g, '\\mu')
-      .replace(/\bsigma\b/g, '\\sigma')
-      .replace(/\bpi\b/g, '\\pi')
-      .replace(/\bphi\b/g, '\\phi')
-      .replace(/\bpsii\b/g, '\\psi')
-      .replace(/\brho\b/g, '\\rho')
+    // 移除可能存在的转义反斜杠（只处理特定字符）
+    trimmed = trimmed.replace(/\\([{}$])/g, '$1')
 
-    // 检测是否是复杂公式（包含分数、根号、希腊字母等）
-    const isComplex = /\\frac|\\sqrt|\\sum|\\int|\\prod|\\lim|\\infty|\\le|\\ge|\\ne|\\approx|\\times|\\div|\\partial|\\nabla|\\alpha|\\beta|\\gamma|\\delta|\\theta|\\pi|\\lambda|\\mu|\\sigma|\\omega|\\phi|\\psi|\\rho/.test(trimmed)
+    // 简化判断：只要包含反斜杠命令或下标上标，就用图片渲染
+    // 这样可以确保所有LaTeX公式都被正确渲染
+    const hasLatexCommand = /\\[a-zA-Z]/.test(trimmed)
+    const hasSubscript = /[_\^]/.test(trimmed)
+
+    const isComplex = hasLatexCommand || hasSubscript
 
     if (isComplex) {
       // 复杂公式转为图片URL（使用CodeCogs API）
       const encodedFormula = encodeURIComponent(trimmed)
-      // 使用符合小程序rich-text规范的img标签
-      const imgTag = `<img src="https://latex.codecogs.com/png.latex?${encodedFormula}" style="display:inline;vertical-align:middle;max-height:1.5em;" />`
-      console.log('复杂公式转换:', formula, '->', imgTag)
+      const imgTag = `<img src="https://latex.codecogs.com/png.latex?${encodedFormula}" style="display:inline;vertical-align:middle;max-height:1.8em;" />`
+      console.log('LaTeX公式转换:', formula.substring(0, 50), '->', 'img')
       return imgTag
     } else {
-      // 简单公式转换为HTML下标/上标
-      let htmlFormula = trimmed
-        .replace(/_\{([^}]+)\}/g, '<sub>$1</sub>')
-        .replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>')
-        .replace(/_([a-zA-Z0-9])/g, '<sub>$1</sub>')
-        .replace(/\^([a-zA-Z0-9])/g, '<sup>$1</sup>')
-      console.log('简单公式转换:', formula, '->', htmlFormula)
-      return htmlFormula
+      // 极简单的纯文本（不带任何格式）
+      console.log('纯文本公式:', formula)
+      return formula
     }
   },
 
