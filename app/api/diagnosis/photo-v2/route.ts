@@ -250,10 +250,12 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       warnings: [],
       errors: []
     };
+    let ocrStructuredData: any = undefined;  // 保存结构化数据
 
     try {
       const ocrResult = await textinClient.recognizePaper(preprocessedImage);
       ocrText = ocrResult.markdown;
+      ocrStructuredData = ocrResult.structuredData;  // 保存结构化数据
 
       // OCR 结果校验
       const validationResult = textinClient.validateResult(ocrResult);
@@ -269,7 +271,8 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
         confidence: ocrValidation.confidence,
         isValid: ocrValidation.isValid,
         warningCount: ocrValidation.warnings.length,
-        errorCount: ocrValidation.errors.length
+        errorCount: ocrValidation.errors.length,
+        hasStructuredData: !!ocrStructuredData
       });
 
       // 如果 OCR 校验失败且有严重错误，尝试降级
@@ -297,8 +300,20 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     updateProgress(taskId, 4, '正在分析题目结构...');
     log.info('Step 4: 提取题目结构...');
 
-    // 使用 GLM 提取题目结构（识别多道题目）
-    let extractedQuestions = await extractQuestions(ocrText, subject, grade);
+    // 优先使用 TextIn 结构化数据提取题目
+    let extractedQuestions;
+    if (ocrStructuredData && ocrStructuredData.length > 0) {
+      log.info('尝试从 TextIn 结构化数据提取题目');
+      extractedQuestions = textinClient['extractQuestionsFromStructured'](ocrStructuredData);
+      log.info('TextIn 结构化提取结果', { count: extractedQuestions.length });
+    }
+
+    // 如果结构化数据提取失败或结果太少，使用 GLM 提取
+    if (!extractedQuestions || extractedQuestions.length < 2) {
+      log.info('使用 GLM 提取题目结构');
+      extractedQuestions = await extractQuestions(ocrText, subject, grade);
+    }
+
     log.info('题目结构完成', { count: extractedQuestions.length });
 
     if (extractedQuestions.length === 0) {

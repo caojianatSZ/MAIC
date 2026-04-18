@@ -1,7 +1,7 @@
 // lib/textin/client.ts
 
 import { createLogger } from '@/lib/logger';
-import type { TextinResult, ValidationResult, ValidationError, ValidationWarning } from './types';
+import type { TextinResult, ValidationResult, ValidationError, ValidationWarning, StructuredData } from './types';
 
 const log = createLogger('TextInClient');
 
@@ -83,7 +83,8 @@ export class TextinClient {
           markdown: string;
           pages?: Array<{
             page_id: number;
-            content: Array<{
+            structured?: StructuredData[];
+            content?: Array<{
               text: string;
               score: number;
               type: string;
@@ -112,12 +113,15 @@ export class TextinClient {
         throw new Error('TextIn 返回结果为空');
       }
 
-      // 计算平均置信度
+      // 计算平均置信度并提取结构化数据
       let confidence: number | undefined;
+      let structuredData: StructuredData[] | undefined;
+
       if (result.result.pages) {
+        // 计算置信度（使用 content 字段）
         const scores: number[] = [];
         result.result.pages.forEach(page => {
-          page.content.forEach(item => {
+          page.content?.forEach(item => {
             if (item.score !== undefined) {
               scores.push(item.score);
             }
@@ -126,23 +130,144 @@ export class TextinClient {
         if (scores.length > 0) {
           confidence = scores.reduce((a, b) => a + b, 0) / scores.length;
         }
+
+        // 提取结构化数据
+        if (result.result.pages[0]?.structured) {
+          structuredData = result.result.pages[0].structured;
+          log.info('TextIn 结构化数据', { itemsCount: structuredData.length });
+        }
       }
 
       log.info('TextIn OCR 识别成功', {
         markdownLength: result.result.markdown.length,
         confidence,
-        pagesCount: result.result.pages?.length
+        pagesCount: result.result.pages?.length,
+        hasStructuredData: !!structuredData
       });
 
       return {
         markdown: result.result.markdown,
-        confidence
+        confidence,
+        structuredData
       };
 
     } catch (error) {
       log.error('TextIn OCR 识别失败', error);
       throw error;
     }
+  }
+
+  /**
+   * 从结构化数据中提取题目
+   * 利用 TextIn 的 outline_level 和 type 信息
+   */
+  extractQuestionsFromStructured(structuredData: StructuredData[]): Array<{
+    id: string;
+    content: string;
+    type: 'choice' | 'fill_blank' | 'essay';
+    options?: string[];
+  }> {
+    if (!structuredData || structuredData.length === 0) {
+      return [];
+    }
+
+    const questions: Array<{
+      id: string;
+      content: string;
+      type: 'choice' | 'fill_blank' | 'essay';
+      options?: string[];
+    }> = [];
+
+    let currentQuestion: string[] = [];
+    let questionNum = 0;
+    let currentOptions: string[] = [];
+
+    // 遍历结构化数据
+    for (const item of structuredData) {
+      const text = this.extractTextFromContent(item);
+
+      if (!text || text.trim().length === 0) continue;
+
+      // 检测题目编号模式
+      const numMatch = text.match(/^(\d+)[.、．]\s*/);
+      const yearMatch = text.match(/^\((\d{4})/);  // 年份开头
+
+      // 检测选项
+      const optionMatch = text.match(/^[A-D][.、)\]]\s*(.+)/);
+
+      // 如果是新的题目开始
+      if (numMatch || (yearMatch && currentQuestion.length > 5)) {
+        // 保存上一题
+        if (currentQuestion.length > 0) {
+          const content = currentQuestion.join('\n');
+          questions.push({
+            id: String(questionNum || questions.length + 1),
+            content: content,
+            type: this.detectQuestionType(content, currentOptions),
+            options: currentOptions.length > 0 ? currentOptions : undefined
+          });
+        }
+
+        questionNum = numMatch ? parseInt(numMatch[1], 10) : questions.length + 1;
+        currentQuestion = [text];
+        currentOptions = [];
+      } else if (optionMatch) {
+        // 选项
+        currentOptions.push(optionMatch[1]);
+        currentQuestion.push(text);
+      } else if (currentQuestion.length > 0 || text.length > 5) {
+        // 添加到当前题目
+        currentQuestion.push(text);
+      }
+    }
+
+    // 保存最后一题
+    if (currentQuestion.length > 0) {
+      const content = currentQuestion.join('\n');
+      questions.push({
+        id: String(questionNum || questions.length + 1),
+        content: content,
+        type: this.detectQuestionType(content, currentOptions),
+        options: currentOptions.length > 0 ? currentOptions : undefined
+      });
+    }
+
+    log.info('从结构化数据提取题目', { count: questions.length });
+    return questions;
+  }
+
+  /**
+   * 从 content 字段中提取文本
+   */
+  private extractTextFromContent(item: StructuredData): string {
+    if (typeof item.content === 'string') {
+      return item.content;
+    }
+    if (Array.isArray(item.content)) {
+      return item.content.map(c => typeof c === 'string' ? c : '').join('');
+    }
+    if (typeof item.content === 'object' && item.content !== null) {
+      return JSON.stringify(item.content);
+    }
+    return '';
+  }
+
+  /**
+   * 检测题目类型
+   */
+  private detectQuestionType(content: string, options: string[]): 'choice' | 'fill_blank' | 'essay' {
+    // 有选项则是选择题
+    if (options && options.length > 0) {
+      return 'choice';
+    }
+
+    // 检测填空题
+    if (/___|____|（）|【】/.test(content)) {
+      return 'fill_blank';
+    }
+
+    // 默认为解答题
+    return 'essay';
   }
 
   /**

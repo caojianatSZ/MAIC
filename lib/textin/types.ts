@@ -10,6 +10,23 @@ export interface TextinResponse {
 export interface TextinResult {
   markdown: string;
   confidence?: number;  // 整体识别置信度 (0-1)
+  structuredData?: StructuredData[];  // 结构化数据
+}
+
+// TextIn 返回的结构化数据
+export interface StructuredData {
+  content: ContentItem[];
+  id: number;
+  outline_level: number;
+  pos: number[];
+  sub_type?: string;
+  tags?: string[];
+  type: string;
+}
+
+export interface ContentItem {
+  content: any;
+  text?: string;
 }
 
 // 后处理校验结果
