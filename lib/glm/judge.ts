@@ -31,8 +31,8 @@ export async function judgeHandwrittenAnswers(
     // 根据置信度选择模型（使用 Code Plan 套餐支持的模型）
     const useHighConfidencePath = ocrConfidence >= 0.8;
     const model = useHighConfidencePath
-      ? (process.env.GLM_JUDGMENT_MODEL || 'glm-5.1')  // 高置信度用文本模型（最强模型）
-      : 'glm-4v-plus';                                   // 低置信度用视觉模型
+      ? (process.env.GLM_JUDGMENT_MODEL || 'glm-5.1')       // 高置信度用文本模型（最强模型）
+      : 'glm-4v-plus-0111';                                  // 低置信度用视觉模型（最准确）
 
     log.info('批改开始', {
       questionCount: questions.length,
