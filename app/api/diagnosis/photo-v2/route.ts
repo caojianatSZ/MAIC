@@ -296,37 +296,12 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       };
     }
 
-    // ==================== Step 4: 提取题目结构（并行交叉校验） ====================
+    // ==================== Step 4: 提取题目结构（使用视觉模型） ====================
     updateProgress(taskId, 4, '正在分析题目结构...');
-    log.info('Step 4: 题目结构提取（并行交叉校验）...');
+    log.info('Step 4: 题目结构提取（使用 GLM-4V-Plus 视觉模型）...');
 
-    // 并行执行两种提取方法，互相校验
-    const [textBasedQuestions, visionBasedQuestions] = await Promise.allSettled([
-      extractQuestions(ocrText, subject, grade, ocrStructuredData),
-      extractQuestionsWithVision(preprocessedImage, subject, grade)
-    ]);
-
-    const textQuestions = textBasedQuestions.status === 'fulfilled' ? textBasedQuestions.value : [];
-    const visionQuestions = visionBasedQuestions.status === 'fulfilled' ? visionBasedQuestions.value : [];
-
-    log.info('并行提取结果', {
-      textMethod: {
-        success: textBasedQuestions.status === 'fulfilled',
-        count: textQuestions.length
-      },
-      visionMethod: {
-        success: visionBasedQuestions.status === 'fulfilled',
-        count: visionQuestions.length
-      }
-    });
-
-    // 使用 LLM 进行交叉校验和最终校准
-    log.info('使用 LLM 交叉校验并生成最终题目列表');
-    const extractedQuestions = await crossValidateAndMergeQuestions(
-      textQuestions,
-      visionQuestions,
-      ocrText
-    );
+    // 直接使用视觉模型从图片中识别题目，这是最准确的方式
+    const extractedQuestions = await extractQuestionsWithVision(preprocessedImage, subject, grade);
 
     log.info('题目结构完成', { count: extractedQuestions.length });
 
@@ -1072,22 +1047,70 @@ ${expectedCount ? `【预期题目数量】约 ${expectedCount} 道题` : ''}
     throw new Error('GLM 返回无效的 JSON');
   }
 
-  const content = result.choices?.[0]?.message?.content || '';
-  const cleanContent = content
+  // 处理推理模型：先尝试 reasoning_content，再尝试 content
+  const message = result.choices?.[0]?.message;
+  const content = message?.reasoning_content || message?.content || '';
+
+  log.info('extractQuestionsWithVision 响应', {
+    contentLength: content.length,
+    hasReasoningContent: !!message?.reasoning_content,
+    preview: content.substring(0, 500)
+  });
+
+  // 清理内容
+  let cleanContent = content
     .replace(/```json\n?/g, '')
     .replace(/```\n?/g, '')
     .trim();
 
-  const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    log.warn('视觉模型：无法找到 JSON 对象');
-    throw new Error('无法从响应中提取 JSON');
+  // 尝试多种方式提取 JSON
+  let questions = [];
+
+  // 方法1：直接解析
+  try {
+    const parsed = JSON.parse(cleanContent);
+    questions = parsed.questions || [];
+    if (questions.length > 0) {
+      log.info('视觉模型题目提取成功（直接解析）', { count: questions.length });
+      return questions;
+    }
+  } catch (e) {
+    // 继续尝试其他方法
   }
 
-  const parsed = JSON.parse(jsonMatch[0]);
-  const questions = parsed.questions || [];
-  log.info('视觉模型题目提取成功', { count: questions.length });
-  return questions;
+  // 方法2：查找 JSON 对象
+  const jsonMatch = cleanContent.match(/\{[\s\S]*?"questions"[\s\S]*?\n\s*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      questions = parsed.questions || [];
+      if (questions.length > 0) {
+        log.info('视觉模型题目提取成功（模式匹配）', { count: questions.length });
+        return questions;
+      }
+    } catch (e) {
+      // 继续尝试
+    }
+  }
+
+  // 方法3：查找任何包含 questions 的 JSON
+  const questionsMatch = cleanContent.match(/"questions"\s*:\s*\[[\s\S]*?\]/);
+  if (questionsMatch) {
+    try {
+      const partialJson = `{${questionsMatch[0]}}`;
+      const parsed = JSON.parse(partialJson);
+      questions = parsed.questions || [];
+      if (questions.length > 0) {
+        log.info('视觉模型题目提取成功（部分解析）', { count: questions.length });
+        return questions;
+      }
+    } catch (e) {
+      // 继续尝试
+    }
+  }
+
+  log.warn('视觉模型：无法提取有效 JSON', { cleanContentLength: cleanContent.length });
+  throw new Error('无法从视觉模型响应中提取题目列表');
 }
 
 /**
