@@ -974,12 +974,19 @@ ${ocrText.substring(0, 2000)}...
   }
 
   // 降级策略：优先使用视觉模型，其次文本模型
+  const result = visionQuestions.length > 0 ? visionQuestions : textQuestions;
   log.info('使用降级策略', {
     visionCount: visionQuestions.length,
     textCount: textQuestions.length,
     selected: visionQuestions.length > 0 ? 'vision' : 'text'
   });
-  return visionQuestions.length > 0 ? visionQuestions : textQuestions;
+  // 确保 type 是正确的字面量类型
+  return result.map(q => ({
+    ...q,
+    type: (q.type === 'choice' || q.type === 'fill_blank' || q.type === 'essay')
+      ? q.type as 'choice' | 'fill_blank' | 'essay'
+      : detectQuestionType(q.content)
+  }));
 }
 
 /**
