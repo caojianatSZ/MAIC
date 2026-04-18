@@ -669,7 +669,7 @@ Page({
   pollTaskStatus(taskId, resolve, reject) {
     const baseUrl = getBaseUrl()
     const statusUrl = `${baseUrl}/api/diagnosis/photo-v2?taskId=${taskId}`
-    const maxAttempts = 120 // 最多轮询 2 分钟（每秒一次）
+    const maxAttempts = 300 // 最多轮询 5 分钟（每秒一次）
     let attempts = 0
 
     const poll = () => {

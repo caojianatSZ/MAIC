@@ -96,7 +96,7 @@ export async function judgeHandwrittenAnswers(
 
     // 创建 AbortController 用于超时控制
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 分钟超时
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 分钟超时
 
     const response = await fetch(GLM_API_URL, {
       method: 'POST',
