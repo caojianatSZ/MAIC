@@ -37,6 +37,7 @@ import { edukgAdapter } from '@/lib/edukg/adapter';
 import { PrismaClient } from '@prisma/client';
 import { saveWrongQuestion } from '@/lib/wrong-questions/service';
 import { createTask, updateProgress, completeTask, failTask, getProgress } from '@/lib/diagnosis/progress';
+import { fromTextInStructured, rebuildStructure, type Question } from '@/lib/structure';
 
 const log = createLogger('PhotoV2');
 
@@ -296,14 +297,36 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       };
     }
 
-    // ==================== Step 4: 提取题目结构（使用视觉模型） ====================
+    // ==================== Step 4: 提取题目结构（结构重建层优先） ====================
     updateProgress(taskId, 4, '正在分析题目结构...');
-    log.info('Step 4: 题目结构提取（使用 GLM-4V-Plus 视觉模型）...');
+    log.info('Step 4: 题目结构提取（使用结构重建层）...');
 
-    // 直接使用视觉模型从图片中识别题目，这是最准确的方式
-    const extractedQuestions = await extractQuestionsWithVision(preprocessedImage, subject, grade);
+    // 策略：优先使用结构重建层，失败时降级到视觉模型
+    let extractedQuestions: Array<{
+      id: string;
+      content: string;
+      type: 'choice' | 'fill_blank' | 'essay';
+      options?: string[];
+    }>;
 
-    log.info('题目结构完成', { count: extractedQuestions.length });
+    try {
+      // 尝试使用结构重建层
+      extractedQuestions = await extractQuestionsWithStructureLayer(
+        ocrStructuredData,
+        ocrText,
+        subject,
+        grade
+      );
+
+      log.info('结构重建层提取成功', { count: extractedQuestions.length });
+    } catch (structureError) {
+      log.warn('结构重建层失败，降级到视觉模型', structureError);
+
+      // 降级：使用视觉模型
+      extractedQuestions = await extractQuestionsWithVision(preprocessedImage, subject, grade);
+
+      log.info('视觉模型提取完成', { count: extractedQuestions.length });
+    }
 
     if (extractedQuestions.length === 0) {
       throw new Error('未能识别到任何题目，请确保图片清晰');
@@ -953,8 +976,78 @@ ${ocrText.substring(0, 2000)}...
 }
 
 /**
+ * 使用结构重建层从 TextIn 数据中提取题目
+ * 优先方案：基于 bbox 和规则的结构重建
+ */
+async function extractQuestionsWithStructureLayer(
+  structuredData: any,
+  ocrText: string,
+  subject: string,
+  grade: string
+): Promise<Array<{
+  id: string;
+  content: string;
+  type: 'choice' | 'fill_blank' | 'essay';
+  options?: string[];
+}>> {
+  // 检查是否有结构化数据
+  if (!structuredData || !Array.isArray(structuredData) || structuredData.length === 0) {
+    throw new Error('TextIn 结构化数据为空');
+  }
+
+  log.info('结构重建层：开始转换', { itemCount: structuredData.length });
+
+  // 步骤 1：转换为标准 OCRBlock 格式
+  const blocks = fromTextInStructured(structuredData);
+
+  if (blocks.length === 0) {
+    throw new Error('结构重建层：转换后 blocks 为空');
+  }
+
+  log.info('结构重建层：blocks 转换完成', { blockCount: blocks.length });
+
+  // 步骤 2：重建题目结构
+  const questions: Question[] = rebuildStructure(blocks);
+
+  log.info('结构重建层：题目重建完成', { questionCount: questions.length });
+
+  if (questions.length === 0) {
+    throw new Error('结构重建层：未识别到任何题目');
+  }
+
+  // 步骤 3：转换为 API 格式
+  const apiQuestions = questions.map(q => ({
+    id: q.question_id,
+    content: q.question || '',
+    type: detectQuestionType(q.question || '') as 'choice' | 'fill_blank' | 'essay',
+    options: extractOptionsFromQuestion(q.question || '')
+  }));
+
+  log.info('结构重建层：格式转换完成', { outputCount: apiQuestions.length });
+
+  return apiQuestions;
+}
+
+/**
+ * 从题目内容中提取选项
+ */
+function extractOptionsFromQuestion(content: string): string[] | undefined {
+  // 匹配选项模式：A. B. C. D. 或 A、 B、 C、 D、 等
+  const optionPattern = /([A-D])[.、\．\)]\s*([^\n]+)/g;
+  const options: string[] = [];
+  let match;
+
+  while ((match = optionPattern.exec(content)) !== null) {
+    options.push(match[2].trim());
+  }
+
+  // 只在有找到至少 2 个选项时返回
+  return options.length >= 2 ? options : undefined;
+}
+
+/**
  * 使用视觉模型从图片中直接提取题目结构
- * 当文本提取结果数量异常时使用
+ * 当结构重建层失败时使用
  */
 async function extractQuestionsWithVision(
   imageBase64: string,
@@ -991,13 +1084,8 @@ async function extractQuestionsWithVision(
 - 字母选项（A.B.C.D...）= 属于同一道题的选项
 
 **选择题的标准格式：**
-```
-1. [题干内容]（）
-A. [选项A]
-B. [选项B]
-C. [选项C]
-D. [选项D]
-```
+题干内容后面通常有空括号用于填写答案，然后是 A.B.C.D 四个选项。
+例如："1. 题干内容？ A. 选项A B. 选项B C. 选项C D. 选项D"
 以上内容算作 **1 道题**。
 
 返回 JSON 格式：
