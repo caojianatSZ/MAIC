@@ -300,10 +300,10 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     updateProgress(taskId, 4, '正在分析题目结构...');
     log.info('Step 4: 提取题目结构...');
 
-    // 优先使用 GLM 从 markdown 中提取题目结构（更准确）
-    // GLM 对试卷格式理解更好，能准确识别题目边界
-    log.info('使用 GLM 提取题目结构');
-    const extractedQuestions = await extractQuestions(ocrText, subject, grade);
+    // 使用 GLM 从 markdown 中提取题目，同时利用 TextIn 的结构化信息作为辅助
+    // 结构化信息包含：标题层级、位置坐标、类型分类，可帮助 LLM 更准确地识别题目边界
+    log.info('使用 GLM 提取题目结构（含结构化信息辅助）');
+    const extractedQuestions = await extractQuestions(ocrText, subject, grade, ocrStructuredData);
 
     log.info('题目结构完成', { count: extractedQuestions.length });
 
@@ -631,12 +631,71 @@ async function fallbackOCR(imageBase64: string): Promise<{
 }
 
 /**
- * 从 OCR 文本中提取题目结构
+ * 从结构化数据生成 LLM 友好的布局描述
+ */
+function buildLayoutHint(structuredData: any[]): string {
+  if (!structuredData || structuredData.length === 0) {
+    return '';
+  }
+
+  // 分析结构化数据，提取布局信息
+  const hints: string[] = [];
+  const titleItems: string[] = [];
+  const bodyItems: string[] = [];
+
+  // 按位置排序并分类
+  const sorted = structuredData
+    .filter(item => {
+      const text = typeof item.content === 'string' ? item.content :
+                   Array.isArray(item.content) ? item.content.map((c: any) => typeof c === 'string' ? c : '').join('') :
+                   String(item.content || '');
+      return text && text.trim().length > 0;
+    })
+    .map((item: any) => {
+      const text = typeof item.content === 'string' ? item.content :
+                   Array.isArray(item.content) ? item.content.map((c: any) => typeof c === 'string' ? c : '').join('') :
+                   String(item.content || '');
+      const pos = item.pos || [];
+      return {
+        text: text.trim(),
+        type: item.type || 'unknown',
+        outlineLevel: item.outline_level || 99,
+        y: pos[1] || 0,
+        x: pos[0] || 0
+      };
+    })
+    .sort((a: any, b: any) => a.y - b.y);
+
+  // 提取标题和题目编号
+  for (const item of sorted) {
+    if (item.outlineLevel <= 1) {
+      titleItems.push(`[标题] ${item.text}`);
+    } else if (/^\d+[.、．]/.test(item.text)) {
+      hints.push(`[题目边界] ${item.text}`);
+    }
+  }
+
+  // 构建布局提示
+  const parts: string[] = [];
+  if (titleItems.length > 0) {
+    parts.push(`文档标题: ${titleItems.join(' → ')}`);
+  }
+  if (hints.length > 0) {
+    parts.push(`检测到的题目边界:\n${hints.map(h => '  - ' + h).join('\n')}`);
+  }
+  parts.push(`文档共分 ${hints.length || '?'} 个题目区域`);
+
+  return parts.join('\n\n');
+}
+
+/**
+ * 从 OCR 文本中提取题目结构（增强版，使用结构化信息）
  */
 async function extractQuestions(
   ocrText: string,
   subject: string,
-  grade: string
+  grade: string,
+  structuredData?: any[]
 ): Promise<Array<{
   id: string;
   content: string;
@@ -648,11 +707,14 @@ async function extractQuestions(
     throw new Error('GLM_API_KEY 未配置');
   }
 
+  // 构建布局提示
+  const layoutHint = buildLayoutHint(structuredData || []);
+
   const prompt = `你是一个专业的题目分析专家。请从以下 OCR 识别的文本中提取所有题目。
 
 【学科】${subject}
 【年级】${grade}
-【识别文本】
+${layoutHint ? `【文档布局分析】\n${layoutHint}\n` : ''}【识别文本】
 ${ocrText}
 
 请分析并返回 JSON 格式（必须是有效的 JSON，不要有 markdown 代码块标记）：
@@ -668,9 +730,10 @@ ${ocrText}
 }
 
 注意事项：
-1. 必须提取文本中的所有题目，不要遗漏任何一道题
-2. 选择题必须包含 options 字段
-3. 只返回纯 JSON，不要有其他说明文字`;
+1. 如果提供了【文档布局分析】，请参考其中标注的题目边界来确定题目分割
+2. 必须提取文本中的所有题目，不要遗漏任何一道题
+3. 选择题必须包含 options 字段
+4. 只返回纯 JSON，不要有其他说明文字`;
 
   try {
     const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
