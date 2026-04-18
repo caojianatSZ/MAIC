@@ -171,6 +171,17 @@ export class TextinClient {
       return [];
     }
 
+    // 详细日志：记录所有结构化数据
+    log.info('TextIn 结构化数据详情', {
+      totalItems: structuredData.length,
+      items: structuredData.slice(0, 20).map(item => ({
+        type: item.type,
+        subType: item.sub_type,
+        outlineLevel: item.outline_level,
+        textPreview: this.extractTextFromContent(item)?.substring(0, 50)
+      }))
+    });
+
     const questions: Array<{
       id: string;
       content: string;
@@ -178,24 +189,31 @@ export class TextinClient {
       options?: string[];
     }> = [];
 
+    // 分析结构：找出标题和题目
+    let currentSectionTitle = '';
     let currentQuestion: string[] = [];
     let questionNum = 0;
     let currentOptions: string[] = [];
 
-    // 遍历结构化数据
     for (const item of structuredData) {
       const text = this.extractTextFromContent(item);
-
       if (!text || text.trim().length === 0) continue;
 
-      // 检测题目编号模式
+      // 检测标题（outline_level=0 或 1，type=text_title）
+      if (item.type === 'text_title' || item.outline_level <= 1) {
+        currentSectionTitle = text;
+        log.info('检测到标题', { title: text, level: item.outline_level });
+        continue;
+      }
+
+      // 检测题目编号
       const numMatch = text.match(/^(\d+)[.、．]\s*/);
-      const yearMatch = text.match(/^\((\d{4})/);  // 年份开头
+      const yearMatch = text.match(/^\((\d{4})/);
 
       // 检测选项
       const optionMatch = text.match(/^[A-D][.、)\]]\s*(.+)/);
 
-      // 如果是新的题目开始
+      // 新题目开始
       if (numMatch || (yearMatch && currentQuestion.length > 5)) {
         // 保存上一题
         if (currentQuestion.length > 0) {
@@ -204,19 +222,18 @@ export class TextinClient {
             id: String(questionNum || questions.length + 1),
             content: content,
             type: this.detectQuestionType(content, currentOptions),
-            options: currentOptions.length > 0 ? currentOptions : undefined
+            options: currentOptions.length > 0 ? [...currentOptions] : undefined
           });
+          log.info('保存题目', { id: questionNum, contentLength: content.length, optionsCount: currentOptions.length });
         }
 
         questionNum = numMatch ? parseInt(numMatch[1], 10) : questions.length + 1;
         currentQuestion = [text];
         currentOptions = [];
       } else if (optionMatch) {
-        // 选项
-        currentOptions.push(optionMatch[1]);
+        currentOptions.push(optionMatch[1] || text);
         currentQuestion.push(text);
-      } else if (currentQuestion.length > 0 || text.length > 5) {
-        // 添加到当前题目
+      } else if (currentQuestion.length > 0 || text.length > 3) {
         currentQuestion.push(text);
       }
     }
@@ -228,11 +245,15 @@ export class TextinClient {
         id: String(questionNum || questions.length + 1),
         content: content,
         type: this.detectQuestionType(content, currentOptions),
-        options: currentOptions.length > 0 ? currentOptions : undefined
+        options: currentOptions.length > 0 ? [...currentOptions] : undefined
       });
+      log.info('保存最后一题', { id: questionNum, contentLength: content.length });
     }
 
-    log.info('从结构化数据提取题目', { count: questions.length });
+    log.info('从结构化数据提取题目完成', {
+      count: questions.length,
+      questions: questions.map(q => ({ id: q.id, contentPreview: q.content.substring(0, 30) }))
+    });
     return questions;
   }
 
