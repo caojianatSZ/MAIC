@@ -296,32 +296,37 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       };
     }
 
-    // ==================== Step 4: 提取题目结构 ====================
+    // ==================== Step 4: 提取题目结构（并行交叉校验） ====================
     updateProgress(taskId, 4, '正在分析题目结构...');
-    log.info('Step 4: 提取题目结构...');
+    log.info('Step 4: 题目结构提取（并行交叉校验）...');
 
-    // 使用 GLM 从 markdown 中提取题目，同时利用 TextIn 的结构化信息作为辅助
-    // 结构化信息包含：标题层级、位置坐标、类型分类，可帮助 LLM 更准确地识别题目边界
-    log.info('使用 GLM 提取题目结构（含结构化信息辅助）');
-    let extractedQuestions = await extractQuestions(ocrText, subject, grade, ocrStructuredData);
+    // 并行执行两种提取方法，互相校验
+    const [textBasedQuestions, visionBasedQuestions] = await Promise.allSettled([
+      extractQuestions(ocrText, subject, grade, ocrStructuredData),
+      extractQuestionsWithVision(preprocessedImage, subject, grade)
+    ]);
 
-    // 如果题目数量异常（超过10道），使用视觉模型重新提取
-    // 这通常是因为文本解析将选项误识别为独立题目
-    if (extractedQuestions.length > 10) {
-      log.warn(`题目数量异常 (${extractedQuestions.length} 道)，使用视觉模型重新提取`);
-      updateProgress(taskId, 4, '题目数量异常，使用视觉模型重新识别...');
-      try {
-        extractedQuestions = await extractQuestionsWithVision(
-          preprocessedImage,
-          subject,
-          grade,
-          Math.min(extractedQuestions.length, 10) // 预期不超过10道
-        );
-      } catch (visionError) {
-        log.error('视觉模型提取失败，使用文本提取结果', visionError);
-        // 保持文本提取结果
+    const textQuestions = textBasedQuestions.status === 'fulfilled' ? textBasedQuestions.value : [];
+    const visionQuestions = visionBasedQuestions.status === 'fulfilled' ? visionBasedQuestions.value : [];
+
+    log.info('并行提取结果', {
+      textMethod: {
+        success: textBasedQuestions.status === 'fulfilled',
+        count: textQuestions.length
+      },
+      visionMethod: {
+        success: visionBasedQuestions.status === 'fulfilled',
+        count: visionQuestions.length
       }
-    }
+    });
+
+    // 使用 LLM 进行交叉校验和最终校准
+    log.info('使用 LLM 交叉校验并生成最终题目列表');
+    const extractedQuestions = await crossValidateAndMergeQuestions(
+      textQuestions,
+      visionQuestions,
+      ocrText
+    );
 
     log.info('题目结构完成', { count: extractedQuestions.length });
 
@@ -862,6 +867,106 @@ ${ocrText}
     // 降级方案：尝试简单解析
     return simpleExtractQuestions(ocrText);
   }
+}
+
+/**
+ * 交叉校验并合并两种提取方法的结果
+ * 使用 LLM 分析差异并生成最终准确的题目列表
+ */
+async function crossValidateAndMergeQuestions(
+  textQuestions: Array<{ id: string; content: string; type: string; options?: string[] }>,
+  visionQuestions: Array<{ id: string; content: string; type: string; options?: string[] }>,
+  ocrText: string
+): Promise<Array<{ id: string; content: string; type: 'choice' | 'fill_blank' | 'essay'; options?: string[] }>> {
+  const apiKey = process.env.GLM_API_KEY;
+  if (!apiKey) {
+    // 降级：优先使用视觉模型结果（更准确）
+    return visionQuestions.length > 0 ? visionQuestions : textQuestions;
+  }
+
+  const textSummary = textQuestions.map((q, i) => `${i + 1}. [${q.id}] ${q.content.substring(0, 30)}...`).join('\n');
+  const visionSummary = visionQuestions.map((q, i) => `${i + 1}. [${q.id}] ${q.content.substring(0, 30)}...`).join('\n');
+
+  const prompt = `你是一个专业的题目分析专家。请对两种方法提取的题目结果进行交叉校验。
+
+【方法1：文本提取】识别到 ${textQuestions.length} 道题：
+${textSummary || '(无结果)'}
+
+【方法2：视觉提取】识别到 ${visionQuestions.length} 道题：
+${visionSummary || '(无结果)'}
+
+【原始 OCR 文本】
+${ocrText.substring(0, 2000)}...
+
+请分析并确定正确的题目数量和结构，返回 JSON：
+{
+  "questions": [
+    {
+      "id": "题目编号",
+      "content": "题目完整内容",
+      "type": "题目类型",
+      "options": ["选项A", "选项B", "选项C", "选项D"]
+    }
+  ],
+  "analysis": "分析说明：为什么选择这个数量，如何处理两种结果的差异"
+}
+
+【校验原则】
+1. 如果两种方法数量一致，该数量很可能正确
+2. 如果差异较大，查看原始文本判断哪种更合理
+3. 选择题 = 题干 + 选项，不要拆分
+4. 年份题如 "(2011)" 是选择题的一部分
+5. 选项 A/B/C/D 属于同一道题`;
+
+  log.info('crossValidate: 发送 LLM 交叉校验请求', {
+    textCount: textQuestions.length,
+    visionCount: visionQuestions.length
+  });
+
+  try {
+    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'glm-4.7',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 8000
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`GLM 请求失败: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const content = result.choices?.[0]?.message?.content || '';
+    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      const questions = parsed.questions || [];
+      log.info('LLM 交叉校验完成', {
+        finalCount: questions.length,
+        analysis: parsed.analysis?.substring(0, 100) || '无'
+      });
+      return questions;
+    }
+  } catch (error) {
+    log.error('LLM 交叉校验失败，使用降级策略', error);
+  }
+
+  // 降级策略：优先使用视觉模型，其次文本模型
+  log.info('使用降级策略', {
+    visionCount: visionQuestions.length,
+    textCount: textQuestions.length,
+    selected: visionQuestions.length > 0 ? 'vision' : 'text'
+  });
+  return visionQuestions.length > 0 ? visionQuestions : textQuestions;
 }
 
 /**
