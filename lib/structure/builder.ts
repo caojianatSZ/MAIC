@@ -37,8 +37,8 @@ export interface Question {
 // 2. 年份开头：(2011·江苏·4, 3分) 物理试卷常见
 // 3. 括号编号：（1）（2）【1】[1]
 const QUESTION_REGEX = /^(\d+)[\s\.\、\．\)\]\(\[]/;
-const YEAR_QUESTION_REGEX = /^\((\d{4}).*?[\.,，]\s*\d+\s*[分分]/;
-const PAREN_QUESTION_REGEX = /^[【\(]([1-9\d])[】\)]/;
+const YEAR_QUESTION_REGEX = /^\((\d{4})/; // 简化：只要以年份开头就是题目
+const PAREN_QUESTION_REGEX = /^[【\(]([1-9])[】\)]/;
 
 /**
  * 判断是否是题目开始
@@ -47,10 +47,13 @@ const PAREN_QUESTION_REGEX = /^[【\(]([1-9\d])[】\)]/;
 function isQuestionStart(text: string, bbox?: BBox): boolean {
   const trimmed = text.trim();
 
+  // 特殊情况：单独的数字（可能是题号）
+  if (/^\d$/.test(trimmed)) return true;
+
   // 1. 数字编号格式
   if (QUESTION_REGEX.test(trimmed)) return true;
 
-  // 2. 年份格式
+  // 2. 年份格式 - 只要以(4位数字开头就是题目
   if (YEAR_QUESTION_REGEX.test(trimmed)) return true;
 
   // 3. 括号编号格式：（1）（2）【1】[1]
@@ -58,6 +61,9 @@ function isQuestionStart(text: string, bbox?: BBox): boolean {
 
   // 4. 罗马数字：I. II. III. IV. V.（物理、数学常见）
   if (/^[IVX]+[\.\s\、\．]/.test(trimmed)) return true;
+
+  // 5. 单个字母 + (如 B( - 物理试卷常见)
+  if (/^[A-Z]\(/.test(trimmed)) return true;
 
   return false;
 }
@@ -234,7 +240,54 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
 
   log.info('过滤blocks', { before: blocks.length, after: filteredBlocks.length });
 
-  const sorted = sortBlocks(filteredBlocks);
+  let sorted = sortBlocks(filteredBlocks);
+
+  // 预处理：合并单独的题号和题目内容
+  // 例如："3" 和 "（2011·江苏·4,3分）..." 应该是同一个题目
+  const merged: OCRBlock[] = [];
+  const skipIndices = new Set<number>();
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (skipIndices.has(i)) continue;
+
+    const current = sorted[i];
+    const currentText = current.text.trim();
+
+    // 检查是否是单独的数字题号
+    if (/^\d$/.test(currentText) && i + 1 < sorted.length) {
+      const next = sorted[i + 1];
+      const nextY = next.bbox[1];
+      const currentBottom = current.bbox[3];
+      const yDistance = nextY - currentBottom;
+
+      // 如果下一个block在很近的Y坐标（<15像素），合并它们
+      if (yDistance >= 0 && yDistance < 15) {
+        const mergedText = `${currentText} ${next.text}`;
+        merged.push({
+          ...current,
+          text: mergedText,
+          bbox: [
+            current.bbox[0],
+            current.bbox[1],
+            next.bbox[2],
+            next.bbox[3]
+          ]
+        });
+        skipIndices.add(i + 1); // 跳过下一个block
+        log.debug('合并题号和内容', {
+          number: currentText,
+          content: next.text.substring(0, 30),
+          yDistance
+        });
+        continue;
+      }
+    }
+
+    merged.push(current);
+  }
+
+  sorted = merged;
+  log.info('预处理完成', { beforeCount: filteredBlocks.length, afterCount: sorted.length });
 
   // 调试：记录前15个文本块
   log.info('文本块预览（前15个）', {
