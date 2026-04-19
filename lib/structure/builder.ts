@@ -133,13 +133,19 @@ export function fromTextInStructured(structuredData: any[]): OCRBlock[] {
       continue;
     }
 
-    // 获取位置信息
+    // 获取位置信息（TextIn 返回四边形4个角点：[x1,y1, x2,y2, x3,y3, x4,y4]）
     const pos = item.pos || [];
+
+    // 正确计算 bbox：取所有点的 minX, minY, maxX, maxY
+    // TextIn 的 pos 是四边形的四个角点，需要计算出包围盒
+    const xs = [pos[0], pos[2], pos[4], pos[6]].filter(x => x !== undefined && x !== null);
+    const ys = [pos[1], pos[3], pos[5], pos[7]].filter(y => y !== undefined && y !== null);
+
     const bbox: BBox = [
-      pos[0] || 0,
-      pos[1] || 0,
-      pos[2] || pos[0] || 0,
-      pos[3] || pos[1] || 0
+      xs.length > 0 ? Math.min(...xs) : 0,      // minX
+      ys.length > 0 ? Math.min(...ys) : 0,      // minY
+      xs.length > 0 ? Math.max(...xs) : 0,      // maxX
+      ys.length > 0 ? Math.max(...ys) : 0       // maxY ← 修复：取最大Y而不是pos[3]
     ];
 
     // 判断类型：默认是 print，如果有特殊标记可能是 handwriting
