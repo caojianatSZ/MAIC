@@ -121,7 +121,9 @@ export async function POST(request: NextRequest) {
       requestId,
       questionCount: questions.length,
       parseMethod: layoutDetails ? 'layout_details' : 'markdown',
-      imagesAssociated: questionsWithImages.filter(q => q.images && q.images.length > 0).length
+      imagesAssociated: questionsWithImages.filter(q => q.images && q.images.length > 0).length,
+      totalImageCoordinates: imageCoordinates.length,
+      sampleImage: imageCoordinates.length > 0 ? imageCoordinates[0] : null
     });
 
     // ==================== Step 3: 返回结果 ====================
@@ -203,49 +205,42 @@ function extractImageCoordinates(markdown: string): Array<{
 
 /**
  * 将图片坐标与题目关联
+ * 策略：为每个题目分配最多1张图片，按题目顺序分配
  */
 function associateImagesWithQuestions(
   questions: Array<any>,
   imageCoordinates: Array<{ bbox: number[]; page: number; label?: string }>
 ): Array<any> {
   if (!imageCoordinates || imageCoordinates.length === 0) {
+    console.log('[associateImages] 没有图片坐标');
     return questions;
   }
 
-  return questions.map((question, index) => {
-    // 找到与该题目相关的图片
+  console.log('[associateImages] 开始关联', {
+    questionCount: questions.length,
+    imageCount: imageCoordinates.length
+  });
+
+  let imageIndex = 0;
+
+  return questions.map((question, questionIndex) => {
     const relatedImages: Array<{ bbox: number[]; label?: string }> = [];
 
-    // 策略：查找出现在题目内容中的图片引用
-    if (question.content) {
-      // 查找题目中的图片标签（如"图17-1"）
-      const imageLabelPattern = /图\s*(\d+[\-\.]?\d*)/g;
-      const labelsInQuestion: string[] = [];
-      let match;
-      while ((match = imageLabelPattern.exec(question.content)) !== null) {
-        labelsInQuestion.push(match[1]);
-      }
+    // 策略：为每个题目按顺序分配一张图片
+    if (imageIndex < imageCoordinates.length) {
+      const img = imageCoordinates[imageIndex];
 
-      // 根据标签匹配图片坐标
-      if (labelsInQuestion.length > 0) {
-        imageCoordinates.forEach(img => {
-          const label = img.label;
-          if (label && labelsInQuestion.some(l => label.includes(l))) {
-            relatedImages.push({
-              bbox: img.bbox,
-              label: label
-            });
-          }
-        });
-      }
+      console.log(`[associateImages] 题目${question.id}分配图片${imageIndex}`, {
+        imageBbox: img.bbox,
+        imageLabel: img.label
+      });
 
-      // 备选策略：如果题目在前半部分，使用前几个图片
-      if (relatedImages.length === 0 && index < imageCoordinates.length) {
-        relatedImages.push({
-          bbox: imageCoordinates[index].bbox,
-          label: imageCoordinates[index].label
-        });
-      }
+      relatedImages.push({
+        bbox: img.bbox,
+        label: img.label || `图片${imageIndex + 1}`
+      });
+
+      imageIndex++;
     }
 
     return {
