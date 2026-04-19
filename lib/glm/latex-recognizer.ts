@@ -213,18 +213,22 @@ async function callGLM4VWithLatexPrompt(
   const data = await response.json();
 
   if (!data.choices || data.choices.length === 0) {
+    log.error('GLM-4V API 返回空响应', { data });
     throw new Error('GLM-4V API 返回空响应');
   }
 
   const content = data.choices[0].message?.content;
 
   if (!content) {
+    log.error('GLM-4V API 返回空内容', { data });
     throw new Error('GLM-4V API 返回空内容');
   }
 
   log.info('GLM-4V API 响应', {
     contentLength: content.length,
-    preview: content.substring(0, 200)
+    preview: content.substring(0, 500),
+    // 记录完整响应用于调试
+    fullResponse: content
   });
 
   return content;
@@ -235,15 +239,41 @@ async function callGLM4VWithLatexPrompt(
  */
 function parseLatexResult(result: string): LatexRecognitionResult {
   try {
+    log.info('开始解析GLM-4V输出', {
+      resultLength: result.length,
+      preview: result.substring(0, 500)
+    });
+
     // 提取 JSON（可能被包裹在 ```json ... ``` 中）
-    const jsonMatch = result.match(/```json\\s*([\\s\\S]*?)\\s*```/) ||
-                     result.match(/\\{[\\s\\S]*\\}/);
+    const jsonMatch = result.match(/```json\s*([\s\S]*?)\s*```/) ||
+                     result.match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
+      log.error('无法从GLM-4V输出中提取JSON', {
+        result: result.substring(0, 1000)
+      });
       throw new Error('无法从GLM-4V输出中提取JSON');
     }
 
-    const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+    const jsonStr = jsonMatch[1] || jsonMatch[0];
+
+    log.info('提取到JSON字符串', {
+      jsonLength: jsonStr.length,
+      preview: jsonStr.substring(0, 200)
+    });
+
+    // 清理可能的控制字符
+    const cleanedJson = jsonStr
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // 移除控制字符
+      .replace(/\\n/g, '\\\\n')  // 转义换行符
+      .replace(/\\"/g, '\\\\"'); // 转义引号
+
+    log.info('清理后的JSON', {
+      cleanedLength: cleanedJson.length,
+      preview: cleanedJson.substring(0, 200)
+    });
+
+    const parsed = JSON.parse(cleanedJson);
 
     // 验证格式
     if (!parsed.questions || !Array.isArray(parsed.questions)) {
@@ -279,7 +309,11 @@ function parseLatexResult(result: string): LatexRecognitionResult {
       }
     };
   } catch (error) {
-    log.error('解析GLM-4V输出失败', { result, error });
+    log.error('解析GLM-4V输出失败', {
+      resultLength: result.length,
+      resultPreview: result.substring(0, 1000),
+      error: error instanceof Error ? error.message : String(error)
+    });
     throw new Error(`解析GLM-4V输出失败: ${error}`);
   }
 }
