@@ -246,8 +246,8 @@ function parseQuestionsFromLayoutDetails(
         const optionParts = content
           .replace(/([A-D])\./g, '\n$1.')
           .split('\n')
-          .map(s => s.trim())
-          .filter(s => s.length > 0);
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0);
 
         for (const part of optionParts) {
           if (part.match(/^[A-D][\.\s]/)) {
