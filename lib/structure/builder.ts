@@ -80,6 +80,26 @@ export function fromTextInStructured(structuredData: any[]): OCRBlock[] {
 
   const blocks: OCRBlock[] = [];
 
+  // 页眉页脚过滤模式
+  const headerFooterPatterns = [
+    /^第\s*\d+\s*页/,  // 第X页
+    /^\d+\s*\/\s*\d+/, // X/Y 页码
+    /^试卷.*?标题/,    // 试卷标题
+    /^姓名.*?班级/,    // 学生信息
+    /^学校.*?年级/,    // 学校信息
+    /^得分.*?评卷人/,  // 分数栏
+    /^\d{4}.*?试卷/,   // 年份+试卷
+    /^注意事项/,       // 说明文字
+    /^说明：/
+  ];
+
+  // 检查是否是页眉页脚内容
+  function isHeaderFooter(text: string): boolean {
+    const trimmed = text.trim();
+    if (trimmed.length < 2) return false;
+    return headerFooterPatterns.some(pattern => pattern.test(trimmed));
+  }
+
   for (const item of structuredData) {
     // 获取文本内容
     let text = '';
@@ -94,6 +114,12 @@ export function fromTextInStructured(structuredData: any[]): OCRBlock[] {
     }
 
     if (!text || text.trim().length === 0) continue;
+
+    // 过滤页眉页脚
+    if (isHeaderFooter(text)) {
+      log.debug('过滤页眉页脚', { text: text.substring(0, 30) });
+      continue;
+    }
 
     // 获取位置信息
     const pos = item.pos || [];
@@ -141,28 +167,46 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
   const questions: Question[] = [];
   let current: Question | null = null;
   let questionNumber = 0;
+  let lastQuestionY = 0; // 上一道题的 Y 坐标
+
+  // 题目之间的最小距离（像素），小于此距离可能是同一道题的选项
+  const MIN_QUESTION_GAP = 50;
 
   for (const block of sorted) {
     const text = block.text.trim();
+    const blockY = block.bbox[1];
 
     // 检测新题目开始
     if (isQuestionStart(text)) {
-      // 保存上一题
-      if (current) {
-        questions.push(current);
+      // 检查是否与上一题太近（可能是选项被误识别）
+      const isTooClose = lastQuestionY > 0 && (blockY - lastQuestionY) < MIN_QUESTION_GAP;
+
+      if (!isTooClose) {
+        // 保存上一题
+        if (current) {
+          questions.push(current);
+        }
+
+        const qId = extractQuestionId(text);
+        questionNumber = qId ? parseInt(qId, 10) : questionNumber + 1;
+
+        current = {
+          question_id: String(questionNumber),
+          question_blocks: [block],
+          answer_blocks: [],
+          question_bbox: block.bbox
+        };
+
+        lastQuestionY = blockY;
+
+        log.debug('新题目', { id: current.question_id, text: text.substring(0, 30), y: blockY });
+      } else {
+        // 太近了，可能是选项，添加到当前题目
+        if (current) {
+          current.question_blocks.push(block);
+          log.debug('跳过太近的"题目编号"', { text: text.substring(0, 30), y: blockY });
+        }
       }
-
-      const qId = extractQuestionId(text);
-      questionNumber = qId ? parseInt(qId, 10) : questionNumber + 1;
-
-      current = {
-        question_id: String(questionNumber),
-        question_blocks: [block],
-        answer_blocks: [],
-        question_bbox: block.bbox
-      };
-
-      log.debug('新题目', { id: current.question_id, text: text.substring(0, 30) });
     } else if (current) {
       // 添加到当前题目
       if (block.type === 'handwriting') {
