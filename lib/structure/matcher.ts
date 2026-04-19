@@ -168,3 +168,55 @@ export function computeMatchConfidence(question: Question): number {
   if (count <= 5) return 0.70;
   return 0.50;
 }
+
+/**
+ * Top-K 匹配选项（向后兼容接口）
+ */
+export interface TopKMatcherOptions {
+  /** 候选数量（默认 3） */
+  k?: number;
+  /** 最大搜索距离（像素，默认 500） */
+  maxDistance?: number;
+  /** 是否使用 Layout Graph（默认 true） */
+  useGraph?: boolean;
+  /** 是否启用调试模式 */
+  debug?: boolean;
+}
+
+/**
+ * 使用 Top-K 算法匹配答案（增强版）
+ *
+ * 这是 matchAnswers 的增强版本，使用 Top-K 候选生成 + 多层过滤
+ *
+ * @param questions 题目列表
+ * @param handwritingBlocks 手写答案块
+ * @param options 匹配选项
+ * @returns 匹配后的题目列表
+ */
+export async function matchAnswersWithTopK(
+  questions: Question[],
+  handwritingBlocks: OCRBlock[],
+  options: TopKMatcherOptions = {}
+): Promise<Question[]> {
+  // 动态导入 Top-K 匹配模块（避免循环依赖）
+  try {
+    const { matchAnswersTopK, convertTopKToQuestions } = await import('@/lib/matching');
+
+    // 使用 Top-K 匹配
+    const topKResults = await matchAnswersTopK(questions, handwritingBlocks, options);
+
+    // 转换为 Question 格式
+    const enhancedQuestions = convertTopKToQuestions(questions, topKResults);
+
+    log.info('Top-K 匹配完成', {
+      totalQuestions: questions.length,
+      matchedCount: enhancedQuestions.filter(q => q.answer_blocks.length > 0).length
+    });
+
+    return enhancedQuestions;
+  } catch (error) {
+    // 降级到原始匹配算法
+    log.warn('Top-K 匹配失败，降级到原始算法', { error });
+    return matchAnswers(questions, handwritingBlocks);
+  }
+}

@@ -8,6 +8,7 @@
 
 // 类型定义
 export type { BBox, OCRBlock, Question } from './builder';
+export type { TopKMatcherOptions } from './matcher';
 
 // 核心功能 - 现有实现
 export {
@@ -17,7 +18,8 @@ export {
 
 export {
   matchAnswers,
-  computeMatchConfidence
+  computeMatchConfidence,
+  matchAnswersWithTopK
 } from './matcher';
 
 export {
