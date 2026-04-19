@@ -198,25 +198,7 @@ export async function matchAnswersWithTopK(
   handwritingBlocks: OCRBlock[],
   options: TopKMatcherOptions = {}
 ): Promise<Question[]> {
-  // 动态导入 Top-K 匹配模块（避免循环依赖）
-  try {
-    const { matchAnswersTopK, convertTopKToQuestions } = await import('@/lib/matching');
-
-    // 使用 Top-K 匹配
-    const topKResults = await matchAnswersTopK(questions, handwritingBlocks, options);
-
-    // 转换为 Question 格式
-    const enhancedQuestions = convertTopKToQuestions(questions, topKResults);
-
-    log.info('Top-K 匹配完成', {
-      totalQuestions: questions.length,
-      matchedCount: enhancedQuestions.filter(q => q.answer_blocks.length > 0).length
-    });
-
-    return enhancedQuestions;
-  } catch (error) {
-    // 降级到原始匹配算法
-    log.warn('Top-K 匹配失败，降级到原始算法', { error });
-    return matchAnswers(questions, handwritingBlocks);
-  }
+  // Top-K 匹配模块已移除，直接使用原始算法
+  log.info('使用原始匹配算法（Top-K 模块已禁用）');
+  return matchAnswers(questions, handwritingBlocks);
 }
