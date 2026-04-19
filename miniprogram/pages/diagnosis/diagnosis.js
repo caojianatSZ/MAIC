@@ -608,56 +608,52 @@ Page({
   },
 
   /**
-   * 提交照片进行诊断 V2（支持异步任务和进度反馈）
+   * 提交照片进行诊断 V5（GLM-OCR专业OCR）
    */
   submitPhotoV2(filePath) {
     const baseUrl = getBaseUrl()
-    const url = `${baseUrl}/api/diagnosis/photo-v2`
+    const url = `${baseUrl}/api/diagnosis/photo-latex`  // 使用GLM-OCR V5 API
 
-    console.log('拍照诊断V2上传URL:', url)
+    console.log('拍照诊断V5（GLM-OCR）上传URL:', url)
     console.log('文件路径:', filePath)
 
     return new Promise((resolve, reject) => {
-      // 第一步：上传文件获取 taskId
-      wx.uploadFile({
-        url,
+      // V5 API同步返回结果，使用wx.request上传base64
+      wx.getFileSystemManager().readFile({
         filePath,
-        name: 'file',
-        formData: {
-          subject: 'math',
-          grade: '初三',
-          userId: getUserId()
-        },
-        timeout: 30000, // 30秒超时（只用于上传）
+        encoding: 'base64',
         success: (res) => {
-          console.log('拍照诊断V2上传响应:', res)
-          console.log('响应状态码:', res.statusCode)
-          console.log('响应数据:', res.data)
+          const base64Image = `data:image/jpeg;base64,${res.data}`
 
-          if (res.statusCode === 200) {
-            try {
-              const data = JSON.parse(res.data)
-              if (data.success && data.taskId) {
-                // 进入轮询模式
-                this.pollTaskStatus(data.taskId, resolve, reject)
-              } else if (data.data) {
-                // 兼容直接返回结果的情况
-                resolve(data.data)
+          wx.request({
+            url,
+            method: 'POST',
+            data: {
+              image: base64Image,
+              subject: '数学',
+              grade: '初三'
+            },
+            header: {
+              'content-type': 'application/json'
+            },
+            timeout: 60000, // 60秒超时
+            success: (response) => {
+              console.log('V5 API响应:', response)
+              if (response.statusCode === 200) {
+                resolve(response.data)
               } else {
-                reject(new Error(data.error || '分析失败'))
+                reject(new Error(`API错误: ${response.statusCode}`))
               }
-            } catch (e) {
-              console.error('解析响应失败:', e)
-              reject(new Error('解析响应失败'))
+            },
+            fail: (err) => {
+              console.error('V5 API调用失败:', err)
+              reject(err)
             }
-          } else {
-            reject(new Error(`服务器错误: ${res.statusCode}`))
-          }
+          })
         },
         fail: (err) => {
-          console.error('文件上传失败:', err)
-          console.error('错误详情:', JSON.stringify(err))
-          reject(new Error(`网络请求失败: ${err.errMsg || '未知错误'}`))
+          console.error('读取文件失败:', err)
+          reject(err)
         }
       })
     })
