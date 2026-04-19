@@ -376,7 +376,21 @@
         <!-- 选项 -->
         <view class="question-options" wx:if="{{item.type === 'choice' && item.options}}">
           <view class="option-item" wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="idx" wx:key="*this">
-            <rich-text class="option-text" nodes="{{opt}}"></rich-text>
+            <!-- 选项文本 -->
+            <rich-text class="option-text" nodes="{{opt.text || opt}}"></rich-text>
+
+            <!-- 选项图片（如果有） -->
+            <view class="option-images" wx:if="{{opt.images && opt.images.length > 0}}">
+              <view class="option-image-wrapper" wx:for="{{opt.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="bbox">
+                <canvas
+                  class="option-image-canvas"
+                  canvas-id="option-canvas-{{item.id}}-{{idx}}-{{imgIdx}}"
+                  id="option-canvas-{{item.id}}-{{idx}}-{{imgIdx}}"
+                  style="width: 500rpx; height: 500rpx;"
+                ></canvas>
+                <text class="image-label">{{img.label || '选项图'}}</text>
+              </view>
+            </view>
           </view>
         </view>
 

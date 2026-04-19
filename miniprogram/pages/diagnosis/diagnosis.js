@@ -954,27 +954,55 @@ Page({
 
     // 为每个题目创建裁剪后的图片
     questions.forEach((question, qIndex) => {
+      // 处理题目图片
       if (!question.images || question.images.length === 0) {
         console.log(`题目${question.id}: 没有关联图片`)
-        return
+      } else {
+        console.log(`题目${question.id}: 有${question.images.length}张图片`)
+
+        question.images.forEach((img, imgIndex) => {
+          totalImages++
+          const canvasId = `question-canvas-${question.id}-${imgIndex}`
+          const bbox = img.bbox  // [x1, y1, x2, y2]
+
+          console.log(`准备裁剪: 题目${question.id} 图片${imgIndex}`, {
+            bbox,
+            canvasId,
+            label: img.label
+          })
+
+          processedImages++
+          this.cropImageByBbox(originalImageBase64, bbox, canvasId, img.label)
+        })
       }
 
-      console.log(`题目${question.id}: 有${question.images.length}张图片`)
+      // 处理选项图片
+      if (question.options && question.options.length > 0) {
+        question.options.forEach((option, optIndex) => {
+          // 兼容新旧数据格式：option 可能是字符串或对象
+          const optionText = typeof option === 'string' ? option : option.text
+          const optionImages = typeof option === 'string' ? null : option.images
 
-      question.images.forEach((img, imgIndex) => {
-        totalImages++
-        const canvasId = `question-canvas-${question.id}-${imgIndex}`
-        const bbox = img.bbox  // [x1, y1, x2, y2]
+          if (optionImages && optionImages.length > 0) {
+            console.log(`题目${question.id} 选项${optIndex}: 有${optionImages.length}张图片`)
 
-        console.log(`准备裁剪: 题目${question.id} 图片${imgIndex}`, {
-          bbox,
-          canvasId,
-          label: img.label
+            optionImages.forEach((img, imgIndex) => {
+              totalImages++
+              const canvasId = `option-canvas-${question.id}-${optIndex}-${imgIndex}`
+              const bbox = img.bbox
+
+              console.log(`准备裁剪: 题目${question.id} 选项${optIndex} 图片${imgIndex}`, {
+                bbox,
+                canvasId,
+                label: img.label
+              })
+
+              processedImages++
+              this.cropImageByBbox(originalImageBase64, bbox, canvasId, img.label)
+            })
+          }
         })
-
-        processedImages++
-        this.cropImageByBbox(originalImageBase64, bbox, canvasId, img.label)
-      })
+      }
     })
 
     console.log(`=== 裁剪任务完成: 共${totalImages}张图片，已处理${processedImages}张 ===`)

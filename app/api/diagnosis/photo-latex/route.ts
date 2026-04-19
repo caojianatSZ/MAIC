@@ -243,8 +243,11 @@ function extractImageCoordinates(markdown: string): Array<{
 }
 
 /**
- * 将图片坐标与题目关联
- * 策略：按顺序为每个题目分配一张图片
+ * 将图片坐标与题目/选项关联（智能版）
+ * 策略：
+ * 1. 判断图片是否在某个选项的Y坐标范围内 → 选项图片
+ * 2. 判断图片是否在题目的Y坐标范围内 → 题目图片
+ * 3. 都不在则跳过（可能是其他内容）
  */
 function associateImagesWithQuestions(
   questions: Array<any>,
@@ -255,36 +258,139 @@ function associateImagesWithQuestions(
     return questions;
   }
 
-  console.log('[associateImages] 开始关联', {
+  console.log('[associateImages] 开始智能关联', {
     questionCount: questions.length,
     imageCount: imageCoordinates.length
   });
 
-  let imageIndex = 0;
+  // 为每个题目处理图片关联
+  return questions.map((question, qIndex) => {
+    const questionImages: Array<{ bbox: number[]; label?: string }> = [];
 
-  return questions.map((question, index) => {
-    const relatedImages: Array<{ bbox: number[]; label?: string }> = [];
+    // 处理选项（如果有）
+    if (question.options && question.options.length > 0) {
+      question.options.forEach((option: any, optIndex: number) => {
+        const optionText = typeof option === 'string' ? option : option.text;
+        const optionBbox = option.bbox_2d;
+        const optionImages: Array<{ bbox: number[]; label?: string }> = [];
 
-    // 为每个题目按顺序分配一张图片
-    if (imageIndex < imageCoordinates.length) {
-      const img = imageCoordinates[imageIndex];
+        // 查找属于此选项的图片
+        imageCoordinates.forEach((img, imgIndex) => {
+          // 跳过已使用的图片（bbox为null）
+          if (!img.bbox) return;
 
-      console.log(`[associateImages] 题目${question.id}（索引${index}）分配图片${imageIndex}`, {
-        imageBbox: img.bbox,
-        imageLabel: img.label
+          const imgY = img.bbox[1]; // 图片的顶部Y坐标
+          const imgYEnd = img.bbox[3]; // 图片的底部Y坐标
+
+          // 方法1: 检查图片标签是否匹配选项标签（如"A图"匹配选项"A."）
+          const optionLabelMatch = optionText.match(/^([A-D])[\.\s]/);
+          if (optionLabelMatch) {
+            const optionLabel = optionLabelMatch[1];
+
+            if (img.label && img.label.includes(optionLabel)) {
+              console.log(`[associateImages] 图片${imgIndex}标签"${img.label}"匹配选项${optionLabel}`, {
+                imgBbox: img.bbox,
+                optionText: optionText.substring(0, 30)
+              });
+
+              optionImages.push({
+                bbox: img.bbox,
+                label: img.label
+              });
+
+              // 标记为已使用（通过将bbox设为null）
+              imageCoordinates[imgIndex] = { bbox: null as any, page: img.page, label: img.label };
+              return; // 此图片已处理，跳过后续检查
+            }
+          }
+
+          // 方法2: 检查图片Y坐标是否在选项的Y坐标范围内
+          if (optionBbox) {
+            const optionYStart = optionBbox[1];
+            const optionYEnd = optionBbox[3];
+            const yThreshold = 100; // Y坐标阈值
+
+            const isNearOption =
+              imgY >= optionYStart - yThreshold &&
+              imgYEnd <= optionYEnd + yThreshold;
+
+            if (isNearOption) {
+              console.log(`[associateImages] 图片${imgIndex}在选项${optIndex}的Y坐标范围内`, {
+                imgBbox: img.bbox,
+                imgY: `${imgY}-${imgYEnd}`,
+                optionY: `${optionYStart}-${optionYEnd}`,
+                optionText: optionText.substring(0, 30)
+              });
+
+              optionImages.push({
+                bbox: img.bbox,
+                label: img.label || `选项图片${optIndex + 1}`
+              });
+
+              // 标记为已使用
+              imageCoordinates[imgIndex] = { bbox: null as any, page: img.page, label: img.label };
+            }
+          }
+        });
+
+        // 更新选项，添加图片信息
+        if (typeof option === 'string') {
+          question.options[optIndex] = {
+            text: option,
+            images: optionImages.length > 0 ? optionImages : undefined
+          };
+        } else {
+          option.images = optionImages.length > 0 ? optionImages : undefined;
+        }
       });
-
-      relatedImages.push({
-        bbox: img.bbox,
-        label: img.label || `图片${imageIndex + 1}`
-      });
-
-      imageIndex++;
     }
+
+    // 查找题目图片（未被标记为选项图片的）
+    if (question.bbox_2d) {
+      const questionYStart = question.bbox_2d[1];
+      const questionYEnd = question.bbox_2d[3];
+
+      imageCoordinates.forEach((img, imgIndex) => {
+        // 跳过已使用的图片（bbox为null）
+        if (!img.bbox) return;
+
+        const imgY = img.bbox[1];
+        const imgYEnd = img.bbox[3];
+
+        // 判断图片是否在题目Y坐标范围内（允许一定的误差）
+        const yThreshold = 150; // Y坐标阈值
+        const isNearQuestion =
+          imgY >= questionYStart - yThreshold &&
+          imgYEnd <= questionYEnd + yThreshold;
+
+        if (isNearQuestion) {
+          console.log(`[associateImages] 图片${imgIndex}关联到题目${question.id}`, {
+            imgBbox: img.bbox,
+            questionY: `${questionYStart}-${questionYEnd}`,
+            imgY: `${imgY}-${imgYEnd}`
+          });
+
+          questionImages.push({
+            bbox: img.bbox,
+            label: img.label || `图片${questionImages.length + 1}`
+          });
+
+          // 标记为已使用
+          imageCoordinates[imgIndex] = { bbox: null as any, page: img.page, label: img.label };
+        }
+      });
+    }
+
+    console.log(`[associateImages] 题目${question.id}关联完成`, {
+      questionImages: questionImages.length,
+      optionsWithImages: question.options
+        ? question.options.filter((o: any) => o.images && o.images.length > 0).length
+        : 0
+    });
 
     return {
       ...question,
-      images: relatedImages
+      images: questionImages.length > 0 ? questionImages : undefined
     };
   });
 }
@@ -301,7 +407,7 @@ function parseQuestionsFromLayoutDetails(
   id: string;
   content: string;
   type: 'choice' | 'fill_blank' | 'essay';
-  options?: string[];
+  options?: Array<{ text: string; bbox_2d?: number[] }>;
   formulas?: Array<{ latex: string; raw: string; location: string }>;
   bbox_2d?: number[];  // 添加题目的bbox坐标
 }> {
@@ -309,7 +415,7 @@ function parseQuestionsFromLayoutDetails(
     id: string;
     content: string;
     type: 'choice' | 'fill_blank' | 'essay';
-    options?: string[];
+    options?: Array<{ text: string; bbox_2d?: number[] }>;
     formulas?: Array<{ latex: string; raw: string; location: string }>;
     bbox_2d?: number[];
   }> = [];
@@ -366,7 +472,7 @@ function parseQuestionsFromLayoutDetails(
           id: String(questionNumber),
           content: questionText,
           type: 'choice' as const,
-          options: optionTexts,
+          options: optionTexts.map(text => ({ text, bbox_2d: block.bbox_2d })), // 保存选项的bbox坐标
           formulas: extractFormulas(questionText),
           bbox_2d: block.bbox_2d  // 保存题目的bbox坐标
         };
@@ -397,11 +503,11 @@ function parseQuestionsFromLayoutDetails(
 
         for (const part of optionParts) {
           if (part.match(/^[A-D][\.\s]/)) {
-            currentQuestion.options!.push(part);
+            currentQuestion.options!.push({ text: part, bbox_2d: block.bbox_2d });
           } else if (part.length > 0 && part.length < 100) {
             // 短文本，可能是选项的延续
             if (currentQuestion.options!.length > 0) {
-              currentQuestion.options![currentQuestion.options!.length - 1] += ' ' + part;
+              currentQuestion.options![currentQuestion.options!.length - 1].text += ' ' + part;
             }
           }
         }
@@ -410,7 +516,7 @@ function parseQuestionsFromLayoutDetails(
         if (content.startsWith('A.') || content.startsWith('B.') ||
             content.startsWith('C.') || content.startsWith('D.')) {
           currentQuestion.type = 'choice' as const;
-          currentQuestion.options!.push(content);
+          currentQuestion.options!.push({ text: content, bbox_2d: block.bbox_2d });
         } else {
           currentQuestion.content += '\n' + content;
         }
