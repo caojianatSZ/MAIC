@@ -184,6 +184,7 @@ export async function recognizeDocument(options: GLMOCRClientOptions): Promise<G
 
     const result: GLMOCRResult = {
       markdown: data.md_results || '',
+      images: data.images || [],  // 提取图片URL数组
       raw: data,
       confidence: 0.95  // GLM-OCR 在 OmniDocBench V1.5 上取得 94.6 分
     };

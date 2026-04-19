@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     const ocrResult: GLMOCRResult = await recognizeFromBase64(image, {
       return_markdown: true,
-      return_images: false,
+      return_images: true,  // 启用图片返回
       timeout: 60000
     });
 
@@ -117,11 +117,13 @@ export async function POST(request: NextRequest) {
       mode: 'glm-ocr',
       markdown: ocrResult.markdown,
       questions: questions,
+      images: ocrResult.images || [],  // 包含图片URL
       raw: ocrResult.raw,  // 包含layout_details
       summary: {
         total_questions: questions.length,
         markdown_length: ocrResult.markdown.length,
-        ocr_confidence: ocrResult.confidence || 0.86
+        ocr_confidence: ocrResult.confidence || 0.95,
+        images_count: ocrResult.images?.length || 0
       },
       metadata: {
         requestId,
@@ -281,7 +283,7 @@ function parseQuestionsFromLayoutDetails(
 }
 
 /**
- * 分割题目内容和选项
+ * 分割题目内容和选项（改进版：支持同一行多个选项）
  */
 function splitQuestionAndOptions(
   content: string
@@ -289,41 +291,55 @@ function splitQuestionAndOptions(
   let questionText = content;
   const optionTexts: string[] = [];
 
-  // 先收集所有选项匹配的位置
-  const optionPattern = /(?:^|\n)\s*([A-D])\.\s*/g;
-  const matches: Array<{ index: number; label: string; start: number }> = [];
+  // 检测是否包含选项
+  const hasOptionA = content.match(/[\s\n](A)\.\s*/);
+  const hasOptionB = content.match(/[\s\n](B)\.\s*/);
+  const hasOptionC = content.match(/[\s\n](C)\.\s*/);
+  const hasOptionD = content.match(/[\s\n](D)\.\s*/);
 
-  let match;
-  while ((match = optionPattern.exec(content)) !== null) {
-    matches.push({
-      index: match.index,
-      label: match[1],
-      start: match.index + match[0].length
-    });
-  }
+  const hasOptions = hasOptionA || hasOptionB || hasOptionC || hasOptionD;
 
-  if (matches.length === 0) {
+  if (!hasOptions) {
     return { questionText: content, optionTexts: [] };
   }
 
-  // 分割题目内容和选项
-  questionText = content.substring(0, matches[0].index).trim();
+  // 找到第一个选项的位置
+  const firstOptionMatch = content.search(/[\s\n](A)\.\s*/);
+  if (firstOptionMatch === -1) {
+    return { questionText: content, optionTexts: [] };
+  }
 
-  // 提取每个选项的内容
-  for (let i = 0; i < matches.length; i++) {
-    const currentMatch = matches[i];
-    const nextMatch = matches[i + 1];
+  // 分割题目内容和选项部分
+  questionText = content.substring(0, firstOptionMatch).trim();
 
-    const optionStart = currentMatch.start;
-    const optionEnd = nextMatch ? nextMatch.index : content.length;
+  // 处理选项部分：在每个选项字母前添加换行符，便于分割
+  const optionsPart = content.substring(firstOptionMatch);
 
-    let optionText = content.substring(optionStart, optionEnd).trim();
+  // 在选项字母前添加换行符（排除已经是换行的情况）
+  const normalizedOptions = optionsPart
+    .replace(/([A-D])\.\s*/g, '\n$1. ')
+    .replace(/^\n+/, '') // 移除开头的多余换行
+    .trim();
 
-    // 移除图片引用
-    optionText = optionText.replace(/!*\[.*?\]\(.*?\)/g, '').trim();
+  // 分割选项
+  const optionLines = normalizedOptions.split('\n').map(line => line.trim()).filter(line => line.length > 0);
 
-    if (optionText.length > 0) {
-      optionTexts.push(`${currentMatch.label}. ${optionText}`);
+  for (const line of optionLines) {
+    // 检查是否是选项行
+    const optionMatch = line.match(/^([A-D])\.\s*(.*)/);
+    if (optionMatch) {
+      const label = optionMatch[1];
+      let optionText = optionMatch[2];
+
+      // 移除图片引用
+      optionText = optionText.replace(/!*\[.*?\]\(.*?\)/g, '').trim();
+
+      // 移除可能的后续选项标签（如 A. xxx B. yyy 的情况）
+      optionText = optionText.replace(/\s*[A-D]\.\s.*$/, '').trim();
+
+      if (optionText.length > 0) {
+        optionTexts.push(`${label}. ${optionText}`);
+      }
     }
   }
 
