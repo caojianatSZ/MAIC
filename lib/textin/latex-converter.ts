@@ -122,19 +122,6 @@ function toSubscript(text: string): string {
 }
 
 /**
- * 处理 TextIn markdown 中的公式
- * 将 $...$ 格式的公式转换为 Unicode
- */
-export function convertFormulasInMarkdown(markdown: string): string {
-  if (!markdown) return '';
-
-  // 处理行内公式 $...$
-  return markdown.replace(/\$([^$]+)\$/g, (_, formula) => {
-    return latexToUnicode(formula);
-  });
-}
-
-/**
  * 处理题目内容中的公式
  * 同时处理 LaTeX 公式（$...$）和 HTML 实体
  * 保留 Unicode 字符（如 F₁、v₁、ω）不变
