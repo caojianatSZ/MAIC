@@ -40,70 +40,26 @@ const YEAR_QUESTION_REGEX = /^\((\d{4}).*?[\.,，]\s*\d+\s*[分分]/;
 
 /**
  * 判断是否是题目开始
- * 改进：不仅检查文本格式，还要检查空间特征
+ * 简化版本：只检查文本格式，不检查空间特征（避免误过滤）
  */
 function isQuestionStart(text: string, bbox?: BBox): boolean {
   const trimmed = text.trim();
-
-  // 1. 检查文本格式
-  const hasQuestionFormat = QUESTION_REGEX.test(trimmed) || YEAR_QUESTION_REGEX.test(trimmed);
-  if (!hasQuestionFormat) return false;
-
-  // 2. 如果有bbox，检查空间特征
-  if (bbox) {
-    const width = bbox[2] - bbox[0];
-    const height = bbox[3] - bbox[1];
-    const size = width * height;
-
-    // 2.1 过滤掉太大的"数字"（可能是手写答案或图片）
-    // 题号通常很小（宽度<100，高度<50）
-    if (width > 150 || height > 100) {
-      return false;
-    }
-
-    // 2.2 过滤掉面积很大的数字
-    if (size > 10000) {
-      return false;
-    }
-
-    // 2.3 检查是否是纯数字且很大（可能是手写答案）
-    if (/^\d+$/.test(trimmed) && size > 3000) {
-      return false;
-    }
-  }
-
-  return true;
+  return QUESTION_REGEX.test(trimmed) || YEAR_QUESTION_REGEX.test(trimmed);
 }
 
 /**
  * 提取题目编号
- * 改进：智能识别多种题号格式
+ * 简化版本：只支持基本格式
  */
 function extractQuestionId(text: string): string | null {
   const trimmed = text.trim();
 
-  // 1. 先尝试数字编号：1. 1、 1． (1) 1(
+  // 1. 数字编号：1. 1、 1． (1) 1(
   const numMatch = trimmed.match(QUESTION_REGEX);
   if (numMatch) return numMatch[1];
 
-  // 2. 尝试年份编号：(2011·江苏·4,3分)
-  const yearMatch = trimmed.match(/\((\d{4}).*?[\.,，]\s*(\d+)\s*[分分]/);
-  if (yearMatch) {
-    // 注意：这里的"4"是分数值，不是题号！
-    // 年份格式的题目通常没有独立题号，应该返回null让系统自动编号
-    return null;
-  }
-
-  // 3. 尝试提取最前面的数字（可能是题号）
-  const firstNumMatch = trimmed.match(/^(\d+)/);
-  if (firstNumMatch) {
-    // 检查这个数字后面是否紧跟括号（年份格式）
-    // 如果是"2(2012"这样的格式，说明2是题号
-    const afterNum = trimmed.substring(firstNumMatch[0].length);
-    if (afterNum.startsWith('(')) {
-      return firstNumMatch[1];
-    }
-  }
+  // 2. 年份编号：不提取分值，返回null让系统自动编号
+  // （2011·江苏·4,3分）格式的题目没有独立题号
 
   return null;
 }
