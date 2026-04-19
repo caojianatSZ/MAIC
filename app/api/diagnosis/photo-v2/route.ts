@@ -39,7 +39,7 @@ import { edukgAdapter } from '@/lib/edukg/adapter';
 import { PrismaClient } from '@prisma/client';
 import { saveWrongQuestion } from '@/lib/wrong-questions/service';
 import { createTask, updateProgress, completeTask, failTask, getProgress } from '@/lib/diagnosis/progress';
-import { fromTextInStructured, rebuildStructure, rebuildStructureEnhanced, type Question } from '@/lib/structure';
+import { fromTextInStructured, rebuildStructure, type Question } from '@/lib/structure';
 
 const log = createLogger('PhotoV2');
 
@@ -1258,8 +1258,7 @@ async function extractQuestionsWithStructureLayer(
 
   log.info('结构重建层：blocks 转换完成', { blockCount: blocks.length });
 
-  // 步骤 2：暂时使用稳定的 rebuildStructure（新的智能分割器有内存问题）
-  // TODO: 修复内存溢出后重新启用 rebuildStructureEnhanced
+  // 步骤 2：使用稳定的 rebuildStructure
   const questions: Question[] = rebuildStructure(blocks);
 
   log.info('结构重建层：题目重建完成', { questionCount: questions.length });
