@@ -29,7 +29,7 @@ import type {
   OcrValidation
 } from './schema';
 import { getTextinClient } from '@/lib/textin/client';
-import { convertFormulasInText } from '@/lib/textin/latex-converter';
+import { convertFormulasInText, convertFormulasInMarkdown } from '@/lib/textin/latex-converter';
 import { processQuestions } from '@/lib/textin/katex-renderer';
 import { judgeHandwrittenAnswers } from '@/lib/glm/judge';
 import type { QuestionForJudgment } from '@/lib/glm/types';
@@ -354,8 +354,11 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       throw new Error('未能识别到任何题目，请确保图片清晰');
     }
 
-    // 不再做 LaTeX 处理，TextIn 的 markdown 已经使用 Unicode 下标
-    log.info('保留原始 markdown 格式（Unicode 下标）');
+    // 处理 LaTeX 公式：只转换 $...$ 格式的公式，保留 Unicode 字符不变
+    // TextIn 对于简单公式使用 Unicode（F₁、v₁、ω），对于复杂公式使用 LaTeX（$\frac{a}{b}$）
+    log.info('开始处理 LaTeX 公式...');
+    extractedQuestions = processQuestions(extractedQuestions);
+    log.info('LaTeX 公式处理完成');
 
     // ==================== 题目ID标准化（在第一次批改前完成） ====================
     // 确保所有题目ID都是纯数字格式，避免与批改结果的ID不匹配
@@ -370,12 +373,17 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       after: extractedQuestions.map(q => q.id)
     });
 
+    // 处理 fullMarkdown：转换 LaTeX 公式，保留 Unicode 字符
+    if (fullMarkdown) {
+      fullMarkdown = convertFormulasInMarkdown(fullMarkdown);
+    }
+
     // ==================== 阶段1完成：题目已识别，立即返回 ====================
     // 将题目保存到任务上下文，前端可以立即获取并显示
     const intermediateResult = {
       status: 'questions_ready',
       mode: detectedMode,
-      fullMarkdown: fullMarkdown,  // 完整的 markdown（TextIn 原始输出）
+      fullMarkdown,  // 处理后的完整 markdown（LaTeX → Unicode）
       questions: extractedQuestions.map(q => ({
         id: q.id,
         content: q.content,

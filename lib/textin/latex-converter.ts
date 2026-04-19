@@ -136,19 +136,56 @@ export function convertFormulasInMarkdown(markdown: string): string {
 
 /**
  * 处理题目内容中的公式
- * 同时处理 LaTeX 和 HTML 实体
+ * 同时处理 LaTeX 公式（$...$）和 HTML 实体
+ * 保留 Unicode 字符（如 F₁、v₁、ω）不变
  */
 export function convertFormulasInText(text: string): string {
   if (!text) return '';
 
   let result = text;
 
-  // 处理 $...$ 公式
+  // 处理 $...$ LaTeX 公式
   result = result.replace(/\$([^$]+)\$/g, (_, formula) => {
     return latexToUnicode(formula);
   });
 
+  // 处理 $$...$$ 块级公式
+  result = result.replace(/\$\$([^$]+)\$\$/g, (_, formula) => {
+    return latexToUnicode(formula);
+  });
+
   // 处理双重转义的反斜杠 (TextIn 返回的格式)
+  result = result.replace(/\\\\([a-zA-Z]+)/g, (_, cmd) => {
+    const unicode = LATEX_TO_UNICODE['\\' + cmd];
+    return unicode || cmd;
+  });
+
+  // 清理多余的 HTML 注释
+  result = result.replace(/<!--[\s\S]*?-->/g, '');
+
+  return result;
+}
+
+/**
+ * 处理完整 markdown 文档中的公式
+ * 转换 LaTeX 公式为 Unicode，保留其他格式
+ */
+export function convertFormulasInMarkdown(markdown: string): string {
+  if (!markdown) return '';
+
+  let result = markdown;
+
+  // 处理 $...$ 行内公式
+  result = result.replace(/\$([^$\n]+)\$/g, (_, formula) => {
+    return latexToUnicode(formula);
+  });
+
+  // 处理 $$...$$ 块级公式
+  result = result.replace(/\$\$([^$]+)\$\$/g, (_, formula) => {
+    return latexToUnicode(formula);
+  });
+
+  // 处理双重转义的反斜杠
   result = result.replace(/\\\\([a-zA-Z]+)/g, (_, cmd) => {
     const unicode = LATEX_TO_UNICODE['\\' + cmd];
     return unicode || cmd;
