@@ -310,45 +310,52 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       };
     }
 
-    // ==================== Step 4: 提取题目结构（结构重建层优先） ====================
+    // ==================== Step 4: 提取题目结构（直接从 TextIn markdown 分割） ====================
     updateProgress(taskId, 4, '正在分析题目结构...');
-    log.info('Step 4: 题目结构提取（使用结构重建层）...');
+    log.info('Step 4: 题目结构提取（从 TextIn markdown 分割）...');
 
-    // 策略：优先使用结构重建层，失败时降级到视觉模型
     let extractedQuestions: Array<{
       id: string;
       content: string;
       type: 'choice' | 'fill_blank' | 'essay';
       options?: string[];
     }>;
+    let fullMarkdown = '';  // 保存完整的 markdown
 
     try {
-      // 尝试使用结构重建层
-      extractedQuestions = await extractQuestionsWithStructureLayer(
-        ocrStructuredData,
-        ocrText,
-        subject,
-        grade
-      );
+      // 方案1：直接从 TextIn markdown 中按题目编号分割
+      // 这样可以保留原始格式（Unicode 下标、空格、换行等）
+      extractedQuestions = extractQuestionsFromMarkdown(ocrText);
+      fullMarkdown = ocrText;  // 保存原始 markdown
 
-      log.info('结构重建层提取成功', { count: extractedQuestions.length });
-    } catch (structureError) {
-      log.warn('结构重建层失败，降级到视觉模型', structureError);
+      log.info('从 markdown 分割题目成功', { count: extractedQuestions.length });
+    } catch (markdownError) {
+      log.warn('从 markdown 分割失败，尝试结构重建层', markdownError);
 
-      // 降级：使用视觉模型
-      extractedQuestions = await extractQuestionsWithVision(preprocessedImage, subject, grade);
+      try {
+        // 方案2：使用结构重建层
+        extractedQuestions = await extractQuestionsWithStructureLayer(
+          ocrStructuredData,
+          ocrText,
+          subject,
+          grade
+        );
+        log.info('结构重建层提取成功', { count: extractedQuestions.length });
+      } catch (structureError) {
+        log.warn('结构重建层失败，降级到视觉模型', structureError);
 
-      log.info('视觉模型提取完成', { count: extractedQuestions.length });
+        // 方案3：降级到视觉模型
+        extractedQuestions = await extractQuestionsWithVision(preprocessedImage, subject, grade);
+        log.info('视觉模型提取完成', { count: extractedQuestions.length });
+      }
     }
 
     if (extractedQuestions.length === 0) {
       throw new Error('未能识别到任何题目，请确保图片清晰');
     }
 
-    // 处理 LaTeX 公式：转换为 SVG 图片
-    log.info('开始处理 LaTeX 公式...');
-    extractedQuestions = processQuestions(extractedQuestions);
-    log.info('LaTeX 公式处理完成');
+    // 不再做 LaTeX 处理，TextIn 的 markdown 已经使用 Unicode 下标
+    log.info('保留原始 markdown 格式（Unicode 下标）');
 
     // ==================== 题目ID标准化（在第一次批改前完成） ====================
     // 确保所有题目ID都是纯数字格式，避免与批改结果的ID不匹配
@@ -368,6 +375,7 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     const intermediateResult = {
       status: 'questions_ready',
       mode: detectedMode,
+      fullMarkdown: fullMarkdown,  // 完整的 markdown（TextIn 原始输出）
       questions: extractedQuestions.map(q => ({
         id: q.id,
         content: q.content,
@@ -619,6 +627,7 @@ ${questionsMarkdown}
     // 构建响应
     const response: PhotoDiagnosisV2Response = {
       mode: detectedMode,
+      fullMarkdown,  // 完整的 markdown（TextIn 原始输出，如果有）
       questions: validatedQuestions,
       summary,
       ocrValidation
@@ -1482,6 +1491,114 @@ async function extractQuestionsWithVision(
 
   log.warn('视觉模型：无法提取有效 JSON', { cleanContentLength: cleanContent.length });
   throw new Error('无法从视觉模型响应中提取题目列表');
+}
+
+/**
+ * 从 TextIn markdown 中提取题目（保留原始格式）
+ * 直接按题目编号分割，保留 Unicode 下标等原始格式
+ */
+function extractQuestionsFromMarkdown(markdown: string): Array<{
+  id: string;
+  content: string;
+  type: 'choice' | 'fill_blank' | 'essay';
+  options?: string[];
+}> {
+  const questions: Array<{
+    id: string;
+    content: string;
+    type: 'choice' | 'fill_blank' | 'essay';
+    options?: string[];
+  }> = [];
+
+  // 按行分割，保留空行（用于判断题目边界）
+  const lines = markdown.split('\n');
+
+  let currentQuestion: string[] = [];
+  let questionNum = 0;
+  let inQuestion = false;
+
+  // 题目开始模式：数字开头（1. 2. 等）或年份开头（(2011·江苏·4,3分））
+  const questionStartPattern = /^(\d+)[.．、\)]\s*|^\((\d{4})/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // 检测题目开始
+    if (questionStartPattern.test(trimmed)) {
+      // 保存上一题
+      if (currentQuestion.length > 0) {
+        const content = currentQuestion.join('\n').trim();
+        if (content.length > 10) {  // 过滤太短的内容
+          questions.push({
+            id: String(questionNum),
+            content: content,
+            type: detectQuestionType(content)
+          });
+        }
+      }
+
+      // 提取题号
+      const numMatch = trimmed.match(/^(\d+)/);
+      questionNum = numMatch ? parseInt(numMatch[1], 10) : questions.length + 1;
+
+      currentQuestion = [line];
+      inQuestion = true;
+    }
+    // 检测选项（A. B. C. D.）
+    else if (/^[A-D][.．、)\]]/.test(trimmed) && inQuestion) {
+      currentQuestion.push(line);
+    }
+    // 检测题目结束条件（空行后遇到新标题或其他内容）
+    else if (trimmed === '' && inQuestion) {
+      // 检查下一行是否是新题目或其他内容
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        // 如果下一行是题目开始或标题，当前题目结束
+        if (questionStartPattern.test(nextLine) || nextLine.startsWith('#') || nextLine.startsWith('##')) {
+          const content = currentQuestion.join('\n').trim();
+          if (content.length > 10) {
+            questions.push({
+              id: String(questionNum),
+              content: content,
+              type: detectQuestionType(content)
+            });
+          }
+          currentQuestion = [];
+          inQuestion = false;
+        } else {
+          // 否则继续收集（空行可能是题目内的换行）
+          currentQuestion.push(line);
+        }
+      } else {
+        // 最后一行，保存当前题目
+        currentQuestion.push(line);
+      }
+    }
+    // 其他内容（在题目中）
+    else if (inQuestion) {
+      currentQuestion.push(line);
+    }
+  }
+
+  // 保存最后一题
+  if (currentQuestion.length > 0) {
+    const content = currentQuestion.join('\n').trim();
+    if (content.length > 10) {
+      questions.push({
+        id: String(questionNum),
+        content: content,
+        type: detectQuestionType(content)
+      });
+    }
+  }
+
+  log.info('从 markdown 提取题目', {
+    totalLines: lines.length,
+    questionCount: questions.length
+  });
+
+  return questions;
 }
 
 /**

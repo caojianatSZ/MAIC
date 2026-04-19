@@ -82,6 +82,8 @@ export interface OcrValidation {
 export interface PhotoDiagnosisV2Response {
   /** 实际使用的模式 */
   mode: 'single' | 'batch';
+  /** 完整的 markdown（TextIn 原始输出，保留 Unicode 下标等格式） */
+  fullMarkdown?: string;
   /** 题目列表 */
   questions: QuestionJudgment[];
   /** 总结信息 */
