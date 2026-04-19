@@ -32,23 +32,35 @@ export interface Question {
   answer_bbox?: BBox;
 }
 
-// 题目编号正则：支持 1. 1、 1． (1) 等格式
+// 题目编号正则：支持多种格式
+// 1. 数字开头：1. 1、 1． (1)
+// 2. 年份开头：(2011·江苏·4, 3分) 物理试卷常见
 const QUESTION_REGEX = /^(\d+)[\.\、\．\)\]]/;
+const YEAR_QUESTION_REGEX = /^\((\d{4}).*?[\.,，]\s*\d+\s*[分分]/;
 
 /**
  * 判断是否是题目开始
  */
 function isQuestionStart(text: string): boolean {
   const trimmed = text.trim();
-  return QUESTION_REGEX.test(trimmed);
+  return QUESTION_REGEX.test(trimmed) || YEAR_QUESTION_REGEX.test(trimmed);
 }
 
 /**
  * 提取题目编号
  */
 function extractQuestionId(text: string): string | null {
-  const match = text.trim().match(QUESTION_REGEX);
-  return match ? match[1] : null;
+  const trimmed = text.trim();
+
+  // 先尝试数字编号
+  const numMatch = trimmed.match(QUESTION_REGEX);
+  if (numMatch) return numMatch[1];
+
+  // 尝试年份编号（从年份中提取题号）
+  const yearMatch = trimmed.match(/\((\d{4}).*?[\.,，]\s*(\d+)\s*[分分]/);
+  if (yearMatch) return yearMatch[2]; // 返回题号
+
+  return null;
 }
 
 /**
@@ -225,9 +237,9 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
     questions.push(current);
   }
 
-  // 合并文本
+  // 合并文本（智能处理公式）
   for (const q of questions) {
-    q.question = q.question_blocks.map(b => b.text).join(' ');
+    q.question = smartJoinBlocks(q.question_blocks);
     q.student_answer = q.answer_blocks.map(b => b.text).join(' ');
 
     // 计算答案的 bbox（合并所有答案块）
@@ -244,4 +256,47 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
   log.info('结构重建完成', { questionCount: questions.length });
 
   return questions;
+}
+
+/**
+ * 智能合并文本块，保留公式完整性
+ */
+function smartJoinBlocks(blocks: OCRBlock[]): string {
+  if (blocks.length === 0) return '';
+
+  const result: string[] = [];
+
+  for (let i = 0; i < blocks.length; i++) {
+    const current = blocks[i].text;
+    const prev = i > 0 ? blocks[i - 1].text : '';
+    const next = i < blocks.length - 1 ? blocks[i + 1].text : '';
+
+    // 检查是否需要添加空格
+    let needSpace = false;
+
+    // 当前文本以 $ 开头（公式开始），且前一个文本不是公式结束
+    if (current.startsWith('$') && !prev.endsWith('$')) {
+      needSpace = true;
+    }
+    // 前一个文本以 $ 结束（公式结束），且当前文本不是标点符号
+    else if (prev.endsWith('$') && !/^[,.，。、:：;；）\)]/.test(current)) {
+      needSpace = true;
+    }
+    // 普通文本之间的连接
+    else if (i > 0 && !prev.endsWith('$') && !current.startsWith('$')) {
+      // 检查是否需要在中文和数字/字母之间加空格
+      const hasChineseEnd = /[\u4e00-\u9fa5]$/.test(prev);
+      const hasAlphaNumStart = /^[a-zA-Z0-9]/.test(current);
+      if (hasChineseEnd && hasAlphaNumStart) {
+        needSpace = true;
+      }
+    }
+
+    if (i > 0 && needSpace) {
+      result.push(' ');
+    }
+    result.push(current);
+  }
+
+  return result.join('');
 }
