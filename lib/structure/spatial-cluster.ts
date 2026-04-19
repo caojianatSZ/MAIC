@@ -54,6 +54,10 @@ export interface LayoutInfo {
   columnCenters: number[];
   /** 列宽度 */
   columnWidth: number;
+  /** 是否有侧边栏（答案区域） */
+  hasSidebar?: boolean;
+  /** 侧边栏区域 [minX, minY, maxX, maxY] */
+  sidebarRegion?: [number, number, number, number];
 }
 
 /**
@@ -104,23 +108,72 @@ export function clusterBlocksByY(
     gaps.push(Math.max(0, currTop - prevBottom));
   }
 
-  // 计算动态阈值（中位数的倍数）
+  // ===== 改进1：Y阈值自适应 =====
+  // 使用统计学方法计算动态阈值
   const validGaps = gaps.filter(g => g > 0);
-  const medianGap = validGaps.length > 0
-    ? validGaps.sort((a, b) => a - b)[Math.floor(validGaps.length / 2)]
-    : 30; // 默认值
 
-  const threshold = medianGap * yGapThresholdMultiplier;
+  let threshold: number;
+  let adaptiveMethod: string;
+  let medianGap = 30;
+  let avgGap = 30;
+  let stdDev = 0;
+
+  if (validGaps.length === 0) {
+    // 没有间隙，使用默认阈值
+    threshold = 30;
+    adaptiveMethod = 'default';
+  } else {
+    // 计算统计量
+    const sortedGaps = [...validGaps].sort((a, b) => a - b);
+    medianGap = sortedGaps[Math.floor(sortedGaps.length / 2)];
+    avgGap = validGaps.reduce((a, b) => a + b, 0) / validGaps.length;
+
+    // 计算标准差
+    const variance = validGaps.reduce((sum, gap) => sum + Math.pow(gap - avgGap, 2), 0) / validGaps.length;
+    stdDev = Math.sqrt(variance);
+
+    // 检测异常值（明显的大跳跃）
+    // 使用 IQR（四分位距）方法检测异常值
+    const q1 = sortedGaps[Math.floor(sortedGaps.length * 0.25)];
+    const q3 = sortedGaps[Math.floor(sortedGaps.length * 0.75)];
+    const iqr = q3 - q1;
+    const outlierThreshold = q3 + 1.5 * iqr;  // 标准异常值检测
+
+    // 自适应阈值计算
+    if (stdDev > medianGap * 2) {
+      // 标准差很大，说明间隙分布不均匀
+      // 使用 IQR 方法，更鲁棒
+      threshold = outlierThreshold * 0.8;  // 稍微降低阈值，避免过度分割
+      adaptiveMethod = 'iqr_outlier';
+    } else if (validGaps.length > 10) {
+      // 数据足够多，使用中位数 + 标准差
+      threshold = medianGap + (1.5 * stdDev);
+      adaptiveMethod = 'median_stddev';
+    } else {
+      // 数据较少，使用中位数倍数
+      threshold = medianGap * yGapThresholdMultiplier;
+      adaptiveMethod = 'median_multiplier';
+    }
+
+    // 最小阈值保护（避免阈值过小）
+    threshold = Math.max(threshold, medianGap * 1.2);
+
+    // 最大阈值保护（避免阈值过大）
+    threshold = Math.min(threshold, avgGap * 3);
+  }
 
   if (debug) {
-    log.info('Y 坐标跳跃检测', {
+    log.info('Y阈值自适应检测', {
       totalBlocks: sorted.length,
-      medianGap,
-      threshold,
+      gapCount: validGaps.length,
+      adaptiveMethod,
+      threshold: Math.round(threshold),
       gapStats: {
-        min: Math.min(...gaps),
-        max: Math.max(...gaps),
-        avg: gaps.reduce((a, b) => a + b, 0) / gaps.length
+        min: Math.round(Math.min(...gaps)),
+        max: Math.round(Math.max(...gaps)),
+        avg: Math.round(avgGap),
+        median: Math.round(medianGap),
+        stdDev: Math.round(stdDev)
       }
     });
   }
@@ -229,18 +282,47 @@ export function detectColumnLayout(blocks: OCRBlock[]): LayoutInfo {
     leftGroup.length > blocks.length * 0.2 &&
     rightGroup.length > blocks.length * 0.2;
 
+  // ===== 改进2：侧边栏检测 =====
+  // 检测侧边栏（通常是答案区域或页码）
+  let hasSidebar = false;
+  let sidebarRegion: [number, number, number, number] | undefined;
+
+  if (blocks.length > 10) {
+    // 检查右侧是否有窄条的垂直区域
+    const rightmostBlocks = blocks.filter(b => {
+      const blockCenter = (b.bbox[0] + b.bbox[2]) / 2;
+      const blockWidth = b.bbox[2] - b.bbox[0];
+      return blockCenter > maxX - pageWidth * 0.15 && blockWidth < pageWidth * 0.1;
+    });
+
+    if (rightmostBlocks.length >= 3) {
+      // 找到了可能的侧边栏
+      const sidebarMinX = Math.min(...rightmostBlocks.map(b => b.bbox[0]));
+      const sidebarMinY = Math.min(...rightmostBlocks.map(b => b.bbox[1]));
+      const sidebarMaxX = Math.max(...rightmostBlocks.map(b => b.bbox[2]));
+      const sidebarMaxY = Math.max(...rightmostBlocks.map(b => b.bbox[3]));
+
+      hasSidebar = true;
+      sidebarRegion = [sidebarMinX, sidebarMinY, sidebarMaxX, sidebarMaxY];
+    }
+  }
+
   if (isDoubleColumn) {
     return {
       type: 'double_column',
       columnCenters: [leftCenter, rightCenter],
-      columnWidth: avgColumnWidth
+      columnWidth: avgColumnWidth,
+      hasSidebar,
+      sidebarRegion
     };
   }
 
   return {
     type: 'single_column',
     columnCenters: [(minX + maxX) / 2],
-    columnWidth: pageWidth
+    columnWidth: pageWidth,
+    hasSidebar,
+    sidebarRegion
   };
 }
 

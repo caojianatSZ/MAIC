@@ -28,6 +28,10 @@ import {
   formatOptions,
   type OptionGroup
 } from './option-detector';
+import {
+  validateAndFixClusters,
+  type CompletenessResult
+} from './completeness-validator';
 
 const log = createLogger('SmartSplitter');
 
@@ -112,30 +116,95 @@ export function smartSplit(
     log.info('页面布局检测', layoutInfo);
   }
 
-  // 空间聚类
+  // ===== 改进2：多栏试卷处理 =====
+  // 预处理：根据布局信息过滤或分割 blocks
+  let processedBlocks = blocks;
+  let skipClustering = false;
+  let clusters: SpatialCluster[] = [];  // 初始化为空数组
+
+  // 1. 检测并排除侧边栏（通常是答案区域）
+  if (layoutInfo.hasSidebar && layoutInfo.sidebarRegion) {
+    const sidebarRegion = layoutInfo.sidebarRegion;
+    const sidebarWidth = sidebarRegion[2] - sidebarRegion[0];
+    const pageWidth = Math.max(...blocks.map(b => b.bbox[2])) - Math.min(...blocks.map(b => b.bbox[0]));
+
+    if (sidebarWidth < pageWidth * 0.25) {
+      // 侧边栏宽度小于页面25%，认为是答案区域，排除
+      processedBlocks = blocks.filter(b => {
+        const blockCenter = (b.bbox[0] + b.bbox[2]) / 2;
+        const sidebarLeft = sidebarRegion[0];
+        const sidebarRight = sidebarRegion[2];
+        // 排除在侧边栏范围内的块
+        return !(blockCenter >= sidebarLeft && blockCenter <= sidebarRight);
+      });
+
+      if (debug) {
+        log.info('排除侧边栏', {
+          originalCount: blocks.length,
+          filteredCount: processedBlocks.length,
+          sidebarWidth: Math.round(sidebarWidth),
+          sidebarRegion: layoutInfo.sidebarRegion?.map(v => Math.round(v))
+        });
+      }
+    }
+  }
+
+  // 2. 双栏试卷分别处理
+  if (layoutInfo.type === 'double_column' && layoutInfo.columnCenters.length === 2) {
+    const column1Blocks = processedBlocks.filter(b => {
+      const blockCenter = (b.bbox[0] + b.bbox[2]) / 2;
+      return blockCenter < layoutInfo.columnCenters[1];
+    });
+
+    const column2Blocks = processedBlocks.filter(b => {
+      const blockCenter = (b.bbox[0] + b.bbox[2]) / 2;
+      return blockCenter >= layoutInfo.columnCenters[1];
+    });
+
+    if (debug) {
+      log.info('双栏试卷分割', {
+        column1Blocks: column1Blocks.length,
+        column2Blocks: column2Blocks.length,
+        columnCenters: layoutInfo.columnCenters.map(v => Math.round(v))
+      });
+    }
+
+    // 分别对每一栏进行聚类，然后合并结果
+    const clusterOptions: ClusterOptions = {
+      yGapThresholdMultiplier,
+      minClusterHeight,
+      debug
+    };
+
+    const clusters1 = useSpatialClustering
+      ? clusterBlocksByY(column1Blocks, clusterOptions)
+      : column1Blocks.map(b => createSimpleCluster(b));
+
+    const clusters2 = useSpatialClustering
+      ? clusterBlocksByY(column2Blocks, clusterOptions)
+      : column2Blocks.map(b => createSimpleCluster(b));
+
+    // 合并两栏的聚类结果
+    clusters = [...clusters1, ...clusters2];
+
+    // 跳过后续的统一聚类处理
+    skipClustering = true;
+  }
+
+  // 空间聚类（单栏或未检测到双栏）
   const clusterOptions: ClusterOptions = {
     yGapThresholdMultiplier,
     minClusterHeight,
     debug
   };
 
-  let clusters: SpatialCluster[];
-
-  if (useSpatialClustering) {
-    clusters = clusterBlocksByY(blocks, clusterOptions);
-  } else {
-    // 简单分割：每个块一个聚类
-    clusters = blocks.map(b => ({
-      blocks: [b],
-      bbox: b.bbox,
-      startY: b.bbox[1],
-      endY: b.bbox[3],
-      startX: b.bbox[0],
-      endX: b.bbox[2],
-      hasQuestionNumber: false,
-      hasOptions: false,
-      detectedType: 'unknown'
-    }));
+  if (!skipClustering) {
+    if (useSpatialClustering) {
+      clusters = clusterBlocksByY(processedBlocks, clusterOptions);
+    } else {
+      // 简单分割：每个块一个聚类
+      clusters = processedBlocks.map(b => createSimpleCluster(b));
+    }
   }
 
   if (debug) {
@@ -170,21 +239,26 @@ export function smartSplit(
     options: clustersWithOptions[index]?.options || []
   }));
 
-  // 过滤：只保留可能是题目的聚类
-  const questionClusters = enrichedClusters.filter(c => {
-    // 有明确的题目特征
-    if (c.features.hasOptionMarkers || c.features.hasBlankMarkers || c.features.hasQuestionNumber) {
-      return true;
-    }
+  // ===== 改进3：完整性校验 =====
+  // 验证聚类完整性并合并不完整的聚类
+  const completenessValidation = validateAndFixClusters(enrichedClusters as any);
 
-    // 内容长度适中（可能是题干）
-    const textLength = c.blocks.map(b => b.text).join('').length;
-    if (textLength >= 20 && textLength <= 1000) {
-      return true;
-    }
+  if (debug && completenessValidation.validationResults.length > 0) {
+    const incompleteCount = completenessValidation.validationResults.filter(r => !r.isComplete).length;
+    log.info('完整性校验', {
+      totalClusters: enrichedClusters.length,
+      incompleteCount,
+      validAfterMerge: completenessValidation.validClusters.length
+    });
+  }
 
-    return false;
-  });
+  // 将完整性校验的结果与原始特征合并
+  const questionClusters = enrichedClusters
+    .filter((_, index) => completenessValidation.validationResults[index]?.isComplete !== false)
+    .map((cluster, index) => ({
+      ...cluster,
+      validity: completenessValidation.validationResults[index]
+    }));
 
   // 转换为 Question 格式
   let questions = questionClusters.map((cluster, index) => ({
@@ -277,4 +351,21 @@ export function rebuildStructureEnhanced(
 
   // 返回空结果
   return [];
+}
+
+/**
+ * 创建简单的单个块聚类（辅助函数）
+ */
+function createSimpleCluster(block: OCRBlock): SpatialCluster {
+  return {
+    blocks: [block],
+    bbox: block.bbox,
+    startY: block.bbox[1],
+    endY: block.bbox[3],
+    startX: block.bbox[0],
+    endX: block.bbox[2],
+    hasQuestionNumber: false,
+    hasOptions: false,
+    detectedType: 'unknown'
+  };
 }
