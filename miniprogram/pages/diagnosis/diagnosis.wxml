@@ -320,6 +320,18 @@
       <text class="preview-subtitle">共识别到 {{photoQuestions.length}} 道题目</text>
     </view>
 
+    <!-- 原始图片显示 -->
+    <view class="original-image-container" wx:if="{{originalImageUrl}}">
+      <text class="image-label">原始试卷图片</text>
+      <image
+        class="original-image"
+        src="{{originalImageUrl}}"
+        mode="widthFix"
+        bindtap="previewOriginalImage"
+      />
+      <text class="image-tip">点击图片查看大图</text>
+    </view>
+
     <scroll-view class="questions-preview" scroll-y>
       <view class="preview-question {{item.needsReview ? 'needs-review' : ''}}" wx:for="{{photoQuestions}}" wx:key="id">
 

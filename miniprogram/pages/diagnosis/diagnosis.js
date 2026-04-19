@@ -859,10 +859,42 @@ Page({
       warnings: q.warnings || []
     }))
 
+    // 处理原始图片（如果有）
+    let originalImageUrl = ''
+    if (data.originalImage) {
+      // 移除data:image前缀，保留base64数据
+      const base64Data = data.originalImage.includes(',')
+        ? data.originalImage.split(',')[1]
+        : data.originalImage
+
+      // 小程序临时路径（用于显示）
+      originalImageUrl = `data:image/jpeg;base64,${base64Data}`
+    }
+
     this.setData({
       photoQuestions: cleanedQuestions,
       ocrText: this.cleanOcrText(data.ocrText || ''),
+      originalImageUrl: originalImageUrl,  // 添加原始图片
       mode: 'photo_result'
+    })
+  },
+
+  /**
+   * 预览原始图片大图
+   */
+  previewOriginalImage() {
+    const imageUrl = this.data.originalImageUrl
+    if (!imageUrl) {
+      wx.showToast({
+        title: '图片不可用',
+        icon: 'none'
+      })
+      return
+    }
+
+    wx.previewImage({
+      urls: [imageUrl],
+      current: imageUrl
     })
   },
 
