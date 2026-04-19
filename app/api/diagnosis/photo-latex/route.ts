@@ -271,21 +271,39 @@ function associateImagesWithQuestions(
 
     // 处理选项图片（如果有选项）
     if (question.options && question.options.length > 0) {
+      // 为每个选项估算Y坐标范围（假设选项均匀分布）
+      const optionCount = question.options.length;
+
       question.options.forEach((option: any, optIndex: number) => {
         const optionText = typeof option === 'string' ? option : option.text;
-        const optionBbox = option.bbox_2d;
         const optionImages: Array<{ bbox: number[]; label?: string }> = [];
 
         // 检查选项文本是否包含选项标签（A、B、C、D）
         const optionLabelMatch = optionText.match(/^([A-D])[\.\s]/);
 
-        if (optionLabelMatch && optionBbox) {
+        if (optionLabelMatch && question.bbox_2d) {
           const optionLabel = optionLabelMatch[1];
-          const optionYStart = optionBbox[1];
-          const optionYEnd = optionBbox[3];
-          const yThreshold = 100; // Y坐标阈值
 
-          console.log(`[associateImages] 题目${question.id}选项${optIndex}(${optionLabel}) Y坐标范围: ${optionYStart}-${optionYEnd}`);
+          // 估算选项的Y坐标范围
+          const questionYStart = question.bbox_2d[1];
+          const questionYEnd = question.bbox_2d[3];
+          const questionHeight = questionYEnd - questionYStart;
+
+          // 假设选项均匀分布在题目的下半部分（假设上半部分是题目内容）
+          const optionStartOffset = questionHeight * 0.3; // 从题目30%高度开始
+          const optionAreaHeight = questionHeight * 0.7; // 选项区域占70%
+          const optionHeight = optionAreaHeight / optionCount; // 每个选项的高度
+
+          // 计算此选项的Y坐标范围
+          const optionYStart = questionYStart + optionStartOffset + (optIndex * optionHeight);
+          const optionYEnd = optionYStart + optionHeight;
+          const yThreshold = 80; // Y坐标阈值
+
+          console.log(`[associateImages] 题目${question.id}选项${optIndex}(${optionLabel}) 估算Y坐标范围: ${optionYStart}-${optionYEnd}`, {
+            题目Y: `${questionYStart}-${questionYEnd}`,
+            选项索引: optIndex,
+            总选项数: optionCount
+          });
 
           // 查找属于此选项的图片
           imageCoordinates.forEach((img, imgIndex) => {
@@ -294,15 +312,17 @@ function associateImagesWithQuestions(
 
             const imgY = img.bbox[1];
             const imgYEnd = img.bbox[3];
+            const imgCenterY = (imgY + imgYEnd) / 2; // 图片中心Y坐标
 
-            // 检查图片是否在选项的Y坐标范围内
+            // 检查图片中心是否在选项的Y坐标范围内
             const isNearOption =
-              imgY >= optionYStart - yThreshold &&
-              imgYEnd <= optionYEnd + yThreshold;
+              imgCenterY >= optionYStart - yThreshold &&
+              imgCenterY <= optionYEnd + yThreshold;
 
             if (isNearOption) {
               console.log(`[associateImages] ✓ 图片${imgIndex}关联到题目${question.id}选项${optionLabel}`, {
-                imgY: `${imgY}-${imgYEnd}`,
+                imgCenterY: Math.round(imgCenterY),
+                选项Y: `${optionYStart}-${optionYEnd}`,
                 label: img.label
               });
 
