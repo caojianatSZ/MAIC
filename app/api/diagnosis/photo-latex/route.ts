@@ -244,7 +244,7 @@ function extractImageCoordinates(markdown: string): Array<{
 
 /**
  * 将图片坐标与题目关联
- * 策略：为每个题目分配最多1张图片，按题目顺序分配
+ * 策略：根据Y坐标位置，将每个图片关联到最近的题目
  */
 function associateImagesWithQuestions(
   questions: Array<any>,
@@ -260,26 +260,66 @@ function associateImagesWithQuestions(
     imageCount: imageCoordinates.length
   });
 
-  let imageIndex = 0;
+  // 计算每个题目的Y坐标范围（从layout_details中的第一个block获取）
+  const questionsYRange = questions.map(q => {
+    if (q.bbox_2d && Array.isArray(q.bbox_2d) && q.bbox_2d.length >= 4) {
+      const [x1, y1, x2, y2] = q.bbox_2d;
+      const centerY = (y1 + y2) / 2;
+      return { id: q.id, y1, y2, centerY };
+    }
+    return null;
+  }).filter(q => q !== null);
 
-  return questions.map((question, questionIndex) => {
+  console.log('[associateImages] 题目Y坐标范围:', questionsYRange);
+
+  // 为每个图片找到最近的题目
+  const assignedImages = new Set<number>();
+
+  return questions.map(question => {
     const relatedImages: Array<{ bbox: number[]; label?: string }> = [];
 
-    // 策略：为每个题目按顺序分配一张图片
-    if (imageIndex < imageCoordinates.length) {
-      const img = imageCoordinates[imageIndex];
+    // 获取当前题目的Y坐标
+    const currentYRange = questionsYRange.find(q => q.id === question.id);
+    if (!currentYRange) {
+      return { ...question, images: relatedImages };
+    }
 
-      console.log(`[associateImages] 题目${question.id}分配图片${imageIndex}`, {
+    // 找到Y坐标最接近的未分配图片
+    let closestImageIndex = -1;
+    let closestDistance = Infinity;
+
+    imageCoordinates.forEach((img, imgIndex) => {
+      if (assignedImages.has(imgIndex)) {
+        return; // 已分配，跳过
+      }
+
+      const [x1, y1, x2, y2] = img.bbox;
+      const imgCenterY = (y1 + y2) / 2;
+      const distance = Math.abs(imgCenterY - currentYRange.centerY);
+
+      console.log(`[associateImages] 图片${imgIndex}与题目${question.id}的距离:`, distance);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestImageIndex = imgIndex;
+      }
+    });
+
+    // 如果找到接近的图片（距离在300像素以内）
+    if (closestImageIndex !== -1 && closestDistance < 300) {
+      const img = imageCoordinates[closestImageIndex];
+      assignedImages.add(closestImageIndex);
+
+      console.log(`[associateImages] 题目${question.id}分配图片${closestImageIndex}`, {
+        distance: closestDistance,
         imageBbox: img.bbox,
         imageLabel: img.label
       });
 
       relatedImages.push({
         bbox: img.bbox,
-        label: img.label || `图片${imageIndex + 1}`
+        label: img.label || `图片${closestImageIndex + 1}`
       });
-
-      imageIndex++;
     }
 
     return {
@@ -303,6 +343,7 @@ function parseQuestionsFromLayoutDetails(
   type: 'choice' | 'fill_blank' | 'essay';
   options?: string[];
   formulas?: Array<{ latex: string; raw: string; location: string }>;
+  bbox_2d?: number[];  // 添加题目的bbox坐标
 }> {
   const questions: Array<{
     id: string;
@@ -310,6 +351,7 @@ function parseQuestionsFromLayoutDetails(
     type: 'choice' | 'fill_blank' | 'essay';
     options?: string[];
     formulas?: Array<{ latex: string; raw: string; location: string }>;
+    bbox_2d?: number[];
   }> = [];
 
   // 获取第一页的blocks（layout_details是分页的数组）
@@ -363,7 +405,8 @@ function parseQuestionsFromLayoutDetails(
           content: questionText,
           type: 'choice' as const,
           options: optionTexts,
-          formulas: extractFormulas(questionText)
+          formulas: extractFormulas(questionText),
+          bbox_2d: block.bbox_2d  // 保存题目的bbox坐标
         };
       } else {
         currentQuestion = {
@@ -371,7 +414,8 @@ function parseQuestionsFromLayoutDetails(
           content: content,
           type: 'essay' as const,
           options: [],
-          formulas: extractFormulas(content)
+          formulas: extractFormulas(content),
+          bbox_2d: block.bbox_2d  // 保存题目的bbox坐标
         };
       }
     } else if (currentQuestion) {
