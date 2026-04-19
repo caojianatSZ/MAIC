@@ -61,7 +61,7 @@ export class TextinClient {
         parse_mode: 'scan',
         table_flavor: 'html',
         apply_document_tree: '1',
-        formula_level: '0'
+        formula_level: '2'  // 识别公式并返回 LaTeX 格式
       });
 
       // 发送请求
