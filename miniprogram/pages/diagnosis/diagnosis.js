@@ -1004,33 +1004,10 @@ Page({
     // Canvas固定尺寸（与WXML中的定义一致，600rpx ≈ 300px）
     const canvasSize = 300
 
-    // 计算保持宽高比后的目标尺寸
-    let drawWidth = cropWidth
-    let drawHeight = cropHeight
-    const maxSize = canvasSize - 20  // 留10px边距
-
-    // 如果图片太大，按比例缩小
-    if (drawWidth > maxSize || drawHeight > maxSize) {
-      const scale = Math.min(maxSize / drawWidth, maxSize / drawHeight)
-      drawWidth = Math.round(drawWidth * scale)
-      drawHeight = Math.round(drawHeight * scale)
-    }
-
-    // 计算居中位置
-    const offsetX = Math.round((canvasSize - drawWidth) / 2)
-    const offsetY = Math.round((canvasSize - drawHeight) / 2)
-
-    console.log('裁剪参数详细:', {
-      原始bbox: `${x1},${y1} → ${x2},${y2}`,
-      裁剪尺寸: `${cropWidth}x${cropHeight}`,
-      目标尺寸: `${drawWidth}x${drawHeight}`,
-      缩放比例: drawWidth / cropWidth,
-      居中偏移: `(${offsetX}, ${offsetY})`,
-      canvasSize
+    console.log('裁剪参数:', {
+      bbox: `${x1},${y1} → ${x2},${y2}`,
+      裁剪尺寸: `${cropWidth}x${cropHeight}`
     })
-
-    // 创建canvas上下文
-    const ctx = wx.createCanvasContext(canvasId, this)
 
     // 将base64数据写入临时文件
     const fs = wx.getFileSystemManager()
@@ -1044,47 +1021,86 @@ Page({
       console.log('写入临时文件:', tempImagePath)
       fs.writeFileSync(tempImagePath, base64Clean, 'base64')
 
-      console.log('临时图片已创建，开始绘制...')
+      console.log('临时图片已创建，获取图片尺寸...')
 
-      // 清空canvas（填充白色背景）
-      ctx.fillStyle = '#FFFFFF'
-      ctx.fillRect(0, 0, canvasSize, canvasSize)
+      // 关键：先获取图片的实际尺寸
+      wx.getImageInfo({
+        src: tempImagePath,
+        success: (imgInfo) => {
+          console.log('图片尺寸:', imgInfo.width, 'x', imgInfo.height)
 
-      // 在canvas上绘制裁剪后的图片
-      // drawImage参数: imageResource, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight
-      // 注意：sx, sy是源图片的起始坐标，sWidth, sHeight是要裁剪的尺寸
-      //       dx, dy是目标canvas的起始坐标，dWidth, dHeight是绘制尺寸
-      ctx.drawImage(
-        tempImagePath,  // 图片路径（完整图片）
-        x1, y1,         // 从完整图片的这个坐标开始裁剪
-        cropWidth, cropHeight,  // 裁剪这个尺寸
-        offsetX, offsetY,  // 在canvas的这个位置开始绘制
-        drawWidth, drawHeight  // 绘制成这个尺寸（可能被缩放）
-      )
+          // 计算原图到Canvas的缩放比例
+          const scaleX = canvasSize / imgInfo.width
+          const scaleY = canvasSize / imgInfo.height
 
-      console.log('drawImage参数:', {
-        源图片: tempImagePath,
-        源起点: `(${x1}, ${y1})`,
-        源尺寸: `${cropWidth}x${cropHeight}`,
-        目标起点: `(${offsetX}, ${offsetY})`,
-        目标尺寸: `${drawWidth}x${drawHeight}`
-      })
+          // 计算缩放后的裁剪区域
+          const scaledX = Math.round(x1 * scaleX)
+          const scaledY = Math.round(y1 * scaleY)
+          const scaledCropWidth = Math.round(cropWidth * scaleX)
+          const scaledCropHeight = Math.round(cropHeight * scaleY)
 
-      console.log('drawImage调用完成，执行ctx.draw()...')
+          // 计算目标尺寸（保持宽高比，适应Canvas）
+          let drawWidth = scaledCropWidth
+          let drawHeight = scaledCropHeight
+          const maxSize = canvasSize - 20
 
-      // 执行绘制
-      ctx.draw(false, () => {
-        console.log(`✅ 图片裁剪完成: ${canvasId}, 显示尺寸: ${drawWidth}x${drawHeight}`)
-
-        // 清理临时文件
-        setTimeout(() => {
-          try {
-            fs.unlinkSync(tempImagePath)
-            console.log('临时文件已清理')
-          } catch (e) {
-            console.warn('清理临时文件失败:', e)
+          if (drawWidth > maxSize || drawHeight > maxSize) {
+            const scale = Math.min(maxSize / drawWidth, maxSize / drawHeight)
+            drawWidth = Math.round(drawWidth * scale)
+            drawHeight = Math.round(drawHeight * scale)
           }
-        }, 5000)
+
+          // 计算居中位置
+          const offsetX = Math.round((canvasSize - drawWidth) / 2)
+          const offsetY = Math.round((canvasSize - drawHeight) / 2)
+
+          console.log('缩放计算:', {
+            原图尺寸: `${imgInfo.width}x${imgInfo.height}`,
+            缩放比例: `${scaleX.toFixed(3)}, ${scaleY.toFixed(3)}`,
+            缩放后裁剪区: `${scaledX},${scaledY} → ${scaledX + scaledCropWidth},${scaledY + scaledCropHeight}`,
+            缩放后尺寸: `${scaledCropWidth}x${scaledCropHeight}`,
+            目标尺寸: `${drawWidth}x${drawHeight}`,
+            居中偏移: `(${offsetX}, ${offsetY})`
+          })
+
+          // 创建canvas上下文
+          const ctx = wx.createCanvasContext(canvasId, this)
+
+          // 清空canvas
+          ctx.fillStyle = '#FFFFFF'
+          ctx.fillRect(0, 0, canvasSize, canvasSize)
+
+          // 绘制图片
+          ctx.drawImage(
+            tempImagePath,
+            scaledX, scaledY,
+            scaledCropWidth, scaledCropHeight,
+            offsetX, offsetY,
+            drawWidth, drawHeight
+          )
+
+          console.log('drawImage调用完成，执行ctx.draw()...')
+
+          ctx.draw(false, () => {
+            console.log(`✅ 图片裁剪完成: ${canvasId}, 显示尺寸: ${drawWidth}x${drawHeight}`)
+
+            // 清理临时文件
+            setTimeout(() => {
+              try {
+                fs.unlinkSync(tempImagePath)
+              } catch (e) {
+                console.warn('清理临时文件失败:', e)
+              }
+            }, 5000)
+          })
+        },
+        fail: (err) => {
+          console.error('获取图片信息失败:', err)
+          wx.showToast({
+            title: '图片加载失败',
+            icon: 'none'
+          })
+        }
       })
     } catch (err) {
       console.error('❌ 图片裁剪失败:', err)
