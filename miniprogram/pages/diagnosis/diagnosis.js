@@ -853,14 +853,18 @@ Page({
       ...q,
       content: this.cleanOcrText(q.content),
       options: q.options ? q.options.map(opt => this.cleanOcrText(opt)) : [],
+      // 添加图片坐标信息
+      images: q.images || [],
       // V2 字段：置信度和复核标记
       confidence: q.confidence || 0,
       needsReview: q.needsReview || false,
       warnings: q.warnings || []
     }))
 
-    // 处理原始图片（如果有）
+    // 处理原始图片和图片坐标
     let originalImageUrl = ''
+    let imageCoordinates = data.imageCoordinates || []
+
     if (data.originalImage) {
       // 移除data:image前缀，保留base64数据
       const base64Data = data.originalImage.includes(',')
@@ -869,14 +873,31 @@ Page({
 
       // 小程序临时路径（用于显示）
       originalImageUrl = `data:image/jpeg;base64,${base64Data}`
+
+      // 保存base64数据用于canvas裁剪
+      this.setData({
+        originalImageBase64: base64Data
+      })
     }
 
     this.setData({
       photoQuestions: cleanedQuestions,
       ocrText: this.cleanOcrText(data.ocrText || ''),
-      originalImageUrl: originalImageUrl,  // 添加原始图片
+      originalImageUrl: originalImageUrl,
+      imageCoordinates: imageCoordinates,  // 保存图片坐标
       mode: 'photo_result'
     })
+
+    console.log('图片坐标信息:', {
+      total: imageCoordinates.length,
+      coordinates: imageCoordinates,
+      questionsWithImages: cleanedQuestions.filter(q => q.images && q.images.length > 0).length
+    })
+
+    // 裁剪并显示题目图片
+    setTimeout(() => {
+      this.cropAndShowImages()
+    }, 500)
   },
 
   /**
@@ -895,6 +916,89 @@ Page({
     wx.previewImage({
       urls: [imageUrl],
       current: imageUrl
+    })
+  },
+
+  /**
+   * 裁剪并显示题目图片
+   */
+  cropAndShowImages() {
+    const questions = this.data.photoQuestions || []
+    const originalImageBase64 = this.data.originalImageBase64
+    const imageCoordinates = this.data.imageCoordinates || []
+
+    if (!originalImageBase64 || imageCoordinates.length === 0) {
+      console.log('没有图片数据或坐标信息')
+      return
+    }
+
+    console.log('开始裁剪图片，题目数量:', questions.length)
+
+    // 为每个题目创建裁剪后的图片
+    questions.forEach((question, qIndex) => {
+      if (!question.images || question.images.length === 0) {
+        return
+      }
+
+      question.images.forEach((img, imgIndex) => {
+        const canvasId = `question-canvas-${question.id}-${imgIndex}`
+        const bbox = img.bbox  // [x1, y1, x2, y2]
+
+        console.log(`裁剪题目${question.id}的图片${imgIndex}`, {
+          bbox,
+          canvasId,
+          label: img.label
+        })
+
+        this.cropImageByBbox(originalImageBase64, bbox, canvasId, img.label)
+      })
+    })
+  },
+
+  /**
+   * 根据bbox裁剪图片
+   */
+  cropImageByBbox(base64Data, bbox, canvasId, label) {
+    const canvas = wx.createCanvasContext(canvasId)
+    const [x1, y1, x2, y2] = bbox
+    const width = x2 - x1
+    const height = y2 - y1
+
+    // 设置canvas尺寸
+    canvas.width = width
+    canvas.height = height
+
+    // 创建图片对象
+    const img = canvas.createImage()
+
+    // 需要将base64转换为临时文件路径
+    const fs = wx.getFileSystemManager()
+    const tempFilePath = `${wx.env.USER_DATA_PATH}/${canvasId}.jpg`
+
+    fs.writeFile({
+      filePath: tempFilePath,
+      data: base64Data,
+      encoding: 'base64',
+      success: () => {
+        img.src = tempFilePath
+
+        img.onload = () => {
+          // 裁剪图片
+          canvas.drawImage(img, x1, y1, width, height, 0, 0, width, height)
+
+          // 绘制完成
+          canvas.draw(false, () => {
+            console.log(`图片裁剪完成: ${canvasId}`)
+          })
+        }
+
+        img.onerror = (err) => {
+          console.error('图片加载失败:', err)
+        }
+      },
+      fail: (err) => {
+        console.error('写入临时文件失败:', err)
+      }
     })
   },
 

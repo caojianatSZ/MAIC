@@ -778,6 +778,33 @@
   margin-bottom: 24rpx;
 }
 
+/* 题目图片 */
+.question-images {
+  margin: 24rpx 0;
+}
+
+.question-image-wrapper {
+  margin: 16rpx 0;
+  padding: 16rpx;
+  background: #F9FAFB;
+  border-radius: 12rpx;
+  text-align: center;
+}
+
+.question-image-canvas {
+  background: #FFFFFF;
+  border-radius: 8rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+  margin: 0 auto;
+}
+
+.image-label {
+  display: block;
+  font-size: 22rpx;
+  color: #6B7280;
+  margin-top: 8rpx;
+}
+
 /* rich-text 内部的下标上标样式 */
 .question-content sub,
 .question-content sup,

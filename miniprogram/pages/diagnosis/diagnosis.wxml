@@ -360,6 +360,19 @@
 
         <rich-text class="question-content" nodes="{{item.content}}"></rich-text>
 
+        <!-- 题目图片（如果有） -->
+        <view class="question-images" wx:if="{{item.images && item.images.length > 0}}">
+          <view class="question-image-wrapper" wx:for="{{item.images}}" wx:for-item="img" wx:key="bbox">
+            <canvas
+              class="question-image-canvas"
+              canvas-id="question-canvas-{{item.id}}-{{index}}"
+              id="question-canvas-{{item.id}}-{{index}}"
+              style="width: 300px; height: 200px;"
+            ></canvas>
+            <text class="image-label">{{img.label || '图表'}}</text>
+          </view>
+        </view>
+
         <!-- 选项 -->
         <view class="question-options" wx:if="{{item.type === 'choice' && item.options}}">
           <view class="option-item" wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="idx" wx:key="*this">
