@@ -117,19 +117,21 @@ export async function POST(request: NextRequest) {
       mode: 'glm-ocr',
       markdown: ocrResult.markdown,
       questions: questions,
+      originalImage: image,  // 包含原始图片base64
       images: ocrResult.images || [],  // 包含图片URL
       raw: ocrResult.raw,  // 包含layout_details
       summary: {
         total_questions: questions.length,
         markdown_length: ocrResult.markdown.length,
         ocr_confidence: ocrResult.confidence || 0.95,
-        images_count: ocrResult.images?.length || 0
+        images_count: ocrResult.images?.length || 0,
+        has_original_image: !!image
       },
       metadata: {
         requestId,
         timestamp: new Date().toISOString(),
         method: 'glm-ocr',
-        version: '5.0.0'
+        version: '5.1.0'  // 更新版本号
       }
     };
 
