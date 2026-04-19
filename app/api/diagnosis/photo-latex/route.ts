@@ -243,10 +243,10 @@ function extractImageCoordinates(markdown: string): Array<{
 }
 
 /**
- * 将图片坐标与题目/选项关联（Y坐标排序版）
+ * 将图片坐标与题目/选项关联（Y坐标范围匹配版）
  * 策略：
- * 1. 按Y坐标排序题目和图片
- * 2. 按顺序为每个题目分配图片（先分配选项图片，再分配题目图片）
+ * 1. 对于选项图片：检查图片是否在选项的Y坐标范围内
+ * 2. 对于题目图片：检查图片是否在题目的Y坐标范围内但不在任何选项范围内
  */
 function associateImagesWithQuestions(
   questions: Array<any>,
@@ -257,77 +257,64 @@ function associateImagesWithQuestions(
     return questions;
   }
 
-  console.log('[associateImages] 开始Y坐标排序关联', {
+  console.log('[associateImages] 开始Y坐标范围匹配', {
     questionCount: questions.length,
     imageCount: imageCoordinates.length
   });
 
-  // 复制数组以避免修改原数组，并添加used标记
-  const imagesCopy = imageCoordinates.map((img, idx) => ({
-    ...img,
-    originalIndex: idx,
-    used: false
-  }));
-
-  // 按Y坐标排序图片（从上到下）
-  imagesCopy.sort((a, b) => a.bbox[1] - b.bbox[1]);
-
-  console.log('[associateImages] 图片排序结果:', {
-    sorted: imagesCopy.map((img, idx) => ({
-      排序后索引: idx,
-      原始索引: img.originalIndex,
-      y坐标: `${img.bbox[1]}-${img.bbox[3]}`,
-      label: img.label
-    }))
-  });
+  // 为每张图片标记是否已使用
+  const imageUsed = imageCoordinates.map(() => false);
 
   // 为每个题目处理图片关联
-  let globalImageIndex = 0; // 全局图片索引（按Y坐标顺序）
-
   return questions.map((question, qIndex) => {
     const questionImages: Array<{ bbox: number[]; label?: string }> = [];
 
-    // 处理选项图片（如果有选项且选项可能包含图片）
+    // 处理选项图片（如果有选项）
     if (question.options && question.options.length > 0) {
       question.options.forEach((option: any, optIndex: number) => {
         const optionText = typeof option === 'string' ? option : option.text;
+        const optionBbox = option.bbox_2d;
         const optionImages: Array<{ bbox: number[]; label?: string }> = [];
 
-        // 检查此选项是否需要图片（根据选项标签）
+        // 检查选项文本是否包含选项标签（A、B、C、D）
         const optionLabelMatch = optionText.match(/^([A-D])[\.\s]/);
 
-        if (optionLabelMatch) {
+        if (optionLabelMatch && optionBbox) {
           const optionLabel = optionLabelMatch[1];
+          const optionYStart = optionBbox[1];
+          const optionYEnd = optionBbox[3];
+          const yThreshold = 100; // Y坐标阈值
 
-          // 从当前全局图片索引开始，查找匹配此选项的图片
-          // 向后查找最多3张图片
-          for (let i = 0; i < 3 && globalImageIndex < imagesCopy.length; i++) {
-            const img = imagesCopy[globalImageIndex];
+          console.log(`[associateImages] 题目${question.id}选项${optIndex}(${optionLabel}) Y坐标范围: ${optionYStart}-${optionYEnd}`);
 
-            // 检查是否已使用
-            if (img.used) {
-              globalImageIndex++;
-              continue;
-            }
+          // 查找属于此选项的图片
+          imageCoordinates.forEach((img, imgIndex) => {
+            // 跳过已使用的图片
+            if (imageUsed[imgIndex]) return;
 
-            // 检查图片标签是否匹配选项标签
-            if (img.label && img.label.includes(optionLabel)) {
-              console.log(`[associateImages] 题目${question.id}选项${optionLabel}匹配图片${globalImageIndex}: ${img.label}`);
+            const imgY = img.bbox[1];
+            const imgYEnd = img.bbox[3];
 
-              optionImages.push({
-                bbox: img.bbox,
+            // 检查图片是否在选项的Y坐标范围内
+            const isNearOption =
+              imgY >= optionYStart - yThreshold &&
+              imgYEnd <= optionYEnd + yThreshold;
+
+            if (isNearOption) {
+              console.log(`[associateImages] ✓ 图片${imgIndex}关联到题目${question.id}选项${optionLabel}`, {
+                imgY: `${imgY}-${imgYEnd}`,
                 label: img.label
               });
 
+              optionImages.push({
+                bbox: img.bbox,
+                label: img.label || `选项${optionLabel}图`
+              });
+
               // 标记为已使用
-              img.used = true;
-              globalImageIndex++;
-              break; // 找到匹配的图片，停止查找
-            } else {
-              // 标签不匹配，检查下一个图片
-              globalImageIndex++;
+              imageUsed[imgIndex] = true;
             }
-          }
+          });
         }
 
         // 更新选项，添加图片信息
@@ -342,26 +329,41 @@ function associateImagesWithQuestions(
       });
     }
 
-    // 查找题目图片（分配给题目的图片，不在选项中的）
-    // 从当前全局图片索引开始，查找第一张未使用的图片作为题目图片
-    if (globalImageIndex < imagesCopy.length) {
-      const img = imagesCopy[globalImageIndex];
+    // 查找题目图片（不在任何选项范围内的图片）
+    if (question.bbox_2d) {
+      const questionYStart = question.bbox_2d[1];
+      const questionYEnd = question.bbox_2d[3];
+      const yThreshold = 150; // Y坐标阈值
 
-      if (!img.used) {
-        console.log(`[associateImages] 题目${question.id}分配图片${globalImageIndex}: ${img.label || '无标签'}`);
+      console.log(`[associateImages] 题目${question.id} Y坐标范围: ${questionYStart}-${questionYEnd}`);
 
-        questionImages.push({
-          bbox: img.bbox,
-          label: img.label || `图片${questionImages.length + 1}`
-        });
+      imageCoordinates.forEach((img, imgIndex) => {
+        // 跳过已使用的图片
+        if (imageUsed[imgIndex]) return;
 
-        // 标记为已使用
-        img.used = true;
-        globalImageIndex++;
-      } else {
-        // 当前图片已使用，移动到下一个
-        globalImageIndex++;
-      }
+        const imgY = img.bbox[1];
+        const imgYEnd = img.bbox[3];
+
+        // 检查图片是否在题目的Y坐标范围内
+        const isNearQuestion =
+          imgY >= questionYStart - yThreshold &&
+          imgYEnd <= questionYEnd + yThreshold;
+
+        if (isNearQuestion) {
+          console.log(`[associateImages] ✓ 图片${imgIndex}关联到题目${question.id}`, {
+            imgY: `${imgY}-${imgYEnd}`,
+            label: img.label
+          });
+
+          questionImages.push({
+            bbox: img.bbox,
+            label: img.label || `图片${questionImages.length + 1}`
+          });
+
+          // 标记为已使用
+          imageUsed[imgIndex] = true;
+        }
+      });
     }
 
     console.log(`[associateImages] 题目${question.id}关联完成`, {
