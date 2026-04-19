@@ -894,10 +894,11 @@ Page({
       questionsWithImages: cleanedQuestions.filter(q => q.images && q.images.length > 0).length
     })
 
-    // 裁剪并显示题目图片
+    // 裁剪并显示题目图片（延迟更长时间确保canvas渲染完成）
     setTimeout(() => {
+      console.log('=== 开始执行图片裁剪 ===')
       this.cropAndShowImages()
-    }, 500)
+    }, 1000)
   },
 
   /**
@@ -923,36 +924,67 @@ Page({
    * 裁剪并显示题目图片
    */
   cropAndShowImages() {
+    console.log('=== cropAndShowImages 开始 ===')
     const questions = this.data.photoQuestions || []
     const originalImageBase64 = this.data.originalImageBase64
     const imageCoordinates = this.data.imageCoordinates || []
 
-    if (!originalImageBase64 || imageCoordinates.length === 0) {
-      console.log('没有图片数据或坐标信息')
+    console.log('裁剪数据检查:', {
+      questionsCount: questions.length,
+      hasOriginalImage: !!originalImageBase64,
+      originalImageLength: originalImageBase64 ? originalImageBase64.length : 0,
+      imageCoordinatesCount: imageCoordinates.length
+    })
+
+    if (!originalImageBase64) {
+      console.error('❌ 没有原始图片base64数据')
+      wx.showToast({
+        title: '没有原始图片数据',
+        icon: 'none'
+      })
       return
     }
 
-    console.log('开始裁剪图片，题目数量:', questions.length)
+    if (imageCoordinates.length === 0) {
+      console.warn('⚠️ 没有图片坐标信息')
+    }
+
+    let totalImages = 0
+    let processedImages = 0
 
     // 为每个题目创建裁剪后的图片
     questions.forEach((question, qIndex) => {
       if (!question.images || question.images.length === 0) {
+        console.log(`题目${question.id}: 没有关联图片`)
         return
       }
 
+      console.log(`题目${question.id}: 有${question.images.length}张图片`)
+
       question.images.forEach((img, imgIndex) => {
+        totalImages++
         const canvasId = `question-canvas-${question.id}-${imgIndex}`
         const bbox = img.bbox  // [x1, y1, x2, y2]
 
-        console.log(`裁剪题目${question.id}的图片${imgIndex}`, {
+        console.log(`准备裁剪: 题目${question.id} 图片${imgIndex}`, {
           bbox,
           canvasId,
           label: img.label
         })
 
+        processedImages++
         this.cropImageByBbox(originalImageBase64, bbox, canvasId, img.label)
       })
     })
+
+    console.log(`=== 裁剪任务完成: 共${totalImages}张图片，已处理${processedImages}张 ===`)
+
+    if (totalImages === 0) {
+      wx.showToast({
+        title: '没有找到需要裁剪的图片',
+        icon: 'none'
+      })
+    }
   },
 
   /**
@@ -963,13 +995,13 @@ Page({
    * @param {string} label - 图片标签（用于日志）
    */
   cropImageByBbox(base64Data, bbox, canvasId, label) {
-    console.log('开始裁剪图片:', { canvasId, bbox, label })
+    console.log('=== 开始裁剪图片 ===', { canvasId, bbox, label })
 
     const [x1, y1, x2, y2] = bbox
     const cropWidth = x2 - x1
     const cropHeight = y2 - y1
 
-    // Canvas固定尺寸（与WXML中的定义一致）
+    // Canvas固定尺寸（与WXML中的定义一致，600rpx ≈ 300px）
     const canvasSize = 300
 
     // 计算保持宽高比后的目标尺寸
@@ -991,24 +1023,26 @@ Page({
     console.log('裁剪参数:', {
       crop: `${cropWidth}x${cropHeight}`,
       draw: `${drawWidth}x${drawHeight}`,
-      offset: `${offsetX},${offsetY}`
+      offset: `${offsetX},${offsetY}`,
+      canvasSize
     })
 
-    // 创建canvas上下文（使用新版API）
+    // 创建canvas上下文
     const ctx = wx.createCanvasContext(canvasId, this)
 
     // 将base64数据写入临时文件
     const fs = wx.getFileSystemManager()
     const timestamp = Date.now()
-    const tempImagePath = `${wx.env.USER_DATA_PATH}/temp_image_${timestamp}.jpg`
+    const tempImagePath = `${wx.env.USER_DATA_PATH}/temp_img_${timestamp}.jpg`
 
     try {
       // 移除base64前缀（如果有）
       const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '')
 
+      console.log('写入临时文件:', tempImagePath)
       fs.writeFileSync(tempImagePath, base64Clean, 'base64')
 
-      console.log('临时图片已创建:', tempImagePath)
+      console.log('临时图片已创建，开始绘制...')
 
       // 清空canvas（填充白色背景）
       ctx.fillStyle = '#FFFFFF'
@@ -1024,24 +1058,28 @@ Page({
         drawWidth, drawHeight  // 目标canvas尺寸
       )
 
+      console.log('drawImage调用完成，执行ctx.draw()...')
+
       // 执行绘制
       ctx.draw(false, () => {
-        console.log(`图片裁剪完成: ${canvasId}, 显示尺寸: ${drawWidth}x${drawHeight}`)
+        console.log(`✅ 图片裁剪完成: ${canvasId}, 显示尺寸: ${drawWidth}x${drawHeight}`)
 
         // 清理临时文件
         setTimeout(() => {
           try {
             fs.unlinkSync(tempImagePath)
+            console.log('临时文件已清理')
           } catch (e) {
             console.warn('清理临时文件失败:', e)
           }
         }, 5000)
       })
     } catch (err) {
-      console.error('图片裁剪失败:', err)
+      console.error('❌ 图片裁剪失败:', err)
       wx.showToast({
-        title: '图片裁剪失败',
-        icon: 'none'
+        title: '图片裁剪失败: ' + err.message,
+        icon: 'none',
+        duration: 2000
       })
     }
   },
