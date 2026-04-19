@@ -6,6 +6,7 @@
 
 import katex from 'katex';
 import { createLogger } from '@/lib/logger';
+import { latexToUnicode } from './latex-converter';
 
 const log = createLogger('KaTeXRenderer');
 
@@ -17,6 +18,70 @@ const RENDER_OPTIONS = {
   displayMode: false,
   strict: false,
 };
+
+/**
+ * LaTeX 符号到 Unicode 的映射表（简化版，用于后备）
+ */
+const LATEX_TO_UNICODE: Record<string, string> = {
+  '\\alpha': 'α', '\\beta': 'β', '\\gamma': 'γ', '\\delta': 'δ',
+  '\\theta': 'θ', '\\pi': 'π', '\\phi': 'φ', '\\omega': 'ω',
+  '\\cdot': '·', '\\times': '×', '\\div': '÷',
+  '\\leq': '≤', '\\geq': '≥', '\\neq': '≠', '\\approx': '≈',
+  '\\infty': '∞', '\\partial': '∂',
+  '\\rightarrow': '→', '\\leftarrow': '←',
+  '\\circ': '°', '\\perp': '⊥',
+  '\\int': '∫', '\\sum': '∑', '\\prod': '∏',
+  '\\sqrt': '√',
+};
+
+const SUPERSCRIPT: Record<string, string> = {
+  '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+  '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+  '+': '⁺', '-': '⁻', 'n': 'ⁿ',
+};
+
+const SUBSCRIPT: Record<string, string> = {
+  '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+  '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+  '+': '₊', '-': '₋',
+};
+
+/**
+ * 简单的 LaTeX 到 Unicode 转换（用于后备）
+ */
+function simpleLatexToUnicode(latex: string): string {
+  let result = latex;
+
+  // 基本符号
+  for (const [latexSym, unicode] of Object.entries(LATEX_TO_UNICODE)) {
+    result = result.replaceAll(latexSym, unicode);
+  }
+
+  // 上标 ^{...}
+  result = result.replace(/\^\{([^}]+)\}/g, (_, content) => {
+    let sup = '';
+    for (const c of content) sup += SUPERSCRIPT[c] || c;
+    return sup;
+  });
+
+  // 简单上标 ^x
+  result = result.replace(/\^([a-zA-Z0-9+\-])/g, (_, c) => SUPERSCRIPT[c] || `^${c}`);
+
+  // 下标 _{...}
+  result = result.replace(/_\{([^}]+)\}/g, (_, content) => {
+    let sub = '';
+    for (const c of content) sub += SUBSCRIPT[c] || c;
+    return sub;
+  });
+
+  // 简单下标 _x
+  result = result.replace(/_([a-zA-Z0-9+\-])/g, (_, c) => SUBSCRIPT[c] || `_${c}`);
+
+  // 分数
+  result = result.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/$2');
+
+  return result;
+}
 
 /**
  * 将 LaTeX 公式渲染为 SVG
@@ -35,8 +100,9 @@ export function renderLatexToSvg(latex: string, displayMode: boolean = false): s
     return html;
   } catch (error) {
     log.warn('KaTeX 渲染失败', { latex, error });
-    // 返回原始公式作为后备
-    return `<span style="font-family: serif;">${latex}</span>`;
+    // 返回 Unicode 格式作为后备
+    const unicode = simpleLatexToUnicode(latex);
+    return `<span style="font-family: serif;">${unicode}</span>`;
   }
 }
 
@@ -54,45 +120,30 @@ export function renderLatexToDataUrl(latex: string, displayMode: boolean = false
 
 /**
  * 处理文本中的所有 LaTeX 公式
- * 将 $...$ 格式的公式转换为 SVG 图片标签
+ * 将 $...$ 格式的公式转换为 Unicode 文本（兼容性最好）
  */
-export function convertFormulasToImages(text: string): string {
+export function convertFormulasToUnicode(text: string): string {
   if (!text) return '';
 
+  let result = text;
+
   // 替换 $...$ 格式的行内公式
-  let result = text.replace(/\$([^$]+)\$/g, (_, formula) => {
+  result = result.replace(/\$([^$]+)\$/g, (_, formula) => {
     try {
-      const dataUrl = renderLatexToDataUrl(formula.trim(), false);
-      return `<img src="${dataUrl}" style="display:inline;vertical-align:middle;height:1.2em;" />`;
+      return simpleLatexToUnicode(formula.trim());
     } catch (error) {
       log.warn('公式转换失败', { formula });
-      return `$${formula}$`;
+      return formula;
     }
   });
 
   // 替换 $$...$$ 格式的块级公式
   result = result.replace(/\$\$([^$]+)\$\$/g, (_, formula) => {
     try {
-      const dataUrl = renderLatexToDataUrl(formula.trim(), true);
-      return `<img src="${dataUrl}" style="display:block;width:100%;margin:10px 0;" />`;
+      return simpleLatexToUnicode(formula.trim());
     } catch (error) {
       log.warn('公式转换失败', { formula });
-      return `$$${formula}$$`;
-    }
-  });
-
-  // 处理双重转义的反斜杠 (TextIn 返回的格式)
-  result = result.replace(/\\\\([a-zA-Z]+)/g, (_, cmd) => {
-    return `$\\${cmd}$`;
-  });
-
-  // 再次处理可能产生的公式
-  result = result.replace(/\$\\([a-zA-Z]+)\$/g, (_, formula) => {
-    try {
-      const dataUrl = renderLatexToDataUrl(formula, false);
-      return `<img src="${dataUrl}" style="display:inline;vertical-align:middle;height:1.2em;" />`;
-    } catch {
-      return `$${formula}$`;
+      return formula;
     }
   });
 
@@ -100,15 +151,21 @@ export function convertFormulasToImages(text: string): string {
 }
 
 /**
- * 处理题目内容，转换公式并清理 HTML
+ * 处理题目内容，转换公式为 Unicode 并清理 HTML
  */
 export function processQuestionContent(content: string): string {
   if (!content) return '';
 
   let result = content;
 
-  // 转换 LaTeX 公式为图片
-  result = convertFormulasToImages(result);
+  // 首先处理双重转义的反斜杠 (TextIn 返回的格式)
+  result = result.replace(/\\\\([a-zA-Z]+)/g, (_, cmd) => {
+    const unicode = LATEX_TO_UNICODE['\\' + cmd];
+    return unicode !== undefined ? unicode : `\\${cmd}`;
+  });
+
+  // 转换 LaTeX 公式为 Unicode（兼容性最好）
+  result = convertFormulasToUnicode(result);
 
   // 清理多余的 HTML 注释
   result = result.replace(/<!--[\s\S]*?-->/g, '');
