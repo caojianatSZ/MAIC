@@ -97,6 +97,15 @@ export async function POST(request: NextRequest) {
     // ==================== Step 2: 解析Markdown提取题目 ====================
     log.info('Step 2: 解析题目', { requestId });
 
+    // 提取图片坐标信息
+    const imageCoordinates = extractImageCoordinates(ocrResult.markdown);
+
+    log.info('提取到的图片坐标', {
+      requestId,
+      imageCount: imageCoordinates.length,
+      images: JSON.stringify(imageCoordinates)
+    });
+
     // 优先使用layout_details，如果没有则使用Markdown
     const layoutDetails = ocrResult.raw?.layout_details;
     const questions = layoutDetails
@@ -105,10 +114,14 @@ export async function POST(request: NextRequest) {
           convertToLatex: true
         });
 
+    // 为每个题目关联附近的图片
+    const questionsWithImages = associateImagesWithQuestions(questions, imageCoordinates);
+
     log.info('题目解析完成', {
       requestId,
       questionCount: questions.length,
-      parseMethod: layoutDetails ? 'layout_details' : 'markdown'
+      parseMethod: layoutDetails ? 'layout_details' : 'markdown',
+      imagesAssociated: questionsWithImages.filter(q => q.images && q.images.length > 0).length
     });
 
     // ==================== Step 3: 返回结果 ====================
@@ -116,22 +129,24 @@ export async function POST(request: NextRequest) {
       status: 'success',
       mode: 'glm-ocr',
       markdown: ocrResult.markdown,
-      questions: questions,
+      questions: questionsWithImages,  // 使用包含图片坐标的题目
       originalImage: image,  // 包含原始图片base64
+      imageCoordinates: imageCoordinates,  // 包含所有图片坐标
       images: ocrResult.images || [],  // 包含图片URL
       raw: ocrResult.raw,  // 包含layout_details
       summary: {
-        total_questions: questions.length,
+        total_questions: questionsWithImages.length,
         markdown_length: ocrResult.markdown.length,
         ocr_confidence: ocrResult.confidence || 0.95,
-        images_count: ocrResult.images?.length || 0,
-        has_original_image: !!image
+        images_count: imageCoordinates.length,
+        has_original_image: !!image,
+        questions_with_images: questionsWithImages.filter(q => q.images && q.images.length > 0).length
       },
       metadata: {
         requestId,
         timestamp: new Date().toISOString(),
         method: 'glm-ocr',
-        version: '5.1.0'  // 更新版本号
+        version: '5.2.0'  // 更新版本号
       }
     };
 
@@ -156,6 +171,96 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * 提取Markdown中的图片坐标信息
+ */
+function extractImageCoordinates(markdown: string): Array<{
+  bbox: number[];
+  page: number;
+  label?: string;
+}> {
+  const images: Array<{ bbox: number[]; page: number; label?: string }> = [];
+
+  // 匹配Markdown图片引用：![](page=0,bbox=[x1,y1,x2,y2])
+  const imagePattern = /!\[\]\(page=(\d+),bbox=\[(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)\](?:\([^\)]*\))?/g;
+
+  let match;
+  while ((match = imagePattern.exec(markdown)) !== null) {
+    images.push({
+      page: parseInt(match[1]),
+      bbox: [
+        parseInt(match[2]),  // x1
+        parseInt(match[3]),  // y1
+        parseInt(match[4]),  // x2
+        parseInt(match[5])   // y2
+      ],
+      label: match[6] || undefined
+    });
+  }
+
+  return images;
+}
+  }
+
+  return images;
+}
+
+/**
+ * 将图片坐标与题目关联
+ */
+function associateImagesWithQuestions(
+  questions: Array<any>,
+  imageCoordinates: Array<{ bbox: number[]; page: number; label?: string }>
+): Array<any> {
+  if (!imageCoordinates || imageCoordinates.length === 0) {
+    return questions;
+  }
+
+  return questions.map((question, index) => {
+    // 找到与该题目相关的图片
+    const relatedImages: Array<{ bbox: number[]; label?: string }> = [];
+
+    // 策略：查找出现在题目内容中的图片引用
+    if (question.content) {
+      // 查找题目中的图片标签（如"图17-1"）
+      const imageLabelPattern = /图\s*(\d+[\-\.]?\d*)/g;
+      const labelsInQuestion: string[] = [];
+      let match;
+      while ((match = imageLabelPattern.exec(question.content)) !== null) {
+        labelsInQuestion.push(match[1]);
+      }
+
+      // 根据标签匹配图片坐标
+      if (labelsInQuestion.length > 0) {
+        imageCoordinates.forEach(img => {
+          if (img.label && labelsInQuestion.some(label => img.label.includes(label))) {
+            relatedImages.push({
+              bbox: img.bbox,
+              label: img.label
+            });
+          }
+        });
+      }
+
+      // 备选策略：如果题目在前半部分，使用前几个图片
+      if (relatedImages.length === 0 && index < imageCoordinates.length) {
+        relatedImages.push({
+          bbox: imageCoordinates[index].bbox,
+          label: imageCoordinates[index].label
+        });
+      }
+    }
+
+    return {
+      ...question,
+      images: relatedImages
+    };
+  });
+}
+
+/**
+ * 从GLM-OCR的layout_details解析题目（更准确）
+ */
 /**
  * 从GLM-OCR的layout_details解析题目（更准确）
  */
