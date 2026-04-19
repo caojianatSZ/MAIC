@@ -1258,11 +1258,9 @@ async function extractQuestionsWithStructureLayer(
 
   log.info('结构重建层：blocks 转换完成', { blockCount: blocks.length });
 
-  // 步骤 2：使用智能分割器（优先）或现有的 rebuildStructure（降级）
-  const questions: Question[] = rebuildStructureEnhanced(blocks, {
-    preferSmart: true,
-    fallbackFn: rebuildStructure
-  });
+  // 步骤 2：暂时使用稳定的 rebuildStructure（新的智能分割器有内存问题）
+  // TODO: 修复内存溢出后重新启用 rebuildStructureEnhanced
+  const questions: Question[] = rebuildStructure(blocks);
 
   log.info('结构重建层：题目重建完成', { questionCount: questions.length });
 
