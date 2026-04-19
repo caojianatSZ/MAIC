@@ -1020,10 +1020,12 @@ Page({
     const offsetX = Math.round((canvasSize - drawWidth) / 2)
     const offsetY = Math.round((canvasSize - drawHeight) / 2)
 
-    console.log('裁剪参数:', {
-      crop: `${cropWidth}x${cropHeight}`,
-      draw: `${drawWidth}x${drawHeight}`,
-      offset: `${offsetX},${offsetY}`,
+    console.log('裁剪参数详细:', {
+      原始bbox: `${x1},${y1} → ${x2},${y2}`,
+      裁剪尺寸: `${cropWidth}x${cropHeight}`,
+      目标尺寸: `${drawWidth}x${drawHeight}`,
+      缩放比例: drawWidth / cropWidth,
+      居中偏移: `(${offsetX}, ${offsetY})`,
       canvasSize
     })
 
@@ -1050,13 +1052,23 @@ Page({
 
       // 在canvas上绘制裁剪后的图片
       // drawImage参数: imageResource, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight
+      // 注意：sx, sy是源图片的起始坐标，sWidth, sHeight是要裁剪的尺寸
+      //       dx, dy是目标canvas的起始坐标，dWidth, dHeight是绘制尺寸
       ctx.drawImage(
-        tempImagePath,  // 图片路径
-        x1, y1,         // 源图片裁剪起点
-        cropWidth, cropHeight,  // 源图片裁剪尺寸
-        offsetX, offsetY,  // 目标canvas起点（居中）
-        drawWidth, drawHeight  // 目标canvas尺寸
+        tempImagePath,  // 图片路径（完整图片）
+        x1, y1,         // 从完整图片的这个坐标开始裁剪
+        cropWidth, cropHeight,  // 裁剪这个尺寸
+        offsetX, offsetY,  // 在canvas的这个位置开始绘制
+        drawWidth, drawHeight  // 绘制成这个尺寸（可能被缩放）
       )
+
+      console.log('drawImage参数:', {
+        源图片: tempImagePath,
+        源起点: `(${x1}, ${y1})`,
+        源尺寸: `${cropWidth}x${cropHeight}`,
+        目标起点: `(${offsetX}, ${offsetY})`,
+        目标尺寸: `${drawWidth}x${drawHeight}`
+      })
 
       console.log('drawImage调用完成，执行ctx.draw()...')
 
