@@ -77,17 +77,33 @@ function isQuestionStart(text: string, bbox?: BBox): boolean {
 
 /**
  * 提取题目编号
+ * 改进：智能识别多种题号格式
  */
 function extractQuestionId(text: string): string | null {
   const trimmed = text.trim();
 
-  // 先尝试数字编号
+  // 1. 先尝试数字编号：1. 1、 1． (1) 1(
   const numMatch = trimmed.match(QUESTION_REGEX);
   if (numMatch) return numMatch[1];
 
-  // 尝试年份编号（从年份中提取题号）
+  // 2. 尝试年份编号：(2011·江苏·4,3分)
   const yearMatch = trimmed.match(/\((\d{4}).*?[\.,，]\s*(\d+)\s*[分分]/);
-  if (yearMatch) return yearMatch[2]; // 返回题号
+  if (yearMatch) {
+    // 注意：这里的"4"是分数值，不是题号！
+    // 年份格式的题目通常没有独立题号，应该返回null让系统自动编号
+    return null;
+  }
+
+  // 3. 尝试提取最前面的数字（可能是题号）
+  const firstNumMatch = trimmed.match(/^(\d+)/);
+  if (firstNumMatch) {
+    // 检查这个数字后面是否紧跟括号（年份格式）
+    // 如果是"2(2012"这样的格式，说明2是题号
+    const afterNum = trimmed.substring(firstNumMatch[0].length);
+    if (afterNum.startsWith('(')) {
+      return firstNumMatch[1];
+    }
+  }
 
   return null;
 }
@@ -272,7 +288,7 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
     var Y_GAP_THRESHOLD = 80; // 默认阈值
   }
 
-  log.info('Y坐标跳跃阈值', { Y_GAP_THRESHOLD, gapCount: yGaps.length });
+  log.info('Y坐标跳跃阈值', { Y_GAP_THRESHOLD, gapCount: yGaps.length, sampleGaps: yGaps.slice(0, 10).map(g => Math.round(g)) });
 
   for (const block of sorted) {
     const text = block.text.trim();
@@ -282,13 +298,49 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
     // 计算与上一个块的Y间隙
     const yGap = lastBlockY > 0 ? blockY - lastBlockY : 0;
 
-    // 检测新题目开始（两种方式）
-    // 1. 有明确的题号格式
-    // 2. Y坐标有显著跳跃（可能是无题号的题目）
+    // 检测新题目开始（改进：优先使用题号特征）
+    // 1. 有明确的题号格式 -> 无论如何都开始新题目
+    // 2. Y坐标有显著跳跃 && 当前有题目 -> 可能是无题号的题目
     const hasQuestionNumber = isQuestionStart(text, block.bbox);
     const hasBigYGap = yGap > Y_GAP_THRESHOLD;
 
-    if (hasQuestionNumber || (hasBigYGap && current)) {
+    if (hasQuestionNumber) {
+      // 有明确题号，立即开始新题目（不管Y间隙大小）
+      // 检查是否与上一题太近（可能是选项被误识别）
+      const isTooClose = lastQuestionY > 0 && (blockY - lastQuestionY) < MIN_QUESTION_GAP;
+
+      if (!isTooClose) {
+        // 保存上一题
+        if (current) {
+          questions.push(current);
+        }
+
+        const qId = extractQuestionId(text);
+        questionNumber = qId ? parseInt(qId, 10) : questionNumber + 1;
+
+        current = {
+          question_id: String(questionNumber),
+          question_blocks: [block],
+          answer_blocks: [],
+          question_bbox: block.bbox
+        };
+
+        lastQuestionY = blockY;
+
+        log.debug('新题目（题号）', {
+          id: current.question_id,
+          text: text.substring(0, 30),
+          y: blockY,
+          extractedId: qId
+        });
+      } else {
+        // 太近了，可能是选项，添加到当前题目
+        if (current) {
+          current.question_blocks.push(block);
+          log.debug('跳过太近的题号', { text: text.substring(0, 30), y: blockY });
+        }
+      }
+    } else if (hasBigYGap && current) {
       // 检查是否与上一题太近（可能是选项被误识别）
       const isTooClose = lastQuestionY > 0 && (blockY - lastQuestionY) < MIN_QUESTION_GAP;
 
