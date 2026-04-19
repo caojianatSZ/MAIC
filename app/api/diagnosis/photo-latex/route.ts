@@ -103,7 +103,8 @@ export async function POST(request: NextRequest) {
     log.info('提取到的图片坐标', {
       requestId,
       imageCount: imageCoordinates.length,
-      images: JSON.stringify(imageCoordinates.slice(0, 3))  // 只显示前3个
+      images: JSON.stringify(imageCoordinates.slice(0, 3)),  // 只显示前3个
+      layoutDetailsSample: ocrResult.raw?.layout_details?.[0] ? JSON.stringify(ocrResult.raw.layout_details[0].slice(0, 3)) : 'no layout_details'
     });
 
     // 优先使用layout_details，如果没有则使用Markdown
