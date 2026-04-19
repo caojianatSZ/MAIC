@@ -39,7 +39,7 @@ import { edukgAdapter } from '@/lib/edukg/adapter';
 import { PrismaClient } from '@prisma/client';
 import { saveWrongQuestion } from '@/lib/wrong-questions/service';
 import { createTask, updateProgress, completeTask, failTask, getProgress } from '@/lib/diagnosis/progress';
-import { fromTextInStructured, rebuildStructure, type Question } from '@/lib/structure';
+import { fromTextInStructured, rebuildStructure, rebuildStructureEnhanced, type Question } from '@/lib/structure';
 
 const log = createLogger('PhotoV2');
 
@@ -1220,7 +1220,8 @@ function normalizeQuestionId(id: string): string {
 
 /**
  * 使用结构重建层从 TextIn 数据中提取题目
- * 优先方案：基于 bbox 和规则的结构重建
+ * 优先使用智能分割器（不依赖题号格式）
+ * 降级到现有的 rebuildStructure
  */
 async function extractQuestionsWithStructureLayer(
   structuredData: any,
@@ -1249,8 +1250,11 @@ async function extractQuestionsWithStructureLayer(
 
   log.info('结构重建层：blocks 转换完成', { blockCount: blocks.length });
 
-  // 步骤 2：重建题目结构
-  const questions: Question[] = rebuildStructure(blocks);
+  // 步骤 2：使用智能分割器（优先）或现有的 rebuildStructure（降级）
+  const questions: Question[] = rebuildStructureEnhanced(blocks, {
+    preferSmart: true,
+    fallbackFn: rebuildStructure
+  });
 
   log.info('结构重建层：题目重建完成', { questionCount: questions.length });
 
@@ -1260,10 +1264,10 @@ async function extractQuestionsWithStructureLayer(
 
   // 步骤 3：转换为 API 格式
   const apiQuestions = questions.map(q => ({
-    id: normalizeQuestionId(q.question_id),  // 标准化题目ID
+    id: normalizeQuestionId(q.question_id),  // 智能分割器已重新编号，无需再次标准化
     content: q.question || '',
-    type: detectQuestionType(q.question || '') as 'choice' | 'fill_blank' | 'essay',
-    options: extractOptionsFromQuestion(q.question || '')
+    type: ((q as any).type as 'choice' | 'fill_blank' | 'essay') || detectQuestionType(q.question || ''),
+    options: (q as any).options || extractOptionsFromQuestion(q.question || '')
   }));
 
   log.info('结构重建层：格式转换完成', { outputCount: apiQuestions.length });
