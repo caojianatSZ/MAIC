@@ -367,7 +367,7 @@
               class="question-image-canvas"
               canvas-id="question-canvas-{{item.id}}-{{index}}"
               id="question-canvas-{{item.id}}-{{index}}"
-              style="width: 300px; height: 200px;"
+              style="width: 300px; height: 300px;"
             ></canvas>
             <text class="image-label">{{img.label || '图表'}}</text>
           </view>

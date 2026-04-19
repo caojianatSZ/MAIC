@@ -957,49 +957,93 @@ Page({
 
   /**
    * 根据bbox裁剪图片
+   * @param {string} base64Data - 原始图片的base64数据
+   * @param {Array<number>} bbox - 边界框坐标 [x1, y1, x2, y2]
+   * @param {string} canvasId - Canvas组件的ID
+   * @param {string} label - 图片标签（用于日志）
    */
   cropImageByBbox(base64Data, bbox, canvasId, label) {
-    const canvas = wx.createCanvasContext(canvasId)
+    console.log('开始裁剪图片:', { canvasId, bbox, label })
+
     const [x1, y1, x2, y2] = bbox
-    const width = x2 - x1
-    const height = y2 - y1
+    const cropWidth = x2 - x1
+    const cropHeight = y2 - y1
 
-    // 设置canvas尺寸
-    canvas.width = width
-    canvas.height = height
+    // Canvas固定尺寸（与WXML中的定义一致）
+    const canvasSize = 300
 
-    // 创建图片对象
-    const img = canvas.createImage()
+    // 计算保持宽高比后的目标尺寸
+    let drawWidth = cropWidth
+    let drawHeight = cropHeight
+    const maxSize = canvasSize - 20  // 留10px边距
 
-    // 需要将base64转换为临时文件路径
-    const fs = wx.getFileSystemManager()
-    const tempFilePath = `${wx.env.USER_DATA_PATH}/${canvasId}.jpg`
+    // 如果图片太大，按比例缩小
+    if (drawWidth > maxSize || drawHeight > maxSize) {
+      const scale = Math.min(maxSize / drawWidth, maxSize / drawHeight)
+      drawWidth = Math.round(drawWidth * scale)
+      drawHeight = Math.round(drawHeight * scale)
+    }
 
-    fs.writeFile({
-      filePath: tempFilePath,
-      data: base64Data,
-      encoding: 'base64',
-      success: () => {
-        img.src = tempFilePath
+    // 计算居中位置
+    const offsetX = Math.round((canvasSize - drawWidth) / 2)
+    const offsetY = Math.round((canvasSize - drawHeight) / 2)
 
-        img.onload = () => {
-          // 裁剪图片
-          canvas.drawImage(img, x1, y1, width, height, 0, 0, width, height)
-
-          // 绘制完成
-          canvas.draw(false, () => {
-            console.log(`图片裁剪完成: ${canvasId}`)
-          })
-        }
-
-        img.onerror = (err) => {
-          console.error('图片加载失败:', err)
-        }
-      },
-      fail: (err) => {
-        console.error('写入临时文件失败:', err)
-      }
+    console.log('裁剪参数:', {
+      crop: `${cropWidth}x${cropHeight}`,
+      draw: `${drawWidth}x${drawHeight}`,
+      offset: `${offsetX},${offsetY}`
     })
+
+    // 创建canvas上下文（使用新版API）
+    const ctx = wx.createCanvasContext(canvasId, this)
+
+    // 将base64数据写入临时文件
+    const fs = wx.getFileSystemManager()
+    const timestamp = Date.now()
+    const tempImagePath = `${wx.env.USER_DATA_PATH}/temp_image_${timestamp}.jpg`
+
+    try {
+      // 移除base64前缀（如果有）
+      const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '')
+
+      fs.writeFileSync(tempImagePath, base64Clean, 'base64')
+
+      console.log('临时图片已创建:', tempImagePath)
+
+      // 清空canvas（填充白色背景）
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(0, 0, canvasSize, canvasSize)
+
+      // 在canvas上绘制裁剪后的图片
+      // drawImage参数: imageResource, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight
+      ctx.drawImage(
+        tempImagePath,  // 图片路径
+        x1, y1,         // 源图片裁剪起点
+        cropWidth, cropHeight,  // 源图片裁剪尺寸
+        offsetX, offsetY,  // 目标canvas起点（居中）
+        drawWidth, drawHeight  // 目标canvas尺寸
+      )
+
+      // 执行绘制
+      ctx.draw(false, () => {
+        console.log(`图片裁剪完成: ${canvasId}, 显示尺寸: ${drawWidth}x${drawHeight}`)
+
+        // 清理临时文件
+        setTimeout(() => {
+          try {
+            fs.unlinkSync(tempImagePath)
+          } catch (e) {
+            console.warn('清理临时文件失败:', e)
+          }
+        }, 5000)
+      })
+    } catch (err) {
+      console.error('图片裁剪失败:', err)
+      wx.showToast({
+        title: '图片裁剪失败',
+        icon: 'none'
+      })
+    }
   },
 
   /**
