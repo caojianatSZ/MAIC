@@ -1525,8 +1525,9 @@ function extractQuestionsFromMarkdown(markdown: string): Array<{
   let questionNum = 0;
   let inQuestion = false;
 
-  // 题目开始模式：数字开头（1. 2. 等）或年份开头（(2011·江苏·4,3分））
-  const questionStartPattern = /^(\d+)[.．、\)]\s*|^\((\d{4})/;
+  // 题目开始模式：数字开头（1. 2. 2( 等）或年份开头（(2011·江苏·4,3分））
+  // 支持格式：1. 2、 3． 4) 5( 6（ 物理试卷常见
+  const questionStartPattern = /^(\d+)[\s.．、)\(\uFF08]|^\((\d{4})/;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
