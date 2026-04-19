@@ -39,54 +39,6 @@ export {
   verifyQuestions
 } from './validator';
 
-// 智能分割器 - 新增
-export type {
-  SmartSplitOptions,
-  SmartSplitResult
-} from './smart-splitter';
-
-export type { QuestionType } from './content-analyzer';
-
-export type {
-  SpatialCluster,
-  LayoutInfo
-} from './spatial-cluster';
-
-export type {
-  ContentFeatures
-} from './content-analyzer';
-
-export type {
-  OptionGroup,
-  QuestionWithOptions
-} from './option-detector';
-
-export {
-  smartSplit,
-  smartSplitCompat,
-  rebuildStructureEnhanced
-} from './smart-splitter';
-
-export {
-  clusterBlocksByY,
-  detectColumnLayout
-} from './spatial-cluster';
-
-export {
-  analyzeContentFeatures,
-  detectQuestionType,
-  hasQuestionPattern
-} from './content-analyzer';
-
-export {
-  detectOptions,
-  groupOptionsByQuestion,
-  validateOptionGroup,
-  isChoiceQuestion,
-  extractOptionContent,
-  formatOptions
-} from './option-detector';
-
 // 便捷函数
 import { rebuildStructure, fromTextInStructured } from './builder';
 import { matchAnswers } from './matcher';
