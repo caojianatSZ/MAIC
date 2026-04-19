@@ -260,7 +260,17 @@ function associateImagesWithQuestions(
 
   console.log('[associateImages] 开始智能关联', {
     questionCount: questions.length,
-    imageCount: imageCoordinates.length
+    imageCount: imageCoordinates.length,
+    questionsY坐标: questions.map(q => ({
+      id: q.id,
+      y坐标: q.bbox_2d ? `${q.bbox_2d[1]}-${q.bbox_2d[3]}` : 'N/A',
+      选项数: q.options ? q.options.length : 0
+    })),
+    imagesY坐标: imageCoordinates.map((img, idx) => ({
+      index: idx,
+      y坐标: `${img.bbox[1]}-${img.bbox[3]}`,
+      label: img.label
+    }))
   });
 
   // 为每个题目处理图片关联
