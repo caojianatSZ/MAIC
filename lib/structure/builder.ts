@@ -101,6 +101,22 @@ function extractQuestionId(text: string): string | null {
 }
 
 /**
+ * 检测是否是选项（A. B. C. D. 格式）
+ */
+function isOptionBlock(text: string): boolean {
+  const trimmed = text.trim();
+  return /^[A-D][\.\s\、\．]/.test(trimmed);
+}
+
+/**
+ * 检测是否是图像标记（如图17-1）
+ */
+function isImageMarker(text: string): boolean {
+  const trimmed = text.trim();
+  return /^图[0-9\-]+/.test(trimmed) || /^田[0-9\-]+/.test(trimmed);
+}
+
+/**
  * 计算 bbox 中心点
  */
 function center(bbox: BBox): [number, number] {
@@ -451,6 +467,70 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
       }
     } else if (current) {
       // 添加到当前题目
+      // 智能判断：限制题目内容范围
+
+      // 如果是图像标记，检查后面是否紧跟大量文本（可能是新题目）
+      if (isImageMarker(text)) {
+        const nextIndex = sorted.indexOf(block) + 1;
+        if (nextIndex < sorted.length) {
+          const nextBlock = sorted[nextIndex];
+          const nextY = nextBlock.bbox[1];
+          const yDistance = nextY - block.bbox[1];
+
+          // 如果下一个block在很近的Y坐标（<20像素），可能是当前题目的延续
+          if (yDistance >= 20) {
+            // 可能是题目结束
+            log.debug('结束题目（图像标记后）', {
+              id: current.question_id,
+              text: text.substring(0, 30),
+              y: blockY
+            });
+            questions.push(current);
+            questionNumber = questionNumber + 1;
+            current = {
+              question_id: String(questionNumber),
+              question_blocks: [block],
+              answer_blocks: [],
+              question_bbox: block.bbox
+            };
+            lastQuestionY = blockY;
+            // 更新上一个块的Y坐标
+            lastBlockY = blockBottom;
+            continue;
+          }
+        }
+      }
+
+      // 如果是选项，限制选项数量（最多8个选项块）
+      if (isOptionBlock(text)) {
+        const optionCount = current.question_blocks.filter(b =>
+          /^[A-D][\.\s\、\．]/.test(b.text.trim())
+        ).length;
+
+        if (optionCount >= 8) {
+          // 已经有太多选项了，可能是下一个题目
+          log.debug('结束题目（选项过多）', {
+            id: current.question_id,
+            optionCount,
+            text: text.substring(0, 30),
+            y: blockY
+          });
+          questions.push(current);
+          questionNumber = questionNumber + 1;
+          current = {
+            question_id: String(questionNumber),
+            question_blocks: [block],
+            answer_blocks: [],
+            question_bbox: block.bbox
+          };
+          lastQuestionY = blockY;
+          // 更新上一个块的Y坐标
+          lastBlockY = blockBottom;
+          continue;
+        }
+      }
+
+      // 正常添加到当前题目
       if (block.type === 'handwriting') {
         current.answer_blocks.push(block);
       } else {
