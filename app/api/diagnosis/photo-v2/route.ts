@@ -310,9 +310,9 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       };
     }
 
-    // ==================== Step 4: 提取题目结构（直接从 TextIn markdown 分割） ====================
+    // ==================== Step 4: 提取题目结构（优先使用空间布局分割） ====================
     updateProgress(taskId, 4, '正在分析题目结构...');
-    log.info('Step 4: 题目结构提取（从 TextIn markdown 分割）...');
+    log.info('Step 4: 题目结构提取（优先使用空间布局分割）...');
 
     let extractedQuestions: Array<{
       id: string;
@@ -322,29 +322,37 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     }>;
     let fullMarkdown = '';  // 保存完整的 markdown
 
+    // 优化后的题目提取策略：优先使用空间布局信息，不依赖题号格式
     try {
-      // 方案1：直接从 TextIn markdown 中按题目编号分割
-      // 这样可以保留原始格式（Unicode 下标、空格、换行等）
-      extractedQuestions = extractQuestionsFromMarkdown(ocrText);
-      fullMarkdown = ocrText;  // 保存原始 markdown
-
-      log.info('从 markdown 分割题目成功', { count: extractedQuestions.length });
-    } catch (markdownError) {
-      log.warn('从 markdown 分割失败，尝试结构重建层', markdownError);
-
-      try {
-        // 方案2：使用结构重建层
+      // 方案1（优先）：使用结构重建层（基于空间布局，不依赖题号格式）
+      // 适用于题号不清晰、格式不规范的试卷
+      if (ocrStructuredData && ocrStructuredData.length > 0) {
+        log.info('使用结构重建层（空间布局分割）');
         extractedQuestions = await extractQuestionsWithStructureLayer(
           ocrStructuredData,
           ocrText,
           subject,
           grade
         );
+        fullMarkdown = ocrText;  // 保存原始 markdown
         log.info('结构重建层提取成功', { count: extractedQuestions.length });
-      } catch (structureError) {
-        log.warn('结构重建层失败，降级到视觉模型', structureError);
+      } else {
+        throw new Error('TextIn 结构化数据为空');
+      }
+    } catch (structureError) {
+      log.warn('结构重建层失败，降级到 markdown 分割', structureError);
 
-        // 方案3：降级到视觉模型
+      try {
+        // 方案2（降级）：从 TextIn markdown 中按题目编号分割
+        // 适用于题号格式规范的试卷
+        extractedQuestions = extractQuestionsFromMarkdown(ocrText);
+        fullMarkdown = ocrText;  // 保存原始 markdown
+
+        log.info('Markdown 分割题目成功', { count: extractedQuestions.length });
+      } catch (markdownError) {
+        log.warn('Markdown 分割失败，降级到视觉模型', markdownError);
+
+        // 方案3（兜底）：降级到视觉模型
         extractedQuestions = await extractQuestionsWithVision(preprocessedImage, subject, grade);
         log.info('视觉模型提取完成', { count: extractedQuestions.length });
       }
