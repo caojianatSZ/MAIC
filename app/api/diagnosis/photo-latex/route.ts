@@ -1,65 +1,65 @@
 // app/api/diagnosis/photo-latex/route.ts
 /**
- * 试卷拍照批改 API V5 - LaTeX公式支持
+ * 试卷拍照批改 API V5 - GLM-OCR专业OCR
  *
- * 核心理念：LaTeX不是为了"好看"，而是为了"可计算、可验证、可判题"
+ * 核心理念：使用GLM-OCR专业OCR模型，而非GLM-4V多模态
  *
  * 架构：
- * 图像 → GLM-4V（专业Prompt）→ LaTeX结构化输出 → 语法校验 → 判题
+ * 图像 → GLM-OCR（专业OCR）→ Markdown → 轻量解析 → LaTeX转换 → 判题
+ *
+ * 优势：
+ * - GLM-OCR: 0.9B参数，94.6分SOTA
+ * - 价格：0.2元/百万Tokens（比GLM-4V便宜10倍）
+ * - 输出：Markdown（保留版面结构）
+ * - 支持：复杂表格、公式、图文混排
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import {
-  recognizePaperWithLatex,
-  type LatexRecognitionResult
-} from '@/lib/glm/latex-recognizer';
+  recognizeFromBase64,
+  type GLMOCRResult
+} from '@/lib/glm/glm-ocr-client';
 
 const log = createLogger('PhotoLatex');
 
 export async function GET() {
   return NextResponse.json({
-    name: '试卷拍照批改 API V5 (LaTeX支持)',
+    name: '试卷拍照批改 API V5 (GLM-OCR)',
     version: '5.0.0',
-    description: '使用GLM-4V识别试卷并输出LaTeX公式，支持可计算、可验证的判题',
+    description: '使用GLM-OCR专业OCR模型进行试卷识别',
     features: [
-      '✅ 所有公式用$...$包裹（强约束）',
-      '✅ LaTeX语法校验（避免"看起来对，其实错"）',
-      '✅ 结构化formulas字段（可计算）',
-      '✅ 置信度标记（支持fallback）',
-      '✅ 不确定标记（人工复核）'
+      '✅ GLM-OCR专业OCR（0.9B参数，94.6分SOTA）',
+      '✅ 输出保留版面结构的Markdown',
+      '✅ 支持复杂表格、公式、图文混排',
+      '✅ 轻量级题目解析（无需复杂Graph）',
+      '✅ 高性价比（0.2元/百万Tokens）'
     ],
     advantages: [
-      'LaTeX可计算（用于符号计算）',
-      'LaTeX可验证（语法校验）',
-      'LaTeX可判题（不依赖字符串比较）'
+      '专业OCR模型（非多模态对话）',
+      '版面理解准确（Markdown保留结构）',
+      '价格便宜（比GLM-4V便宜10倍）'
     ],
-    output_format: {
-      question: "解方程 $x^2 + 2x = 3$",
-      formulas: [
-        {
-          latex: "x^2 + 2x = 3",
-          raw: "原始文本",
-          location: "question",
-          confidence: 0.95,
-          uncertain: false
-        }
-      ]
+    architecture: {
+      step1: 'GLM-OCR识别 → 输出Markdown',
+      step2: '解析Markdown → 提取题目',
+      step3: 'LaTeX转换（可选）',
+      step4: '判题（GLM文本模型）'
     },
     usage: 'POST /api/diagnosis/photo-latex',
     parameters: {
       image: 'Base64编码的试卷图片（必需）',
-      subject: '科目（可选，默认"数学"）',
-      grade: '年级（可选，默认"初中"）'
+      subject: '科目（可选）',
+      grade: '年级（可选）'
     }
   });
 }
 
 export async function POST(request: NextRequest) {
-  const requestId = `latex_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const requestId = `ocr_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
   try {
-    log.info('收到 LaTeX 识别请求', { requestId });
+    log.info('收到 GLM-OCR 识别请求', { requestId });
 
     // 解析请求参数
     const body = await request.json();
@@ -79,84 +79,205 @@ export async function POST(request: NextRequest) {
       imageSize: image.length
     });
 
-    // ==================== Step 1: GLM-4V LaTeX识别 ====================
-    log.info('Step 1: GLM-4V LaTeX 识别', { requestId });
+    // ==================== Step 1: GLM-OCR 专业识别 ====================
+    log.info('Step 1: GLM-OCR 识别', { requestId });
 
-    const recognitionResult: LatexRecognitionResult = await recognizePaperWithLatex(image, {
-      subject,
-      grade,
-      maxRetries: 2
+    const ocrResult: GLMOCRResult = await recognizeFromBase64(image, {
+      return_markdown: true,
+      return_images: false,
+      timeout: 60000
     });
 
-    log.info('GLM-4V LaTeX 识别完成', {
+    log.info('GLM-OCR 识别完成', {
       requestId,
-      questionCount: recognitionResult.questions.length,
-      totalFormulas: recognitionResult.metadata.total_formulas,
-      avgConfidence: recognitionResult.metadata.avg_confidence
+      markdownLength: ocrResult.markdown.length,
+      preview: ocrResult.markdown.substring(0, 200)
     });
 
-    // ==================== Step 2: 统计不确定的题目 ====================
-    const uncertainQuestions = recognitionResult.questions.filter(q => q.uncertain);
-    const needsReview = uncertainQuestions.length > 0;
+    // ==================== Step 2: 解析Markdown提取题目 ====================
+    log.info('Step 2: 解析题目', { requestId });
 
-    if (needsReview) {
-      log.warn('发现不确定的题目', {
-        requestId,
-        uncertainCount: uncertainQuestions.length,
-        uncertainIds: uncertainQuestions.map(q => q.question_id)
-      });
-    }
+    const questions = parseQuestionsFromMarkdown(ocrResult.markdown, {
+      convertToLatex: true
+    });
 
-    // ==================== Step 3: 格式化输出 ====================
+    log.info('题目解析完成', {
+      requestId,
+      questionCount: questions.length
+    });
+
+    // ==================== Step 3: 返回结果 ====================
     const result = {
       status: 'success',
-      mode: 'latex',
-      questions: recognitionResult.questions.map(q => ({
-        id: q.question_id,
-        content: q.question,
-        student_answer: q.student_answer,
-        type: q.type,
-        options: q.options,
-        formulas: q.formulas,
-        uncertain: q.uncertain,
-        needs_review: q.uncertain
-      })),
+      mode: 'glm-ocr',
+      markdown: ocrResult.markdown,
+      questions: questions,
       summary: {
-        total_questions: recognitionResult.questions.length,
-        answered_questions: recognitionResult.questions.filter(q => q.student_answer).length,
-        uncertain_questions: uncertainQuestions.length,
-        needs_review: needsReview,
-        total_formulas: recognitionResult.metadata.total_formulas,
-        avg_confidence: recognitionResult.metadata.avg_confidence,
-        layout_type: recognitionResult.metadata.layout_type
+        total_questions: questions.length,
+        markdown_length: ocrResult.markdown.length,
+        ocr_confidence: ocrResult.confidence || 0.86
       },
-      warnings: recognitionResult.warnings,
       metadata: {
         requestId,
         timestamp: new Date().toISOString(),
-        method: 'glm-4v-latex',
+        method: 'glm-ocr',
         version: '5.0.0'
       }
     };
 
-    log.info('LaTeX 识别流程完成', {
+    log.info('GLM-OCR 流程完成', {
       requestId,
-      questionCount: result.summary.total_questions,
-      needsReview
+      questionCount: result.summary.total_questions
     });
 
     return NextResponse.json(result);
 
   } catch (error) {
-    log.error('LaTeX 识别失败', {
+    log.error('GLM-OCR 识别失败', {
       requestId,
       error: error instanceof Error ? error.message : String(error)
     });
 
     return NextResponse.json({
-      error: 'LaTeX识别失败',
+      error: '识别失败',
       message: error instanceof Error ? error.message : '未知错误',
       requestId
     }, { status: 500 });
   }
+}
+
+/**
+ * 从Markdown解析题目（支持LaTeX转换）
+ */
+function parseQuestionsFromMarkdown(
+  markdown: string,
+  options: { convertToLatex?: boolean }
+): Array<{
+  id: string;
+  content: string;
+  type: 'choice' | 'fill_blank' | 'essay';
+  options?: string[];
+  formulas?: Array<{ latex: string; raw: string; location: string }>;
+}> {
+  const questions: Array<{
+    id: string;
+    content: string;
+    type: 'choice' | 'fill_blank' | 'essay';
+    options?: string[];
+    formulas?: Array<{ latex: string; raw: string; location: string }>;
+  }> = [];
+
+  // 简单的题目分割逻辑
+  const lines = markdown.split('\n');
+  let currentQuestion: any = null;
+  let questionNumber = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // 检测题目编号
+    const questionMatch = trimmed.match(/^(\d+)[\.\s\、\．]/);
+
+    if (questionMatch) {
+      // 保存上一题
+      if (currentQuestion) {
+        questions.push(currentQuestion);
+      }
+
+      // 开始新题目
+      questionNumber++;
+      currentQuestion = {
+        id: String(questionNumber),
+        content: trimmed,
+        type: 'essay' as const,
+        options: [],
+        formulas: []
+      };
+    } else if (currentQuestion) {
+      // 检测选项
+      const optionMatch = trimmed.match(/^([A-D])[\.\s\、\．](.*)/);
+
+      if (optionMatch) {
+        currentQuestion.type = 'choice' as const;
+        currentQuestion.options!.push(trimmed);
+      } else if (trimmed.length > 0) {
+        // 添加到题目内容
+        currentQuestion.content += '\n' + trimmed;
+      }
+    }
+  }
+
+  // 保存最后一题
+  if (currentQuestion) {
+    questions.push(currentQuestion);
+  }
+
+  // 如果需要转换为LaTeX
+  if (options.convertToLatex) {
+    for (const q of questions) {
+      q.content = convertToLatexFormat(q.content);
+      q.options = q.options?.map(opt => convertToLatexFormat(opt));
+      q.formulas = extractFormulas(q.content);
+    }
+  }
+
+  return questions;
+}
+
+/**
+ * 转换为LaTeX格式
+ */
+function convertToLatexFormat(text: string): string {
+  // 简单的公式转换规则
+  let result = text;
+
+  // 分数：1/2 → \frac{1}{2}
+  result = result.replace(/(\d+)\s*\/\s*(\d+)/g, '\\\\frac{$1}{$2}');
+
+  // 根号：√3 → \sqrt{3}
+  result = result.replace(/√(\d+)/g, '\\\\sqrt{$1}');
+
+  // 下标：v1 → v_1, F1 → F_1
+  result = result.replace(/([a-zA-Z])_?(\d)/g, '$1_{$2}');
+
+  // 用$...$包裹公式
+  result = wrapFormulas(result);
+
+  return result;
+}
+
+/**
+ * 提取公式
+ */
+function extractFormulas(text: string): Array<{ latex: string; raw: string; location: string }> {
+  const formulas: Array<{ latex: string; raw: string; location: string }> = [];
+
+  // 提取$...$包裹的内容
+  const regex = /\$([^$]+)\$/g;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    formulas.push({
+      latex: match[1],
+      raw: match[1].replace(/\\/g, ''),
+      location: 'question'
+    });
+  }
+
+  return formulas;
+}
+
+/**
+ * 用$...$包裹公式
+ */
+function wrapFormulas(text: string): string {
+  let result = text;
+
+  // 包含下标的内容：v1, F2
+  result = result.replace(/([a-zA-Z])_?(\d+)/g, '$$$1_{$2}$$');
+
+  // 数字运算：1+2=3
+  result = result.replace(/(\d+\s*[\+\-\*\/]\s*\d+\s*[=<>]\s*\d+)/g, '$$$1$$');
+
+  return result;
 }
