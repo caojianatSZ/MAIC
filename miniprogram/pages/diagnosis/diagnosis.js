@@ -612,7 +612,7 @@ Page({
    */
   submitPhotoV2(filePath) {
     const baseUrl = getBaseUrl()
-    const url = `${baseUrl}/api/diagnosis/photo-latex`
+    const url = `${baseUrl}/api/diagnosis/photo-v2`
 
     console.log('拍照诊断V2上传URL:', url)
     console.log('文件路径:', filePath)
@@ -668,7 +668,7 @@ Page({
    */
   pollTaskStatus(taskId, resolve, reject) {
     const baseUrl = getBaseUrl()
-    const statusUrl = `${baseUrl}/api/diagnosis/photo-latex?taskId=${taskId}`
+    const statusUrl = `${baseUrl}/api/diagnosis/photo-v2?taskId=${taskId}`
     const maxAttempts = 300 // 最多轮询 5 分钟（每秒一次）
     let attempts = 0
 
