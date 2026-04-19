@@ -200,10 +200,6 @@ function extractImageCoordinates(markdown: string): Array<{
 
   return images;
 }
-  }
-
-  return images;
-}
 
 /**
  * 将图片坐标与题目关联
