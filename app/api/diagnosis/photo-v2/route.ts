@@ -29,6 +29,8 @@ import type {
   OcrValidation
 } from './schema';
 import { getTextinClient } from '@/lib/textin/client';
+import { convertFormulasInText } from '@/lib/textin/latex-converter';
+import { processQuestions } from '@/lib/textin/katex-renderer';
 import { judgeHandwrittenAnswers } from '@/lib/glm/judge';
 import type { QuestionForJudgment } from '@/lib/glm/types';
 import { detectMode, type CorrectionMode } from '@/lib/diagnosis/mode-detector';
@@ -331,6 +333,11 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     if (extractedQuestions.length === 0) {
       throw new Error('未能识别到任何题目，请确保图片清晰');
     }
+
+    // 处理 LaTeX 公式：转换为 SVG 图片
+    log.info('开始处理 LaTeX 公式...');
+    extractedQuestions = processQuestions(extractedQuestions);
+    log.info('LaTeX 公式处理完成');
 
     // ==================== Step 5: 分层批改 ====================
     updateProgress(taskId, 5, '正在批改题目...');
