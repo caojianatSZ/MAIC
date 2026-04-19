@@ -229,10 +229,11 @@ function associateImagesWithQuestions(
       // 根据标签匹配图片坐标
       if (labelsInQuestion.length > 0) {
         imageCoordinates.forEach(img => {
-          if (img.label && labelsInQuestion.some(label => img.label.includes(label))) {
+          const label = img.label;
+          if (label && labelsInQuestion.some(l => label.includes(l))) {
             relatedImages.push({
               bbox: img.bbox,
-              label: img.label
+              label: label
             });
           }
         });
