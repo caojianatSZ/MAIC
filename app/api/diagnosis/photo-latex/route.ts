@@ -244,7 +244,7 @@ function extractImageCoordinates(markdown: string): Array<{
 
 /**
  * 将图片坐标与题目关联
- * 策略：根据Y坐标位置，将每个图片关联到最近的题目
+ * 策略：按顺序为每个题目分配一张图片
  */
 function associateImagesWithQuestions(
   questions: Array<any>,
@@ -260,66 +260,26 @@ function associateImagesWithQuestions(
     imageCount: imageCoordinates.length
   });
 
-  // 计算每个题目的Y坐标范围（从layout_details中的第一个block获取）
-  const questionsYRange = questions.map(q => {
-    if (q.bbox_2d && Array.isArray(q.bbox_2d) && q.bbox_2d.length >= 4) {
-      const [x1, y1, x2, y2] = q.bbox_2d;
-      const centerY = (y1 + y2) / 2;
-      return { id: q.id, y1, y2, centerY };
-    }
-    return null;
-  }).filter(q => q !== null);
+  let imageIndex = 0;
 
-  console.log('[associateImages] 题目Y坐标范围:', questionsYRange);
-
-  // 为每个图片找到最近的题目
-  const assignedImages = new Set<number>();
-
-  return questions.map(question => {
+  return questions.map((question, index) => {
     const relatedImages: Array<{ bbox: number[]; label?: string }> = [];
 
-    // 获取当前题目的Y坐标
-    const currentYRange = questionsYRange.find(q => q.id === question.id);
-    if (!currentYRange) {
-      return { ...question, images: relatedImages };
-    }
+    // 为每个题目按顺序分配一张图片
+    if (imageIndex < imageCoordinates.length) {
+      const img = imageCoordinates[imageIndex];
 
-    // 找到Y坐标最接近的未分配图片
-    let closestImageIndex = -1;
-    let closestDistance = Infinity;
-
-    imageCoordinates.forEach((img, imgIndex) => {
-      if (assignedImages.has(imgIndex)) {
-        return; // 已分配，跳过
-      }
-
-      const [x1, y1, x2, y2] = img.bbox;
-      const imgCenterY = (y1 + y2) / 2;
-      const distance = Math.abs(imgCenterY - currentYRange.centerY);
-
-      console.log(`[associateImages] 图片${imgIndex}与题目${question.id}的距离:`, distance);
-
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestImageIndex = imgIndex;
-      }
-    });
-
-    // 如果找到接近的图片（距离在300像素以内）
-    if (closestImageIndex !== -1 && closestDistance < 300) {
-      const img = imageCoordinates[closestImageIndex];
-      assignedImages.add(closestImageIndex);
-
-      console.log(`[associateImages] 题目${question.id}分配图片${closestImageIndex}`, {
-        distance: closestDistance,
+      console.log(`[associateImages] 题目${question.id}（索引${index}）分配图片${imageIndex}`, {
         imageBbox: img.bbox,
         imageLabel: img.label
       });
 
       relatedImages.push({
         bbox: img.bbox,
-        label: img.label || `图片${closestImageIndex + 1}`
+        label: img.label || `图片${imageIndex + 1}`
       });
+
+      imageIndex++;
     }
 
     return {
