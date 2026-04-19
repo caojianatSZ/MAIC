@@ -35,21 +35,36 @@ export interface Question {
 // 题目编号正则：支持多种格式
 // 1. 数字开头：1. 1、 1． (1) 1(  (物理试卷常见：2(2012·江苏...))
 // 2. 年份开头：(2011·江苏·4, 3分) 物理试卷常见
-const QUESTION_REGEX = /^(\d+)[\s\.\、\．\)\]\(]/;
+// 3. 括号编号：（1）（2）【1】[1]
+const QUESTION_REGEX = /^(\d+)[\s\.\、\．\)\]\(\[]/;
 const YEAR_QUESTION_REGEX = /^\((\d{4}).*?[\.,，]\s*\d+\s*[分分]/;
+const PAREN_QUESTION_REGEX = /^[【\(]([1-9\d])[】\)]/;
 
 /**
  * 判断是否是题目开始
- * 简化版本：只检查文本格式，不检查空间特征（避免误过滤）
+ * 增强版本：检查多种题目编号格式
  */
 function isQuestionStart(text: string, bbox?: BBox): boolean {
   const trimmed = text.trim();
-  return QUESTION_REGEX.test(trimmed) || YEAR_QUESTION_REGEX.test(trimmed);
+
+  // 1. 数字编号格式
+  if (QUESTION_REGEX.test(trimmed)) return true;
+
+  // 2. 年份格式
+  if (YEAR_QUESTION_REGEX.test(trimmed)) return true;
+
+  // 3. 括号编号格式：（1）（2）【1】[1]
+  if (PAREN_QUESTION_REGEX.test(trimmed)) return true;
+
+  // 4. 罗马数字：I. II. III. IV. V.（物理、数学常见）
+  if (/^[IVX]+[\.\s\、\．]/.test(trimmed)) return true;
+
+  return false;
 }
 
 /**
  * 提取题目编号
- * 简化版本：只支持基本格式
+ * 增强版本：支持多种格式
  */
 function extractQuestionId(text: string): string | null {
   const trimmed = text.trim();
@@ -58,8 +73,23 @@ function extractQuestionId(text: string): string | null {
   const numMatch = trimmed.match(QUESTION_REGEX);
   if (numMatch) return numMatch[1];
 
-  // 2. 年份编号：不提取分值，返回null让系统自动编号
-  // （2011·江苏·4,3分）格式的题目没有独立题号
+  // 2. 括号编号：（1）（2）【1】[1]
+  const parenMatch = trimmed.match(PAREN_QUESTION_REGEX);
+  if (parenMatch) return parenMatch[1];
+
+  // 3. 罗马数字：I. II. III.
+  const romanMatch = trimmed.match(/^([IVX]+)/);
+  if (romanMatch) {
+    // 罗马数字转阿拉伯数字
+    const roman = romanMatch[1];
+    const romanMap: Record<string, number> = {
+      'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5,
+      'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10
+    };
+    return romanMap[roman] ? String(romanMap[roman]) : null;
+  }
+
+  // 4. 年份编号：不提取分值，返回null让系统自动编号
 
   return null;
 }
@@ -179,14 +209,40 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
 
   log.info('开始重建结构', { blockCount: blocks.length });
 
-  // 按位置排序
-  const sorted = sortBlocks(blocks);
+  // 按位置排序（先过滤异常blocks）
+  const filteredBlocks = blocks.filter(b => {
+    const text = b.text.trim();
+    const y = b.bbox[1];
 
-  // 调试：记录前10个文本块
-  log.info('文本块预览（前10个）', {
-    blocks: sorted.slice(0, 10).map(b => ({
+    // 放宽过滤条件，避免过滤掉有效题目
+
+    // 1. Y坐标太小（可能是页眉页脚）- 放宽阈值
+    if (y < 200) return false;
+
+    // 2. 空文本
+    if (text.length === 0) return false;
+
+    // 3. 单个标点符号
+    if (/^[，。、；：,.;:]$/.test(text)) return false;
+
+    // 4. 明显的页码格式（保留边距）
+    if (/^\d+\s*\/\s*\d+$/.test(text)) return false;  // X/Y格式
+    if (/^第\s*\d+\s*页$/.test(text)) return false;    // 第X页
+
+    return true;
+  });
+
+  log.info('过滤blocks', { before: blocks.length, after: filteredBlocks.length });
+
+  const sorted = sortBlocks(filteredBlocks);
+
+  // 调试：记录前15个文本块
+  log.info('文本块预览（前15个）', {
+    totalBlocks: sorted.length,
+    blocks: sorted.slice(0, 15).map(b => ({
       text: b.text.substring(0, 50),
       y: b.bbox[1],
+      bottom: b.bbox[3],
       isQuestionStart: isQuestionStart(b.text, b.bbox)
     }))
   });
@@ -244,7 +300,12 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
     var Y_GAP_THRESHOLD = 80; // 默认阈值
   }
 
-  log.info('Y坐标跳跃阈值', { Y_GAP_THRESHOLD, gapCount: yGaps.length, sampleGaps: yGaps.slice(0, 10).map(g => Math.round(g)) });
+  log.info('Y坐标跳跃阈值', {
+    Y_GAP_THRESHOLD,
+    gapCount: yGaps.length,
+    medianGap: yGaps.length > 0 ? Math.round(yGaps[Math.floor(yGaps.length / 2)]) : 0,
+    sampleGaps: yGaps.slice(0, 10).map(g => Math.round(g))
+  });
 
   for (const block of sorted) {
     const text = block.text.trim();
@@ -370,7 +431,17 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
     }
   }
 
-  log.info('结构重建完成', { questionCount: questions.length });
+  // 详细日志：显示所有识别到的题目
+  log.info('结构重建完成', {
+    questionCount: questions.length,
+    questions: questions.map(q => ({
+      id: q.question_id,
+      preview: q.question?.substring(0, 80) || '',
+      blockCount: q.question_blocks.length,
+      hasAnswer: q.answer_blocks.length > 0,
+      y: q.question_bbox?.[1]
+    }))
+  });
 
   return questions;
 }
