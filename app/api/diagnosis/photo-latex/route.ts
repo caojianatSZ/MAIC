@@ -262,8 +262,12 @@ function associateImagesWithQuestions(
     imageCount: imageCoordinates.length
   });
 
-  // 复制数组以避免修改原数组
-  const imagesCopy = imageCoordinates.map((img, idx) => ({ ...img, originalIndex: idx }));
+  // 复制数组以避免修改原数组，并添加used标记
+  const imagesCopy = imageCoordinates.map((img, idx) => ({
+    ...img,
+    originalIndex: idx,
+    used: false
+  }));
 
   // 按Y坐标排序图片（从上到下）
   imagesCopy.sort((a, b) => a.bbox[1] - b.bbox[1]);
