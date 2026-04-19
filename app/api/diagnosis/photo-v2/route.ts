@@ -70,6 +70,17 @@ export async function GET(request: NextRequest) {
     if (!progress) {
       return NextResponse.json({ error: '任务不存在或已过期' }, { status: 404 });
     }
+
+    // 检查是否有中间结果（题目已识别）
+    const intermediate = (global as any)[`task_${taskId}_intermediate`];
+    if (intermediate && progress.status === 'processing') {
+      // 返回中间结果：题目已识别，可以显示
+      return NextResponse.json({
+        ...progress,
+        ...intermediate
+      });
+    }
+
     return NextResponse.json(progress);
   }
 
@@ -338,6 +349,39 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     log.info('开始处理 LaTeX 公式...');
     extractedQuestions = processQuestions(extractedQuestions);
     log.info('LaTeX 公式处理完成');
+
+    // ==================== 阶段1完成：题目已识别，立即返回 ====================
+    // 将题目保存到任务上下文，前端可以立即获取并显示
+    const intermediateResult = {
+      status: 'questions_ready',
+      mode: detectedMode,
+      questions: extractedQuestions.map(q => ({
+        id: q.id,
+        content: q.content,
+        type: q.type,
+        options: q.options,
+        // 批改结果为空，表示待批改
+        judgment: null
+      })),
+      message: `已识别 ${extractedQuestions.length} 道题目，正在分析答题...`
+    };
+
+    // 保存中间结果到全局
+    (global as any)[`task_${taskId}_intermediate`] = intermediateResult;
+    (global as any)[`task_${taskId}_questions`] = extractedQuestions;
+    (global as any)[`task_${taskId}_image`] = preprocessedImage;
+    (global as any)[`task_${taskId}_ocrText`] = ocrText;
+    (global as any)[`task_${taskId}_ocrValidation`] = ocrValidation;
+
+    // 更新进度，通知前端可以获取题目了
+    updateProgress(taskId, 4.5, '题目已识别，正在批改...');
+
+    log.info('题目识别完成，返回中间结果', {
+      questionCount: extractedQuestions.length,
+      taskId
+    });
+
+    // ==================== Step 5: 分层批改（后台继续） ====================
 
     // ==================== Step 5: 分层批改 ====================
     updateProgress(taskId, 5, '正在批改题目...');
