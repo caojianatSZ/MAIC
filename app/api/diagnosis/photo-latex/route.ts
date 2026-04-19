@@ -97,13 +97,13 @@ export async function POST(request: NextRequest) {
     // ==================== Step 2: 解析Markdown提取题目 ====================
     log.info('Step 2: 解析题目', { requestId });
 
-    // 提取图片坐标信息
-    const imageCoordinates = extractImageCoordinates(ocrResult.markdown);
+    // 提取图片坐标信息 - 从layout_details中提取
+    const imageCoordinates = extractImageCoordinatesFromLayoutDetails(ocrResult.raw);
 
     log.info('提取到的图片坐标', {
       requestId,
       imageCount: imageCoordinates.length,
-      images: JSON.stringify(imageCoordinates)
+      images: JSON.stringify(imageCoordinates.slice(0, 3))  // 只显示前3个
     });
 
     // 优先使用layout_details，如果没有则使用Markdown
@@ -174,7 +174,45 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 提取Markdown中的图片坐标信息
+ * 从GLM-OCR的layout_details中提取图片坐标
+ */
+function extractImageCoordinatesFromLayoutDetails(rawData: any): Array<{
+  bbox: number[];
+  page: number;
+  label?: string;
+}> {
+  const images: Array<{ bbox: number[]; page: number; label?: string }> = [];
+
+  if (!rawData || !rawData.layout_details) {
+    console.log('[extractImageCoordinates] 没有layout_details');
+    return images;
+  }
+
+  const layoutDetails = rawData.layout_details;
+  const firstPage = layoutDetails[0];
+
+  if (!firstPage || !Array.isArray(firstPage)) {
+    console.log('[extractImageCoordinates] layout_details格式不正确');
+    return images;
+  }
+
+  // 遍历blocks，找出所有label为'image'的块
+  firstPage.forEach((block: any, index: number) => {
+    if (block.label === 'image' && block.bbox_2d) {
+      images.push({
+        bbox: block.bbox_2d,
+        page: 0,
+        label: block.content || `图片${index + 1}`
+      });
+    }
+  });
+
+  console.log(`[extractImageCoordinates] 从layout_details提取到${images.length}张图片`);
+  return images;
+}
+
+/**
+ * 提取Markdown中的图片坐标信息（备用方法）
  */
 function extractImageCoordinates(markdown: string): Array<{
   bbox: number[];
