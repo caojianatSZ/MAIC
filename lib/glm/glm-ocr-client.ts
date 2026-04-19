@@ -148,7 +148,7 @@ export async function recognizeDocument(options: GLMOCRClientOptions): Promise<G
     const response = await fetch('https://open.bigmodel.cn/api/paas/v4/layout_parsing', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': apiKey,  // GLM-OCR 直接使用 API key，不需要 Bearer 前缀
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody),
@@ -167,18 +167,25 @@ export async function recognizeDocument(options: GLMOCRClientOptions): Promise<G
     const data = await response.json();
 
     log.info('GLM-OCR API 响应', {
-      hasData: !!data.data,
-      dataKeys: data.data ? Object.keys(data.data) : []
+      hasMdResults: !!data.md_results,
+      hasLayoutDetails: !!data.layout_details,
+      mdLength: data.md_results?.length || 0,
+      usage: data.usage
     });
 
-    if (!data.data) {
-      throw new Error('GLM-OCR API 返回空数据');
+    // GLM-OCR API 返回格式：直接包含 md_results，不是 data.mddown
+    if (!data.md_results) {
+      log.error('GLM-OCR API 响应格式错误', {
+        responseKeys: Object.keys(data),
+        hasData: !!data.data
+      });
+      throw new Error('GLM-OCR API 返回格式错误：缺少 md_results 字段');
     }
 
     const result: GLMOCRResult = {
-      markdown: data.data.markdown || '',
-      images: data.data.images,
-      raw: data
+      markdown: data.md_results || '',
+      raw: data,
+      confidence: 0.95  // GLM-OCR 在 OmniDocBench V1.5 上取得 94.6 分
     };
 
     log.info('GLM-OCR 识别完成', {
@@ -204,14 +211,14 @@ export async function recognizeFromBase64(
   imageBase64: string,
   options?: Partial<GLMOCRClientOptions>
 ): Promise<GLMOCRResult> {
-  // 移除 data:image 前缀（如果有）
-  const base64Data = imageBase64.includes(',')
-    ? imageBase64.split(',')[1]
-    : imageBase64;
+  // 添加 data:image 前缀（如果还没有）
+  const base64WithPrefix = imageBase64.includes(',')
+    ? imageBase64
+    : `data:image/jpeg;base64,${imageBase64}`;
 
-  // GLM-OCR 需要纯base64，不需要前缀
+  // GLM-OCR 需要带前缀的base64来识别格式
   return recognizeDocument({
-    file: base64Data,
+    file: base64WithPrefix,
     ...options
   });
 }

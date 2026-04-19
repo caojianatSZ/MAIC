@@ -97,13 +97,18 @@ export async function POST(request: NextRequest) {
     // ==================== Step 2: 解析Markdown提取题目 ====================
     log.info('Step 2: 解析题目', { requestId });
 
-    const questions = parseQuestionsFromMarkdown(ocrResult.markdown, {
-      convertToLatex: true
-    });
+    // 优先使用layout_details，如果没有则使用Markdown
+    const layoutDetails = ocrResult.raw?.layout_details;
+    const questions = layoutDetails
+      ? parseQuestionsFromLayoutDetails(layoutDetails)
+      : parseQuestionsFromMarkdown(ocrResult.markdown, {
+          convertToLatex: true
+        });
 
     log.info('题目解析完成', {
       requestId,
-      questionCount: questions.length
+      questionCount: questions.length,
+      parseMethod: layoutDetails ? 'layout_details' : 'markdown'
     });
 
     // ==================== Step 3: 返回结果 ====================
@@ -112,6 +117,7 @@ export async function POST(request: NextRequest) {
       mode: 'glm-ocr',
       markdown: ocrResult.markdown,
       questions: questions,
+      raw: ocrResult.raw,  // 包含layout_details
       summary: {
         total_questions: questions.length,
         markdown_length: ocrResult.markdown.length,
@@ -144,6 +150,184 @@ export async function POST(request: NextRequest) {
       requestId
     }, { status: 500 });
   }
+}
+
+/**
+ * 从GLM-OCR的layout_details解析题目（更准确）
+ */
+function parseQuestionsFromLayoutDetails(
+  layoutDetails: any[][]
+): Array<{
+  id: string;
+  content: string;
+  type: 'choice' | 'fill_blank' | 'essay';
+  options?: string[];
+  formulas?: Array<{ latex: string; raw: string; location: string }>;
+}> {
+  const questions: Array<{
+    id: string;
+    content: string;
+    type: 'choice' | 'fill_blank' | 'essay';
+    options?: string[];
+    formulas?: Array<{ latex: string; raw: string; location: string }>;
+  }> = [];
+
+  // 获取第一页的blocks（layout_details是分页的数组）
+  const blocks = layoutDetails[0] || [];
+
+  // 按Y坐标排序（从上到下）
+  const sortedBlocks = blocks
+    .filter(block => block.label === 'text')
+    .sort((a, b) => a.bbox_2d[1] - b.bbox_2d[1]);
+
+  let currentQuestion: any = null;
+  let questionNumber = 0;
+
+  for (const block of sortedBlocks) {
+    const content = block.content.trim();
+    if (!content) continue;
+
+    // 更灵活的题目编号检测
+    const isQuestionStart =
+      content.match(/^(\d+)[\.\s\、\．]/) ||  // 数字开头：22.
+      content.match(/^([一二三四五六七八九十]+)[\.\s\、\．]/) ||  // 中文数字
+      content.match(/^\(([0-9]+)\)/) ||  // 括号数字：(22)
+      content.match(/^（[0-9]{4}·/);  // （2011·江苏·4.3分
+
+    log.info('解析block', {
+      blockIndex: questions.length,
+      contentPreview: content.substring(0, 50),
+      isQuestionStart: !!isQuestionStart,
+      currentQuestionExists: !!currentQuestion
+    });
+
+    if (isQuestionStart) {
+      // 保存上一题
+      if (currentQuestion) {
+        questions.push(currentQuestion);
+      }
+
+      // 开始新题目
+      questionNumber++;
+
+      // 检查content中是否包含选项
+      const hasEmbeddedOptions = content.includes('A.') || content.includes('B.') ||
+                                 content.includes('C.') || content.includes('D.');
+
+      if (hasEmbeddedOptions) {
+        // 分割题目内容和选项
+        const { questionText, optionTexts } = splitQuestionAndOptions(content);
+
+        currentQuestion = {
+          id: String(questionNumber),
+          content: questionText,
+          type: 'choice' as const,
+          options: optionTexts,
+          formulas: extractFormulas(questionText)
+        };
+      } else {
+        currentQuestion = {
+          id: String(questionNumber),
+          content: content,
+          type: 'essay' as const,
+          options: [],
+          formulas: extractFormulas(content)
+        };
+      }
+    } else if (currentQuestion) {
+      // 检测是否包含选项标记
+      const hasOptions = content.includes('A.') || content.includes('B.') ||
+                         content.includes('C.') || content.includes('D.');
+
+      if (hasOptions) {
+        currentQuestion.type = 'choice' as const;
+
+        // 尝试分割选项（处理同一行多个选项的情况）
+        const optionParts = content
+          .replace(/([A-D])\./g, '\n$1.')
+          .split('\n')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+
+        for (const part of optionParts) {
+          if (part.match(/^[A-D][\.\s]/)) {
+            currentQuestion.options!.push(part);
+          } else if (part.length > 0 && part.length < 100) {
+            // 短文本，可能是选项的延续
+            if (currentQuestion.options!.length > 0) {
+              currentQuestion.options![currentQuestion.options!.length - 1] += ' ' + part;
+            }
+          }
+        }
+      } else if (content.length > 0 && content.length < 500) {
+        // 添加到题目内容
+        if (content.startsWith('A.') || content.startsWith('B.') ||
+            content.startsWith('C.') || content.startsWith('D.')) {
+          currentQuestion.type = 'choice' as const;
+          currentQuestion.options!.push(content);
+        } else {
+          currentQuestion.content += '\n' + content;
+        }
+      }
+    }
+  }
+
+  // 保存最后一题
+  if (currentQuestion) {
+    questions.push(currentQuestion);
+  }
+
+  return questions;
+}
+
+/**
+ * 分割题目内容和选项
+ */
+function splitQuestionAndOptions(
+  content: string
+): { questionText: string; optionTexts: string[] } {
+  let questionText = content;
+  const optionTexts: string[] = [];
+
+  // 先收集所有选项匹配的位置
+  const optionPattern = /(?:^|\n)\s*([A-D])\.\s*/g;
+  const matches: Array<{ index: number; label: string; start: number }> = [];
+
+  let match;
+  while ((match = optionPattern.exec(content)) !== null) {
+    matches.push({
+      index: match.index,
+      label: match[1],
+      start: match.index + match[0].length
+    });
+  }
+
+  if (matches.length === 0) {
+    return { questionText: content, optionTexts: [] };
+  }
+
+  // 分割题目内容和选项
+  questionText = content.substring(0, matches[0].index).trim();
+
+  // 提取每个选项的内容
+  for (let i = 0; i < matches.length; i++) {
+    const currentMatch = matches[i];
+    const nextMatch = matches[i + 1];
+
+    const optionStart = currentMatch.start;
+    const optionEnd = nextMatch ? nextMatch.index : content.length;
+
+    let optionText = content.substring(optionStart, optionEnd).trim();
+
+    // 移除图片引用
+    optionText = optionText.replace(/!*\[.*?\]\(.*?\)/g, '').trim();
+
+    if (optionText.length > 0) {
+      optionTexts.push(`${currentMatch.label}. ${optionText}`);
+    }
+  }
+
+  return { questionText, optionTexts };
 }
 
 /**

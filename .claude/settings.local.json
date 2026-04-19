@@ -87,7 +87,9 @@
       "Bash(ssh root@hongzhi.ink \"journalctl -u openmaic -n 200 --no-pager | grep -A 20 'buildLayoutHint\\\\|检测到的题目边界\\\\|题目提取成功'\")",
       "Bash(chmod +x *)",
       "Bash(ssh *)",
-      "Bash(rtk proxy *)"
+      "Bash(rtk proxy *)",
+      "Bash(/tmp/test-layout.sh)",
+      "Bash(/tmp/test-v5-api.sh)"
     ]
   }
 }
