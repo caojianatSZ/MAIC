@@ -98,6 +98,30 @@ export async function judgeHandwrittenAnswers(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 分钟超时
 
+    // 记录请求详情
+    const requestId = `glm_${Date.now()}`;
+    log.info('GLM API 请求', {
+      requestId,
+      model,
+      requestBody: {
+        ...requestBody,
+        // 截断图片数据以避免日志过大
+        messages: requestBody.messages.map((m: any) => {
+          if (Array.isArray(m.content)) {
+            return {
+              content: m.content.map((c: any) => {
+                if (c.type === 'image_url') {
+                  return { type: 'image_url', image_url: { url: `[BASE64_IMAGE_${c.image_url.url.length}_chars]` } };
+                }
+                return c;
+              })
+            };
+          }
+          return m;
+        })
+      }
+    });
+
     const response = await fetch(GLM_API_URL, {
       method: 'POST',
       headers: {
@@ -116,10 +140,33 @@ export async function judgeHandwrittenAnswers(
 
     // 先获取原始响应文本以处理可能的JSON解析错误
     const responseText = await response.text();
-    log.info('GLM API 原始响应', {
+
+    log.info('GLM API 完整响应', {
+      requestId,
       responseLength: responseText.length,
       responsePreview: responseText.substring(0, 500)
     });
+
+    // 保存完整响应用于调试
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const debugDir = path.join(process.cwd(), 'logs', 'debug');
+      if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir, { recursive: true });
+      }
+      const debugFile = path.join(debugDir, `${requestId}.json`);
+      fs.writeFileSync(debugFile, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        requestId,
+        model,
+        request: requestBody,
+        response: responseText
+      }, null, 2), 'utf8');
+      log.info('GLM 响应已保存', { debugFile });
+    } catch (fsError) {
+      // 忽略文件系统错误
+    }
 
     let result;
     try {

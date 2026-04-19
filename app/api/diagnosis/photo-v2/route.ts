@@ -350,6 +350,19 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     extractedQuestions = processQuestions(extractedQuestions);
     log.info('LaTeX 公式处理完成');
 
+    // ==================== 题目ID标准化（在第一次批改前完成） ====================
+    // 确保所有题目ID都是纯数字格式，避免与批改结果的ID不匹配
+    const originalIds = extractedQuestions.map(q => q.id);
+    extractedQuestions = extractedQuestions.map(q => ({
+      ...q,
+      id: normalizeQuestionId(q.id)
+    }));
+
+    log.info('题目ID标准化完成', {
+      before: originalIds,
+      after: extractedQuestions.map(q => q.id)
+    });
+
     // ==================== 阶段1完成：题目已识别，立即返回 ====================
     // 将题目保存到任务上下文，前端可以立即获取并显示
     const intermediateResult = {
@@ -373,6 +386,41 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     (global as any)[`task_${taskId}_ocrText`] = ocrText;
     (global as any)[`task_${taskId}_ocrValidation`] = ocrValidation;
 
+    // 保存中间结果到日志文件（用于后续分析）
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const debugDir = path.join(process.cwd(), 'logs', 'debug');
+      if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir, { recursive: true });
+      }
+      const intermediateFile = path.join(debugDir, `intermediate_${taskId}.json`);
+      fs.writeFileSync(intermediateFile, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        taskId,
+        subject,
+        grade,
+        mode: detectedMode,
+        ocrValidation: {
+          confidence: ocrValidation.confidence,
+          isValid: ocrValidation.isValid,
+          warnings: ocrValidation.warnings,
+          errors: ocrValidation.errors
+        },
+        ocrTextPreview: ocrText.substring(0, 2000),
+        extractedQuestions: extractedQuestions.map(q => ({
+          id: q.id,
+          content: q.content,
+          type: q.type,
+          options: q.options
+        })),
+        questionCount: extractedQuestions.length
+      }, null, 2), 'utf8');
+      log.info('中间结果已保存到日志', { intermediateFile });
+    } catch (fsError) {
+      log.warn('保存中间结果失败', fsError);
+    }
+
     // 更新进度，通知前端可以获取题目了
     updateProgress(taskId, 4.5, '题目已识别，正在批改...');
 
@@ -389,6 +437,8 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       ocrConfidence: ocrValidation.confidence,
       strategy: ocrValidation.confidence >= 0.8 ? 'text-only (GLM-5/4.7)' : 'visual-calibration (GLM-4V-Plus-0111)'
     });
+
+    // 题目ID已在 LaTeX 处理后标准化，直接使用
     const questionsForJudgment: QuestionForJudgment[] = extractedQuestions.map(q => ({
       id: q.id,
       content: q.content,
@@ -433,14 +483,23 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     // ==================== Step 6: 防幻觉校验 ====================
     updateProgress(taskId, 6, '正在校验结果...');
     log.info('Step 6: 防幻觉校验中...');
+    log.info('批改结果题目ID列表', {
+      judgmentIds: judgmentResult.questions.map(j => j.questionId),
+      extractedIds: extractedQuestions.map(q => q.id)
+    });
+
     const validatedQuestions: QuestionJudgment[] = [];
     let lowConfidenceCount = 0;
 
     for (const extractedQ of extractedQuestions) {
-      const judgment = judgmentResult.questions.find(j => j.questionId === extractedQ.id);
+      // extractedQ.id 已经在之前标准化了，只需要标准化 judgmentResult 中的 ID
+      const judgment = judgmentResult.questions.find(j => normalizeQuestionId(j.questionId) === extractedQ.id);
 
       if (!judgment) {
-        log.warn(`题目 ${extractedQ.id} 未找到批改结果`);
+        log.warn(`题目 ${extractedQ.id} 未找到批改结果`, {
+          extractedId: extractedQ.id,
+          availableIds: judgmentResult.questions.map(j => j.questionId)
+        });
         continue;
       }
 
@@ -544,6 +603,39 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       summary,
       ocrValidation
     };
+
+    // 保存完整结果到日志文件（用于后续分析）
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const debugDir = path.join(process.cwd(), 'logs', 'debug');
+      if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir, { recursive: true });
+      }
+      const resultFile = path.join(debugDir, `result_${taskId}.json`);
+      fs.writeFileSync(resultFile, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        taskId,
+        userId,
+        subject,
+        grade,
+        mode: detectedMode,
+        duration: `${duration}ms`,
+        ocrValidation,
+        summary,
+        questions: validatedQuestions.map(q => ({
+          id: q.id,
+          content: q.content.substring(0, 200),  // 限制内容长度
+          type: q.type,
+          studentAnswer: q.studentAnswer,
+          judgment: q.judgment,
+          knowledgePointsCount: q.knowledgePoints?.length || 0
+        }))
+      }, null, 2), 'utf8');
+      log.info('完整结果已保存到日志', { resultFile });
+    } catch (fsError) {
+      log.warn('保存完整结果失败', fsError);
+    }
 
     // ==================== Step 9: 保存记录并触发成就 ====================
     // 异步执行，不阻塞响应
@@ -1041,6 +1133,14 @@ ${ocrText.substring(0, 2000)}...
 }
 
 /**
+ * 标准化题目ID：移除点号等非数字字符
+ * 用于解决视觉模型返回 "1." 而批改返回 "1" 的格式不匹配问题
+ */
+function normalizeQuestionId(id: string): string {
+  return id.replace(/[^\d]/g, '');
+}
+
+/**
  * 使用结构重建层从 TextIn 数据中提取题目
  * 优先方案：基于 bbox 和规则的结构重建
  */
@@ -1082,7 +1182,7 @@ async function extractQuestionsWithStructureLayer(
 
   // 步骤 3：转换为 API 格式
   const apiQuestions = questions.map(q => ({
-    id: q.question_id,
+    id: normalizeQuestionId(q.question_id),  // 标准化题目ID
     content: q.question || '',
     type: detectQuestionType(q.question || '') as 'choice' | 'fill_blank' | 'essay',
     options: extractOptionsFromQuestion(q.question || '')
@@ -1202,6 +1302,28 @@ async function extractQuestionsWithVision(
   }
 
   const responseText = await response.text();
+  const requestId = `vision_extract_${Date.now()}`;
+
+  // 保存完整响应用于调试
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const debugDir = path.join(process.cwd(), 'logs', 'debug');
+    if (!fs.existsSync(debugDir)) {
+      fs.mkdirSync(debugDir, { recursive: true });
+    }
+    const debugFile = path.join(debugDir, `${requestId}.json`);
+    fs.writeFileSync(debugFile, JSON.stringify({
+      timestamp: new Date().toISOString(),
+      requestId,
+      prompt: prompt.substring(0, 500) + '...',
+      response: responseText
+    }, null, 2), 'utf8');
+    log.info('视觉模型响应已保存', { debugFile });
+  } catch (fsError) {
+    // 忽略文件系统错误
+  }
+
   let result;
   try {
     result = JSON.parse(responseText);
@@ -1218,6 +1340,7 @@ async function extractQuestionsWithVision(
   const content = message?.reasoning_content || message?.content || '';
 
   log.info('extractQuestionsWithVision 响应', {
+    requestId,
     contentLength: content.length,
     hasReasoningContent: !!message?.reasoning_content,
     preview: content.substring(0, 500)
@@ -1237,7 +1360,18 @@ async function extractQuestionsWithVision(
     const parsed = JSON.parse(cleanContent);
     questions = parsed.questions || [];
     if (questions.length > 0) {
-      log.info('视觉模型题目提取成功（直接解析）', { count: questions.length });
+      // 记录原始ID
+      const originalIds = questions.map((q: any) => q.id || q.questionId);
+      // 标准化题目ID
+      questions = questions.map((q: any) => ({
+        ...q,
+        id: normalizeQuestionId(q.id || q.questionId || String(questions.length))
+      }));
+      log.info('视觉模型题目提取成功（直接解析）', {
+        count: questions.length,
+        normalizedIds: questions.map((q: any) => q.id),
+        originalIds
+      });
       return questions;
     }
   } catch (e) {
@@ -1251,6 +1385,11 @@ async function extractQuestionsWithVision(
       const parsed = JSON.parse(jsonMatch[0]);
       questions = parsed.questions || [];
       if (questions.length > 0) {
+        // 标准化题目ID
+        questions = questions.map((q: any) => ({
+          ...q,
+          id: normalizeQuestionId(q.id || q.questionId || String(questions.length))
+        }));
         log.info('视觉模型题目提取成功（模式匹配）', { count: questions.length });
         return questions;
       }
@@ -1267,6 +1406,11 @@ async function extractQuestionsWithVision(
       const parsed = JSON.parse(partialJson);
       questions = parsed.questions || [];
       if (questions.length > 0) {
+        // 标准化题目ID
+        questions = questions.map((q: any) => ({
+          ...q,
+          id: normalizeQuestionId(q.id || q.questionId || String(questions.length))
+        }));
         log.info('视觉模型题目提取成功（部分解析）', { count: questions.length });
         return questions;
       }

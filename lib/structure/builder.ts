@@ -175,6 +175,38 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
   // 按位置排序
   const sorted = sortBlocks(blocks);
 
+  // 调试：记录前10个文本块
+  log.info('文本块预览（前10个）', {
+    blocks: sorted.slice(0, 10).map(b => ({
+      text: b.text.substring(0, 50),
+      y: b.bbox[1],
+      isQuestionStart: isQuestionStart(b.text)
+    }))
+  });
+
+  // 保存完整blocks数据用于调试
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const debugDir = path.join(process.cwd(), 'logs', 'debug');
+    if (!fs.existsSync(debugDir)) {
+      fs.mkdirSync(debugDir, { recursive: true });
+    }
+    const debugFile = path.join(debugDir, `structure_${Date.now()}.json`);
+    fs.writeFileSync(debugFile, JSON.stringify({
+      timestamp: new Date().toISOString(),
+      blockCount: blocks.length,
+      blocks: blocks.map(b => ({
+        text: b.text,
+        bbox: b.bbox,
+        type: b.type
+      }))
+    }, null, 2), 'utf8');
+    log.info('结构重建blocks已保存', { debugFile });
+  } catch (fsError) {
+    // 忽略文件系统错误
+  }
+
   // 识别题目并分组
   const questions: Question[] = [];
   let current: Question | null = null;

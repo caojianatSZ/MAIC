@@ -83,11 +83,31 @@ export class TextinClient {
 
       // 先获取原始响应文本进行调试
       const responseText = await response.text();
-      log.info('TextIn API 原始响应', {
+
+      // 保存完整响应用于调试
+      log.info('TextIn API 完整响应', {
         status: response.status,
         responseLength: responseText.length,
-        responsePreview: responseText.substring(0, 500)
+        responsePreview: responseText.substring(0, 500),
+        // 将完整响应保存到全局变量用于调试
+        timestamp: Date.now(),
+        requestId: `textin_${Date.now()}`
       });
+
+      // 记录完整响应到文件（用于调试）
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const debugDir = path.join(process.cwd(), 'logs', 'debug');
+        if (!fs.existsSync(debugDir)) {
+          fs.mkdirSync(debugDir, { recursive: true });
+        }
+        const debugFile = path.join(debugDir, `textin_${Date.now()}.json`);
+        fs.writeFileSync(debugFile, responseText, 'utf8');
+        log.info('TextIn 响应已保存', { debugFile });
+      } catch (fsError) {
+        // 忽略文件系统错误
+      }
 
       let result: {
         code: number;
