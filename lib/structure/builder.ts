@@ -40,10 +40,39 @@ const YEAR_QUESTION_REGEX = /^\((\d{4}).*?[\.,，]\s*\d+\s*[分分]/;
 
 /**
  * 判断是否是题目开始
+ * 改进：不仅检查文本格式，还要检查空间特征
  */
-function isQuestionStart(text: string): boolean {
+function isQuestionStart(text: string, bbox?: BBox): boolean {
   const trimmed = text.trim();
-  return QUESTION_REGEX.test(trimmed) || YEAR_QUESTION_REGEX.test(trimmed);
+
+  // 1. 检查文本格式
+  const hasQuestionFormat = QUESTION_REGEX.test(trimmed) || YEAR_QUESTION_REGEX.test(trimmed);
+  if (!hasQuestionFormat) return false;
+
+  // 2. 如果有bbox，检查空间特征
+  if (bbox) {
+    const width = bbox[2] - bbox[0];
+    const height = bbox[3] - bbox[1];
+    const size = width * height;
+
+    // 2.1 过滤掉太大的"数字"（可能是手写答案或图片）
+    // 题号通常很小（宽度<100，高度<50）
+    if (width > 150 || height > 100) {
+      return false;
+    }
+
+    // 2.2 过滤掉面积很大的数字
+    if (size > 10000) {
+      return false;
+    }
+
+    // 2.3 检查是否是纯数字且很大（可能是手写答案）
+    if (/^\d+$/.test(trimmed) && size > 3000) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -186,7 +215,7 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
     blocks: sorted.slice(0, 10).map(b => ({
       text: b.text.substring(0, 50),
       y: b.bbox[1],
-      isQuestionStart: isQuestionStart(b.text)
+      isQuestionStart: isQuestionStart(b.text, b.bbox)
     }))
   });
 
@@ -218,16 +247,48 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
   let current: Question | null = null;
   let questionNumber = 0;
   let lastQuestionY = 0; // 上一道题的 Y 坐标
+  let lastBlockY = 0; // 上一个块的 Y 坐标
 
   // 题目之间的最小距离（像素），小于此距离可能是同一道题的选项
   const MIN_QUESTION_GAP = 50;
 
+  // 计算 Y 坐标跳跃阈值（自适应）
+  const yGaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i].bbox[1] - sorted[i - 1].bbox[3];
+    if (gap > 0) yGaps.push(gap);
+  }
+
+  if (yGaps.length > 0) {
+    yGaps.sort((a, b) => a - b);
+    const medianGap = yGaps[Math.floor(yGaps.length / 2)];
+    // 使用中位数的2倍作为跳跃阈值
+    var Y_GAP_THRESHOLD = medianGap * 2;
+    // 最小阈值保护
+    Y_GAP_THRESHOLD = Math.max(Y_GAP_THRESHOLD, 60);
+    // 最大阈值保护
+    Y_GAP_THRESHOLD = Math.min(Y_GAP_THRESHOLD, 200);
+  } else {
+    var Y_GAP_THRESHOLD = 80; // 默认阈值
+  }
+
+  log.info('Y坐标跳跃阈值', { Y_GAP_THRESHOLD, gapCount: yGaps.length });
+
   for (const block of sorted) {
     const text = block.text.trim();
     const blockY = block.bbox[1];
+    const blockBottom = block.bbox[3];
 
-    // 检测新题目开始
-    if (isQuestionStart(text)) {
+    // 计算与上一个块的Y间隙
+    const yGap = lastBlockY > 0 ? blockY - lastBlockY : 0;
+
+    // 检测新题目开始（两种方式）
+    // 1. 有明确的题号格式
+    // 2. Y坐标有显著跳跃（可能是无题号的题目）
+    const hasQuestionNumber = isQuestionStart(text, block.bbox);
+    const hasBigYGap = yGap > Y_GAP_THRESHOLD;
+
+    if (hasQuestionNumber || (hasBigYGap && current)) {
       // 检查是否与上一题太近（可能是选项被误识别）
       const isTooClose = lastQuestionY > 0 && (blockY - lastQuestionY) < MIN_QUESTION_GAP;
 
@@ -249,7 +310,14 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
 
         lastQuestionY = blockY;
 
-        log.debug('新题目', { id: current.question_id, text: text.substring(0, 30), y: blockY });
+        log.debug('新题目', {
+          id: current.question_id,
+          text: text.substring(0, 30),
+          y: blockY,
+          hasQuestionNumber,
+          hasBigYGap,
+          yGap
+        });
       } else {
         // 太近了，可能是选项，添加到当前题目
         if (current) {
@@ -268,6 +336,9 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
       // 还没有开始第一题，跳过
       log.debug('跳过题目前的文本', { text: text.substring(0, 30) });
     }
+
+    // 更新上一个块的Y坐标（使用bottom而不是top，因为我们要计算间隙）
+    lastBlockY = blockBottom;
   }
 
   // 保存最后一题
