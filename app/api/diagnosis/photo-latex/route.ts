@@ -380,7 +380,9 @@ function parseQuestionsFromLayoutDetails(
       blockIndex: questions.length,
       contentPreview: content.substring(0, 50),
       isQuestionStart: !!isQuestionStart,
-      currentQuestionExists: !!currentQuestion
+      currentQuestionExists: !!currentQuestion,
+      bbox_2d: block.bbox_2d,
+      y坐标: block.bbox_2d ? `${block.bbox_2d[1]}-${block.bbox_2d[3]}` : 'N/A'
     });
 
     if (isQuestionStart) {
