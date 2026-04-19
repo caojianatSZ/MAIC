@@ -386,37 +386,57 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
     (global as any)[`task_${taskId}_ocrText`] = ocrText;
     (global as any)[`task_${taskId}_ocrValidation`] = ocrValidation;
 
-    // 保存中间结果到日志文件（用于后续分析）
+    // 保存中间结果到 Markdown 文件（用于后续分析）
     try {
       const fs = require('fs');
       const path = require('path');
-      const debugDir = path.join(process.cwd(), 'logs', 'debug');
+      const debugDir = path.join(process.cwd(), 'logs', 'intermediate');
       if (!fs.existsSync(debugDir)) {
         fs.mkdirSync(debugDir, { recursive: true });
       }
-      const intermediateFile = path.join(debugDir, `intermediate_${taskId}.json`);
-      fs.writeFileSync(intermediateFile, JSON.stringify({
-        timestamp: new Date().toISOString(),
-        taskId,
-        subject,
-        grade,
-        mode: detectedMode,
-        ocrValidation: {
-          confidence: ocrValidation.confidence,
-          isValid: ocrValidation.isValid,
-          warnings: ocrValidation.warnings,
-          errors: ocrValidation.errors
-        },
-        ocrTextPreview: ocrText.substring(0, 2000),
-        extractedQuestions: extractedQuestions.map(q => ({
-          id: q.id,
-          content: q.content,
-          type: q.type,
-          options: q.options
-        })),
-        questionCount: extractedQuestions.length
-      }, null, 2), 'utf8');
-      log.info('中间结果已保存到日志', { intermediateFile });
+      const intermediateFile = path.join(debugDir, `${taskId}.md`);
+
+      const questionsMarkdown = extractedQuestions.map((q, idx) => `
+### 题目 ${q.id}
+
+**类型**: ${q.type}
+**题干**:
+${q.content}
+
+${q.options ? `**选项**:\n${q.options.map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`).join('\n')}` : ''}
+---
+`).join('\n');
+
+      const markdown = `# 拍照批改中间结果
+
+**任务ID**: \`${taskId}\`
+**时间**: ${new Date().toISOString()}
+**学科**: ${subject}
+**年级**: ${grade}
+**模式**: ${detectedMode}
+
+## OCR 识别结果
+
+**置信度**: ${(ocrValidation.confidence * 100).toFixed(1)}%
+**是否有效**: ${ocrValidation.isValid ? '✓' : '✗'}
+
+${ocrValidation.warnings.length > 0 ? `**警告**:\n${ocrValidation.warnings.map(w => `- ${w}`).join('\n')}\n` : ''}
+
+**OCR 文本**:
+\`\`\`
+${ocrText.substring(0, 3000)}${ocrText.length > 3000 ? '\n...(截断)' : ''}
+\`\`\`
+
+## 提取的题目 (${extractedQuestions.length} 道)
+
+${questionsMarkdown}
+
+---
+*生成时间: ${new Date().toLocaleString('zh-CN')}*
+`;
+
+      fs.writeFileSync(intermediateFile, markdown, 'utf8');
+      log.info('中间结果已保存到 Markdown', { intermediateFile });
     } catch (fsError) {
       log.warn('保存中间结果失败', fsError);
     }
@@ -604,35 +624,76 @@ async function processDiagnosisTask(taskId: string, request: NextRequest) {
       ocrValidation
     };
 
-    // 保存完整结果到日志文件（用于后续分析）
+    // 保存完整结果到 Markdown 文件（用于后续分析）
     try {
       const fs = require('fs');
       const path = require('path');
-      const debugDir = path.join(process.cwd(), 'logs', 'debug');
-      if (!fs.existsSync(debugDir)) {
-        fs.mkdirSync(debugDir, { recursive: true });
+      const resultsDir = path.join(process.cwd(), 'logs', 'results');
+      if (!fs.existsSync(resultsDir)) {
+        fs.mkdirSync(resultsDir, { recursive: true });
       }
-      const resultFile = path.join(debugDir, `result_${taskId}.json`);
-      fs.writeFileSync(resultFile, JSON.stringify({
-        timestamp: new Date().toISOString(),
-        taskId,
-        userId,
-        subject,
-        grade,
-        mode: detectedMode,
-        duration: `${duration}ms`,
-        ocrValidation,
-        summary,
-        questions: validatedQuestions.map(q => ({
-          id: q.id,
-          content: q.content.substring(0, 200),  // 限制内容长度
-          type: q.type,
-          studentAnswer: q.studentAnswer,
-          judgment: q.judgment,
-          knowledgePointsCount: q.knowledgePoints?.length || 0
-        }))
-      }, null, 2), 'utf8');
-      log.info('完整结果已保存到日志', { resultFile });
+      const resultFile = path.join(resultsDir, `${taskId}.md`);
+
+      const questionsMarkdown = validatedQuestions.map((q, idx) => `
+### 题目 ${q.id} ${q.judgment.isCorrect ? '✅' : '❌'}
+
+**类型**: ${q.type}
+**置信度**: ${(q.judgment.confidence * 100).toFixed(1)}% ${q.judgment.confidence < 0.8 ? '⚠️ 低置信度' : ''}
+**需要复核**: ${q.judgment.needsReview ? '是 ' + (q.judgment.reviewReason || '') : '否'}
+
+**题干**:
+${q.content}
+
+**学生答案**: ${q.studentAnswer || '(未作答)'}
+**正确答案**: ${q.judgment.correctAnswer}
+
+**解析**: ${q.judgment.analysis}
+
+${q.knowledgePoints && q.knowledgePoints.length > 0 ? `**知识点**:\n${q.knowledgePoints.map(kp => `- ${kp.name} (${kp.masteryLevel})`).join('\n')}\n` : ''}
+---
+`).join('\n');
+
+      const markdown = `# 拍照批改结果
+
+**任务ID**: \`${taskId}\`
+**用户ID**: \`${userId}\`
+**时间**: ${new Date().toISOString()}
+**学科**: ${subject}
+**年级**: ${grade}
+**模式**: ${detectedMode}
+**处理时长**: ${duration}ms
+
+## 总体评分
+
+| 项目 | 结果 |
+|------|------|
+| 题目数量 | ${summary.totalQuestions} |
+| 正确数量 | ${summary.correctCount} |
+| 得分 | **${summary.score}分** |
+| 低置信度题目 | ${summary.lowConfidenceCount} |
+| 需要复核 | ${summary.needsReview ? '是 ⚠️' : '否'} |
+
+${summary.weakKnowledgePoints.length > 0 ? `## 薄弱知识点\n\n${summary.weakKnowledgePoints.map(kp => `- ${kp}`).join('\n')}\n` : ''}
+
+${summary.reviewReason ? `## 复核原因\n\n${summary.reviewReason}\n` : ''}
+
+## OCR 识别信息
+
+**置信度**: ${(ocrValidation.confidence * 100).toFixed(1)}%
+**是否有效**: ${ocrValidation.isValid ? '✓' : '✗'}
+
+${ocrValidation.warnings.length > 0 ? `**警告**:\n${ocrValidation.warnings.map(w => `- ${w}`).join('\n')}\n` : ''}
+
+## 题目详情
+
+${questionsMarkdown}
+
+---
+*生成时间: ${new Date().toLocaleString('zh-CN')}*
+`;
+
+      fs.writeFileSync(resultFile, markdown, 'utf8');
+      log.info('完整结果已保存到 Markdown', { resultFile });
     } catch (fsError) {
       log.warn('保存完整结果失败', fsError);
     }
