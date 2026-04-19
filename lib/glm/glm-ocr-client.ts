@@ -14,7 +14,7 @@ const log = createLogger('GLM-OCR');
 
 export interface GLMOCRResult {
   /**
-   * 识别的Markdown文本
+   * 识别的Markdown文本（包含LaTeX公式）
    */
   markdown: string;
 
@@ -32,6 +32,54 @@ export interface GLMOCRResult {
    * 识别置信度（如果提供）
    */
   confidence?: number;
+
+  /**
+   * 提取的题目列表（如果进行了结构化解析）
+   */
+  questions?: ParsedQuestion[];
+}
+
+/**
+ * 公式信息
+ */
+export interface FormulaInfo {
+  /**
+   * LaTeX格式（用$...$包裹）
+   */
+  latex: string;
+
+  /**
+   * 原始文本（fallback用）
+   */
+  raw: string;
+
+  /**
+   * 公式位置
+   */
+  location: 'question' | 'answer' | 'option';
+
+  /**
+   * 置信度（0-1）
+   */
+  confidence: number;
+
+  /**
+   * 是否不确定（需要人工校验）
+   */
+  uncertain?: boolean;
+}
+
+/**
+ * 解析的题目
+ */
+export interface ParsedQuestion {
+  question_id: string;
+  question: string;  // 包含 $LaTeX$ 的题目
+  student_answer?: string;  // 包含 $LaTeX$ 的答案
+  type: 'choice' | 'fill_blank' | 'essay';
+  options?: string[];  // 包含 $LaTeX$ 的选项
+  formulas: FormulaInfo[];  // 提取的所有公式
+  uncertain: boolean;  // 是否需要人工复核
 }
 
 /**
