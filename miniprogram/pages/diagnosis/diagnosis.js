@@ -771,6 +771,24 @@ Page({
   cleanOcrText(text) {
     if (!text) return ''
 
+    // 处理对象类型的选项（新数据结构）
+    if (typeof text === 'object' && text.text) {
+      return {
+        ...text,
+        text: this.cleanOcrTextString(text.text)
+      }
+    }
+
+    // 处理字符串类型
+    return this.cleanOcrTextString(text)
+  },
+
+  /**
+   * 清理OCR返回的文本格式（内部方法，只处理字符串）
+   */
+  cleanOcrTextString(text) {
+    if (!text) return ''
+
     let result = text
 
     // 移除不需要的HTML标签（保留下标上标标签）
