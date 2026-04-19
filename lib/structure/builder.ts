@@ -257,8 +257,8 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
     if (/^\d$/.test(currentText) && i + 1 < sorted.length) {
       const next = sorted[i + 1];
       const nextY = next.bbox[1];
-      const currentBottom = current.bbox[3];
-      const yDistance = nextY - currentBottom;
+      const currentY = current.bbox[1];
+      const yDistance = nextY - currentY; // 改用top到top的距离
 
       // 如果下一个block在很近的Y坐标（<15像素），合并它们
       if (yDistance >= 0 && yDistance < 15) {
@@ -331,7 +331,7 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
   let lastBlockY = 0; // 上一个块的 Y 坐标
 
   // 题目之间的最小距离（像素），小于此距离可能是同一道题的选项
-  const MIN_QUESTION_GAP = 50;
+  const MIN_QUESTION_GAP = 30; // 减小最小距离，避免误判
 
   // 计算 Y 坐标跳跃阈值（自适应）
   const yGaps: number[] = [];
@@ -343,21 +343,33 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
   if (yGaps.length > 0) {
     yGaps.sort((a, b) => a - b);
     const medianGap = yGaps[Math.floor(yGaps.length / 2)];
-    // 使用中位数的2倍作为跳跃阈值
-    var Y_GAP_THRESHOLD = medianGap * 2;
+    // 使用中位数的1.5倍作为跳跃阈值（降低敏感度）
+    var Y_GAP_THRESHOLD = medianGap * 1.5;
     // 最小阈值保护
-    Y_GAP_THRESHOLD = Math.max(Y_GAP_THRESHOLD, 60);
+    Y_GAP_THRESHOLD = Math.max(Y_GAP_THRESHOLD, 40);
     // 最大阈值保护
-    Y_GAP_THRESHOLD = Math.min(Y_GAP_THRESHOLD, 200);
+    Y_GAP_THRESHOLD = Math.min(Y_GAP_THRESHOLD, 150);
   } else {
-    var Y_GAP_THRESHOLD = 80; // 默认阈值
+    var Y_GAP_THRESHOLD = 50; // 默认阈值（降低）
   }
 
   log.info('Y坐标跳跃阈值', {
     Y_GAP_THRESHOLD,
     gapCount: yGaps.length,
     medianGap: yGaps.length > 0 ? Math.round(yGaps[Math.floor(yGaps.length / 2)]) : 0,
-    sampleGaps: yGaps.slice(0, 10).map(g => Math.round(g))
+    sampleGaps: yGaps.slice(0, 15).map(g => Math.round(g))
+  });
+
+  // 增加调试：记录所有可能是题目开始的blocks
+  const potentialQuestions = sorted.filter(b => isQuestionStart(b.text, b.bbox));
+  log.info('可能的题目开始', {
+    count: potentialQuestions.length,
+    questions: potentialQuestions.map((b, i) => ({
+      index: i,
+      text: b.text.substring(0, 60),
+      y: b.bbox[1],
+      isQuestionStart: isQuestionStart(b.text, b.bbox)
+    }))
   });
 
   for (const block of sorted) {
@@ -375,41 +387,31 @@ export function rebuildStructure(blocks: OCRBlock[]): Question[] {
     const hasBigYGap = yGap > Y_GAP_THRESHOLD;
 
     if (hasQuestionNumber) {
-      // 有明确题号，立即开始新题目（不管Y间隙大小）
-      // 检查是否与上一题太近（可能是选项被误识别）
-      const isTooClose = lastQuestionY > 0 && (blockY - lastQuestionY) < MIN_QUESTION_GAP;
-
-      if (!isTooClose) {
-        // 保存上一题
-        if (current) {
-          questions.push(current);
-        }
-
-        const qId = extractQuestionId(text);
-        questionNumber = qId ? parseInt(qId, 10) : questionNumber + 1;
-
-        current = {
-          question_id: String(questionNumber),
-          question_blocks: [block],
-          answer_blocks: [],
-          question_bbox: block.bbox
-        };
-
-        lastQuestionY = blockY;
-
-        log.debug('新题目（题号）', {
-          id: current.question_id,
-          text: text.substring(0, 30),
-          y: blockY,
-          extractedId: qId
-        });
-      } else {
-        // 太近了，可能是选项，添加到当前题目
-        if (current) {
-          current.question_blocks.push(block);
-          log.debug('跳过太近的题号', { text: text.substring(0, 30), y: blockY });
-        }
+      // 有明确题号，立即开始新题目（优先级最高）
+      // 不检查距离，直接开始新题目（避免误判）
+      // 保存上一题
+      if (current) {
+        questions.push(current);
       }
+
+      const qId = extractQuestionId(text);
+      questionNumber = qId ? parseInt(qId, 10) : questionNumber + 1;
+
+      current = {
+        question_id: String(questionNumber),
+        question_blocks: [block],
+        answer_blocks: [],
+        question_bbox: block.bbox
+      };
+
+      lastQuestionY = blockY;
+
+      log.debug('新题目（题号）', {
+        id: current.question_id,
+        text: text.substring(0, 30),
+        y: blockY,
+        extractedId: qId
+      });
     } else if (hasBigYGap && current) {
       // 检查是否与上一题太近（可能是选项被误识别）
       const isTooClose = lastQuestionY > 0 && (blockY - lastQuestionY) < MIN_QUESTION_GAP;
