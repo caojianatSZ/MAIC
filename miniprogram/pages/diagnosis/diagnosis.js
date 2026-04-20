@@ -440,8 +440,8 @@ Page({
     })
 
     try {
-      // 使用 V2 API 调用，支持复核提示
-      const result = await this.submitPhotoV2(filePath)
+      // 使用 V6 API 调用（阿里云EduTutor CutQuestions）
+      const result = await this.submitPhotoV6(filePath)
 
       wx.hideLoading()
 
@@ -608,9 +608,62 @@ Page({
   },
 
   /**
+   * 提交照片进行诊断 V6（阿里云EduTutor CutQuestions）
+   */
+  submitPhotoV6(filePath) {
+    const baseUrl = getBaseUrl()
+    const url = `${baseUrl}/api/diagnosis/photo-aliyun`  // 使用阿里云EduTutor API
+
+    console.log('拍照诊断V6（阿里云EduTutor）上传URL:', url)
+    console.log('文件路径:', filePath)
+
+    return new Promise((resolve, reject) => {
+      // V6 API同步返回结果
+      wx.getFileSystemManager().readFile({
+        filePath,
+        encoding: 'base64',
+        success: (res) => {
+          const base64Image = `data:image/jpeg;base64,${res.data}`
+
+          wx.request({
+            url,
+            method: 'POST',
+            data: {
+              image: base64Image,
+              subject: '数学',
+              grade: '初三'
+            },
+            header: {
+              'content-type': 'application/json'
+            },
+            timeout: 60000, // 60秒超时
+            success: (response) => {
+              console.log('V6 API响应:', response)
+
+              if (response.statusCode === 200 && response.data.status === 'success') {
+                resolve(response.data)
+              } else {
+                reject(new Error(response.data.error || 'V6识别失败'))
+              }
+            },
+            fail: (err) => {
+              console.error('V6 API调用失败:', err)
+              reject(err)
+            }
+          })
+        },
+        fail: (err) => {
+          console.error('读取文件失败:', err)
+          reject(err)
+        }
+      })
+    })
+  },
+
+  /**
    * 提交照片进行诊断 V5（GLM-OCR专业OCR）
    */
-  submitPhotoV2(filePath) {
+  submitPhotoV5(filePath) {
     const baseUrl = getBaseUrl()
     const url = `${baseUrl}/api/diagnosis/photo-latex`  // 使用GLM-OCR V5 API
 
