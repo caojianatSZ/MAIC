@@ -19,11 +19,12 @@ interface CutQuestionsRequest {
 }
 
 interface CutQuestionsResponse {
-  requestId: string;
-  success: boolean;
-  code: string;
-  message: string;
-  data: string; // JSON字符串
+  requestId?: string;
+  success?: boolean;
+  code?: string;
+  message?: string;
+  data?: string; // JSON字符串
+  questions?: Question[]; // 直接返回格式
 }
 
 interface QuestionInfo {
