@@ -74,11 +74,11 @@ export async function cutQuestions(
     extract_images = true
   } = options;
 
-  const apiKey = process.env.ALIYUN_API_KEY;
+  const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
   const workspaceId = process.env.ALIYUN_WORKSPACE_ID;
 
-  if (!apiKey || !workspaceId) {
-    throw new Error('缺少阿里云配置: ALIYUN_API_KEY 和 ALIYUN_WORKSPACE_ID');
+  if (!accessKeyId || !workspaceId) {
+    throw new Error('缺少阿里云配置: ALIYUN_ACCESS_KEY_ID 和 ALIYUN_WORKSPACE_ID');
   }
 
   log.info('调用阿里云CutQuestions API', {
@@ -94,7 +94,7 @@ export async function cutQuestions(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${accessKeyId}`, // 使用Access Key ID作为Bearer token
           'X-DashScope-DataInspection': 'enable'
         },
         body: JSON.stringify({
