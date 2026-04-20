@@ -183,7 +183,7 @@ async function createTempImageFile(
   // 写入文件
   await writeFile(tempFilePath, buffer);
 
-  // 返回可访问的URL
+  // 返回可访问的URL（使用公网域名）
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
   return `${baseUrl}/temp/images/${filename}`;
 }

@@ -1,215 +1,139 @@
 /**
- * 阿里云EduTutor - CutQuestions API客户端
+ * 阿里云EduTutor - CutQuestions API客户端（调试认证）
  *
- * 文档: https://help.aliyun.com/zh/model-studio/api-edututor-2025-07-07-cutquestions
- *
- * 功能：
- * - 自动切分试卷题目
- * - 结构化识别（题干、选项、答案、插图）
- * - 返回每个题目的精确坐标
- * - 提供7天有效的临时图片链接
+ * 尝试多种认证方式
  */
 
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('AliyunEduTutor');
 
-interface CutQuestionsRequest {
-  image: string; // 图片URL（需要先上传到OSS）
-  struct: boolean; // 是否返回结构化信息
-  extract_images: boolean; // 是否返回子图临时链接
-}
-
-interface CutQuestionsResponse {
-  requestId: string;
-  success: boolean;
-  code: string;
-  message: string;
-  data: string; // JSON字符串
-}
-
-interface QuestionInfo {
-  type: string; // 题目类型：选择题/填空题/判断题/问答题/作文题/其他
-  stem: {
-    text: string;
-    pos_list: number[][]; // [[x1,y1,x2,y2,x3,y3,x4,y4]]
-  };
-  option: Array<{
-    text: string;
-    pos_list: number[][];
-  }>;
-  figure: Array<{
-    pos_list: number[][];
-  }>;
-  answer: Array<{
-    text: string;
-    pos_list: number[][];
-  }>;
-  subquestion: any[];
-}
-
-interface Question {
-  pos_list: number[][]; // 题目坐标框（可能含有多个，用于多栏布局）
-  sub_images: string[]; // 子图图片链接（7天有效）
-  merged_image: string; // 完整题目图片链接（7天有效）
-  info: QuestionInfo;
-}
-
-interface CutQuestionsData {
-  questions: Question[];
-}
-
-/**
- * 调用阿里云CutQuestions API
- */
-export async function cutQuestions(
-  imageUrl: string,
-  options: {
-    struct?: boolean;
-    extract_images?: boolean;
-  } = {}
-): Promise<CutQuestionsData> {
-  const {
-    struct = true,
-    extract_images = true
-  } = options;
-
+// 测试不同的认证方式
+export async function testAuthentication(imageUrl: string) {
   const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
+  const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
   const workspaceId = process.env.ALIYUN_WORKSPACE_ID;
 
-  if (!accessKeyId || !workspaceId) {
-    throw new Error('缺少阿里云配置: ALIYUN_ACCESS_KEY_ID 和 ALIYUN_WORKSPACE_ID');
-  }
-
-  log.info('调用阿里云CutQuestions API', {
-    imageUrl,
-    struct,
-    extract_images
+  log.info('开始测试阿里云API认证', {
+    accessKeyId,
+    workspaceId,
+    imageUrl
   });
 
+  // 方式1: 直接使用Access Key ID作为Bearer token
+  log.info('测试方式1: Access Key ID作为Bearer token');
   try {
-    const response = await fetch(
+    const response1 = await fetch(
       `https://edututor-cn-beijing.aliyuncs.com/service/cutApi?workspaceId=${workspaceId}`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessKeyId}`, // 使用Access Key ID作为Bearer token
+          'Authorization': `Bearer ${accessKeyId}`,
           'X-DashScope-DataInspection': 'enable'
         },
         body: JSON.stringify({
           image: imageUrl,
           parameters: {
-            struct,
-            extract_images
+            struct: true,
+            extract_images: true
           }
         })
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`阿里云API调用失败: ${response.status} ${errorText}`);
-    }
-
-    const result: CutQuestionsResponse = await response.json();
-
-    if (!result.success || result.code !== 'SUCCESS') {
-      throw new Error(`阿里云API返回错误: ${result.code} - ${result.message}`);
-    }
-
-    // 解析data字段（JSON字符串）
-    const data: CutQuestionsData = JSON.parse(result.data);
-
-    log.info('阿里云CutQuestions API调用成功', {
-      questionCount: data.questions.length,
-      requestId: result.requestId
+    const result1 = await response1.json();
+    log.info('方式1结果', {
+      status: response1.status,
+      success: result1.success,
+      code: result1.code,
+      message: result1.message
     });
 
-    return data;
+    if (response1.ok && result1.success) {
+      log.info('✅ 方式1成功！Access Key ID可以直接用作Bearer token');
+      return result1;
+    }
   } catch (error) {
-    log.error('阿里云CutQuestions API调用失败', {
-      error: error instanceof Error ? error.message : String(error)
+    log.error('方式1失败', { error });
+  }
+
+  // 方式2: 使用完整的Access Key (ID:Secret格式)
+  log.info('测试方式2: Access Key ID:Secret格式');
+  try {
+    const response2 = await fetch(
+      `https://edututor-cn-beijing.aliyuncs.com/service/cutApi?workspaceId=${workspaceId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessKeyId}:${accessKeySecret}`,
+          'X-DashScope-DataInspection': 'enable'
+        },
+        body: JSON.stringify({
+          image: imageUrl,
+          parameters: {
+            struct: true,
+            extract_images: true
+          }
+        })
+      }
+    );
+
+    const result2 = await response2.json();
+    log.info('方式2结果', {
+      status: response2.status,
+      success: result2.success,
+      code: result2.code,
+      message: result2.message
     });
-    throw error;
-  }
-}
 
-/**
- * 将阿里云格式转换为我们的题目格式
- */
-export function convertAliyunQuestionsToOurFormat(
-  aliyunQuestions: Question[]
-): Array<{
-  id: string;
-  content: string;
-  type: 'choice' | 'fill_blank' | 'essay';
-  options?: Array<{
-    text: string;
-    bbox_2d?: number[];
-    images?: Array<{ bbox: number[]; label?: string; url?: string }>;
-  }>;
-  images?: Array<{ bbox: number[]; label?: string; url?: string }>;
-  bbox_2d?: number[];
-  aliyunData?: Question;
-}> {
-  return aliyunQuestions.map((question, index) => {
-    const qId = String(index + 1);
-    const { info, sub_images, merged_image, pos_list } = question;
-
-    // 确定题目类型
-    let type: 'choice' | 'fill_blank' | 'essay' = 'essay';
-    if (info.type === '选择题') type = 'choice';
-    else if (info.type === '填空题') type = 'fill_blank';
-
-    // 提取题干文本
-    const content = info.stem?.text || '';
-
-    // 提取选项
-    const options = info.option?.map((opt) => ({
-      text: opt.text,
-      bbox_2d: posListToBbox2d(opt.pos_list[0])
-    })) || [];
-
-    // 提取插图
-    const figures = info.figure?.map((fig, figIndex) => ({
-      bbox: posListToBbox2d(fig.pos_list[0]),
-      label: `插图${figIndex + 1}`,
-      url: sub_images[figIndex] || merged_image
-    })) || [];
-
-    // 提取题目bbox（使用第一个pos_list）
-    const bbox_2d = pos_list[0] ? posListToBbox2d(pos_list[0]) : undefined;
-
-    return {
-      id: qId,
-      content,
-      type,
-      options,
-      images: figures.length > 0 ? figures : undefined,
-      bbox_2d,
-      aliyunData: question
-    };
-  });
-}
-
-/**
- * 将阿里云的pos_list格式转换为bbox_2d格式
- * pos_list: [[x1,y1,x2,y2,x3,y3,x4,y4]] (4个点)
- * bbox_2d: [x1, y1, x2, y2] (左上角和右下角)
- */
-function posListToBbox2d(posList: number[]): number[] {
-  if (posList.length !== 8) {
-    return [0, 0, 0, 0];
+    if (response2.ok && result2.success) {
+      log.info('✅ 方式2成功！Access Key ID:Secret格式有效');
+      return result2;
+    }
+  } catch (error) {
+    log.error('方式2失败', { error });
   }
 
-  const [x1, y1, x2, y2, x3, y3, x4, y4] = posList;
+  // 方式3: 不使用Bearer，直接使用Access Key ID
+  log.info('测试方式3: 直接使用Access Key ID（无Bearer）');
+  try {
+    const response3 = await fetch(
+      `https://edututor-cn-beijing.aliyuncs.com/service/cutApi?workspaceId=${workspaceId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-acs-access-key-id': accessKeyId,
+          'x-acs-access-key-secret': accessKeySecret,
+          'X-DashScope-DataInspection': 'enable'
+        },
+        body: JSON.stringify({
+          image: imageUrl,
+          parameters: {
+            struct: true,
+            extract_images: true
+          }
+        })
+      }
+    );
 
-  // 找出最小和最大的x、y值
-  const minX = Math.min(x1, x2, x3, x4);
-  const maxX = Math.max(x1, x2, x3, x4);
-  const minY = Math.min(y1, y2, y3, y4);
-  const maxY = Math.max(y1, y2, y3, y4);
+    const result3 = await response3.json();
+    log.info('方式3结果', {
+      status: response3.status,
+      success: result3.success,
+      code: result3.code,
+      message: result3.message
+    });
 
-  return [minX, minY, maxX, maxY];
+    if (response3.ok && result3.success) {
+      log.info('✅ 方式3成功！直接使用Access Key headers有效');
+      return result3;
+    }
+  } catch (error) {
+    log.error('方式3失败', { error });
+  }
+
+  throw new Error('所有认证方式都失败了');
 }
