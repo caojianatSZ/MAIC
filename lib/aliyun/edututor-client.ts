@@ -302,7 +302,8 @@ export async function testAuthentication(imageUrl: string): Promise<{
 
     const result: CutQuestionsResponse = JSON.parse(responseText);
 
-    if (!result.success || result.code !== 'SUCCESS') {
+    // 检查是否有错误
+    if ((result.success === false || result.code !== 'SUCCESS') && !result.questions) {
       return {
         success: false,
         message: `API错误: ${result.code} - ${result.message}`,
@@ -310,7 +311,19 @@ export async function testAuthentication(imageUrl: string): Promise<{
       };
     }
 
-    const data = JSON.parse(result.data);
+    // 解析数据（支持两种格式）
+    let data: CutQuestionsData;
+    if (result.questions) {
+      data = { questions: result.questions };
+    } else if (result.data) {
+      data = JSON.parse(result.data);
+    } else {
+      return {
+        success: false,
+        message: 'API响应格式错误：无法找到题目数据',
+        data: result
+      };
+    }
 
     return {
       success: true,
