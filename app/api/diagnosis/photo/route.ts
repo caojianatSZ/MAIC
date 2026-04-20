@@ -4,16 +4,18 @@ import { edukgAdapter } from '@/lib/edukg/adapter';
 import { createLogger } from '@/lib/logger';
 import sharp from 'sharp';
 import { getTextinClient } from '@/lib/textin/client';
+import { cutQuestions, convertAliyunQuestionsToOurFormat } from '@/lib/aliyun/edututor-client';
+import { enrichQuestionWithOptions } from '@/lib/aliyun/extract-option-images';
 
 const log = createLogger('Photo Diagnosis');
 
 /**
- * 拍照诊断 API
+ * 拍照诊断 API (增强版)
  * POST /api/diagnosis/photo
  *
  * 流程：
- * 1. TextIn OCR 识别题目内容（印刷+手写）
- * 2. 使用 GLM-4V 分析题目结构和答案
+ * 1. 优先使用阿里云EduTutor API进行试卷切分
+ * 2. 如果阿里云API失败，降级到TextIn OCR + GLM-4V
  * 3. 匹配 EduKG 知识点
  * 4. 如果有答案，判断对错
  * 5. 生成诊断结果
@@ -52,6 +54,7 @@ interface PhotoDiagnosisResponse {
     correctCount: number;
     knowledgePoints: string[];
   };
+  mode?: 'aliyun-edututor' | 'textin-glm'; // 标识使用的模式
 }
 
 /**
@@ -120,21 +123,62 @@ export async function POST(request: NextRequest) {
       log.info('开始拍照诊断', { subject, grade, hasImage: !!imageUrl || !!imageBase64 });
     }
 
-    // 步骤1: TextIn OCR识别（印刷+手写）
-    log.info('步骤1: TextIn OCR识别中...');
-    const ocrResult = await performTextInOCR(imageBase64!);
-    log.info('TextIn OCR识别完成', {
-      textLength: ocrResult.text.length,
-      confidence: ocrResult.confidence
-    });
+    // 步骤1: 优先使用阿里云EduTutor API
+    log.info('步骤1: 尝试使用阿里云EduTutor API...');
+    let questions: Question[] = [];
+    let useAliyun = false;
 
-    // 步骤2: 使用 GLM-4V 分析题目结构
-    log.info('步骤2: GLM-4V分析题目中...');
-    const questions = await analyzeQuestions(ocrResult.text, subject, grade);
-    log.info('题目分析完成', { questionCount: questions.length });
+    try {
+      // 创建临时图片URL（阿里云API需要可访问的URL）
+      const tempImageUrl = await createTempImageUrl(imageBase64!);
+
+      // 调用阿里云API
+      const aliyunResult = await cutQuestions(tempImageUrl, {
+        struct: true,
+        extract_images: true
+      });
+
+      // 转换格式并提取选项图片
+      const convertedQuestions = convertAliyunQuestionsToOurFormat(aliyunResult.questions);
+      questions = convertedQuestions.map(q => {
+        if (q.aliyunData) {
+          const enriched = enrichQuestionWithOptions(q.aliyunData);
+          return {
+            ...q,
+            knowledgePoints: [], // 初始化知识点数组
+            optionImages: enriched.optionImages
+          } as Question & { optionImages?: typeof enriched.optionImages };
+        }
+        return {
+          ...q,
+          knowledgePoints: [] // 初始化知识点数组
+        } as Question;
+      });
+
+      useAliyun = true;
+      log.info('阿里云API调用成功', { questionCount: questions.length });
+
+    } catch (aliyunError) {
+      log.warn('阿里云API调用失败，降级到TextIn OCR', {
+        error: aliyunError instanceof Error ? aliyunError.message : String(aliyunError)
+      });
+
+      // 步骤2: TextIn OCR识别（降级方案）
+      log.info('步骤2: TextIn OCR识别中...');
+      const ocrResult = await performTextInOCR(imageBase64!);
+      log.info('TextIn OCR识别完成', {
+        textLength: ocrResult.text.length,
+        confidence: ocrResult.confidence
+      });
+
+      // 步骤3: 使用 GLM-4V 分析题目结构
+      log.info('步骤3: GLM-4V分析题目中...');
+      questions = await analyzeQuestions(ocrResult.text, subject, grade);
+      log.info('题目分析完成', { questionCount: questions.length });
+    }
 
     // 步骤3: 为每个题目匹配EduKG知识点
-    log.info('步骤3: 匹配EduKG知识点...');
+    log.info('步骤4: 匹配EduKG知识点...');
     for (const question of questions) {
       const knowledgePoints = await matchKnowledgePoints(question.content, subject);
       question.knowledgePoints = knowledgePoints;
@@ -142,7 +186,7 @@ export async function POST(request: NextRequest) {
     log.info('知识点匹配完成');
 
     // 步骤4: 如果有学生答案，判断对错
-    log.info('步骤4: 判断答案对错...');
+    log.info('步骤5: 判断答案对错...');
     for (const question of questions) {
       if (question.studentAnswer) {
         const judgment = await judgeAnswer(question);
@@ -157,10 +201,11 @@ export async function POST(request: NextRequest) {
     const summary = generateSummary(questions);
 
     const response: PhotoDiagnosisResponse = {
-      ocrText: ocrResult.text,
-      ocrConfidence: ocrResult.confidence,
+      ocrText: useAliyun ? questions.map(q => q.content).join('\n\n') : '', // 阿里云模式下不返回原始OCR文本
+      ocrConfidence: useAliyun ? undefined : 0.95, // 阿里云模式不设置置信度
       questions,
-      summary
+      summary,
+      mode: useAliyun ? 'aliyun-edututor' : 'textin-glm' // 标识使用的模式
     };
 
     log.info('拍照诊断完成', summary);
@@ -174,6 +219,51 @@ export async function POST(request: NextRequest) {
       error instanceof Error ? error.message : '拍照诊断失败，请稍后重试'
     );
   }
+}
+
+/**
+ * 创建临时图片URL（用于阿里云API）
+ */
+async function createTempImageUrl(imageBase64: string): Promise<string> {
+  const { writeFile, unlink } = await import('fs/promises');
+  const { join } = await import('path');
+  const { v4: uuidv4 } = await import('uuid');
+
+  // 提取Base64数据
+  const base64DataClean = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+  const buffer = Buffer.from(base64DataClean, 'base64');
+
+  // 生成唯一文件名
+  const filename = `temp_${Date.now()}_${uuidv4()}.jpg`;
+  const tempDir = join(process.cwd(), 'public', 'temp', 'images');
+  const tempFilePath = join(tempDir, filename);
+
+  // 确保临时目录存在
+  const fs = await import('fs');
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+
+  // 写入文件
+  await writeFile(tempFilePath, buffer);
+
+  // 返回可访问的URL
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const tempUrl = `${baseUrl}/temp/images/${filename}`;
+
+  log.info('创建临时图片文件', { tempUrl });
+
+  // 异步清理临时文件（5分钟后）
+  setTimeout(async () => {
+    try {
+      await unlink(tempFilePath);
+      log.info('临时图片已清理', { filename });
+    } catch (error) {
+      log.warn('清理临时图片失败', { error, filename });
+    }
+  }, 5 * 60 * 1000);
+
+  return tempUrl;
 }
 
 /**
@@ -555,7 +645,7 @@ function generateSummary(questions: Question[]): {
  */
 export async function GET() {
   return NextResponse.json({
-    message: '拍照诊断接口',
+    message: '拍照诊断接口 (增强版)',
     method: 'POST',
     parameters: {
       imageUrl: '图片云存储URL（可选）',
@@ -564,11 +654,17 @@ export async function GET() {
       grade: '年级（可选，默认初三）'
     },
     flow: [
-      '1. TextIn OCR识别题目内容（印刷+手写）',
-      '2. GLM-4V分析题目结构和答案',
+      '1. 优先使用阿里云EduTutor API进行试卷切分',
+      '2. 如果阿里云API失败，降级到TextIn OCR + GLM-4V',
       '3. 匹配EduKG知识点',
       '4. 如果有答案，判断对错',
       '5. 生成诊断结果'
+    ],
+    advantages: [
+      '阿里云API专门为教育场景优化',
+      '精确的选项坐标信息，解决选项图片关联问题',
+      '自动返回结构化JSON数据',
+      '支持7天有效临时图片链接'
     ],
     example: {
       request: {
@@ -577,6 +673,7 @@ export async function GET() {
         grade: '初三'
       },
       response: {
+        mode: 'aliyun-edututor', // 'aliyun-edututor' 或 'textin-glm'
         ocrText: '识别的完整文本',
         ocrConfidence: 0.95,
         questions: [
@@ -591,7 +688,14 @@ export async function GET() {
             knowledgePoints: [
               { id: 'kf_003', name: '配方法求顶点' }
             ],
-            analysis: '答案正确'
+            analysis: '答案正确',
+            optionImages: [ // 阿里云模式特有
+              {
+                optionLetter: 'A',
+                imageUrl: 'http://oss.aliyuncs.com/...png?x-oss-process=image/crop,...',
+                bbox: [100, 200, 300, 400]
+              }
+            ]
           }
         ],
         summary: {

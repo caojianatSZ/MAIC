@@ -72,38 +72,72 @@ export async function cutQuestions(
     extract_images = true
   } = options;
 
+  // 优先使用RAM Access Key认证，降级到API Key
+  const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
+  const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
   const apiKey = process.env.ALIYUN_API_KEY;
   const workspaceId = process.env.ALIYUN_WORKSPACE_ID;
 
-  if (!apiKey || !workspaceId) {
-    throw new Error('缺少阿里云配置: ALIYUN_API_KEY 和 ALIYUN_WORKSPACE_ID');
+  if (!workspaceId) {
+    throw new Error('缺少阿里云配置: ALIYUN_WORKSPACE_ID');
+  }
+
+  if (!accessKeyId && !apiKey) {
+    throw new Error('缺少阿里云配置: 需要ALIYUN_ACCESS_KEY_ID/SECRET或ALIYUN_API_KEY');
   }
 
   log.info('调用阿里云CutQuestions API', {
     imageUrl,
     struct,
     extract_images,
-    apiKey: apiKey.substring(0, 15) + '...',
-    workspaceId
+    workspaceId,
+    authMethod: accessKeyId ? 'RAM_ACCESS_KEY' : 'API_KEY'
   });
 
   try {
-    const url = `https://edututor.cn-hangzhou.aliyuncs.com/service/cutApi?workspaceId=${workspaceId}`;
+    const baseUrl = 'https://edututor.cn-hangzhou.aliyuncs.com';
+    const urlPath = '/service/cutApi';
+    const queryParams = `workspaceId=${workspaceId}`;
+    const url = `${baseUrl}${urlPath}?${queryParams}`;
     const date = new Date().toUTCString();
 
-    log.info('发送请求到阿里云', {
-      url,
-      date
-    });
+    let headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Date': date
+    };
+
+    // 如果有RAM Access Key，使用签名认证
+    if (accessKeyId && accessKeySecret) {
+      const crypto = await import('crypto');
+      const method = 'POST';
+      const accept = '*/*'; // 阿里云API期望的Accept header
+      const contentType = 'application/json';
+
+      // 构建签名字符串（格式：Method\nAccept\nContent-Type\nDate\nPath）
+      const stringToSign = `${method}\n${accept}\n\n${contentType}\n${date}\n${urlPath}?${queryParams}`;
+      const signature = crypto.createHmac('sha1', accessKeySecret)
+        .update(stringToSign)
+        .digest('base64');
+
+      headers['Authorization'] = `acs ${accessKeyId}:${signature}`;
+      headers['Accept'] = accept; // 设置Accept header
+
+      log.info('使用RAM Access Key签名认证', {
+        stringToSign: stringToSign.substring(0, 100) + '...',
+        signature: signature.substring(0, 20) + '...'
+      });
+    } else if (apiKey) {
+      // 降级到API Key Bearer token认证
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      headers['X-DashScope-DataInspection'] = 'enable';
+      log.info('使用API Key Bearer token认证');
+    }
+
+    log.info('发送请求到阿里云', { url, date });
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'Date': date,
-        'X-DashScope-DataInspection': 'enable'
-      },
+      headers,
       body: JSON.stringify({
         image: imageUrl,
         parameters: {
@@ -122,15 +156,62 @@ export async function cutQuestions(
       throw new Error(`阿里云API调用失败: ${response.status} ${errorText}`);
     }
 
-    const result: CutQuestionsResponse = await response.json();
+    // 阿里云API返回XML格式，需要解析CDATA中的JSON
+    const responseText = await response.text();
 
-    if (!result.success || result.code !== 'SUCCESS') {
-      log.error('阿里云API业务错误', {
-        code: result.code,
-        message: result.message,
-        requestId: result.requestId
+    let result: CutQuestionsResponse;
+
+    if (responseText.trim().startsWith('<?xml')) {
+      // XML格式响应 - 提取CDATA中的JSON
+      log.info('阿里云API返回XML格式，解析CDATA');
+
+      // 使用更简单的CDATA提取方式
+      const cdataStart = responseText.indexOf('<![CDATA[');
+      const cdataEnd = responseText.indexOf(']]>');
+
+      if (cdataStart === -1 || cdataEnd === -1) {
+        log.error('无法从XML响应中提取CDATA', {
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error('阿里云API响应格式错误：无法找到CDATA');
+      }
+
+      const cdataContent = responseText.substring(cdataStart + 9, cdataEnd);
+
+      try {
+        result = JSON.parse(cdataContent);
+        log.info('阿里云API响应解析成功', {
+          hasResult: !!result,
+          success: result?.success,
+          code: result?.code,
+          hasData: !!result?.data,
+          dataType: typeof result?.data,
+          keys: result ? Object.keys(result) : 'no result'
+        });
+      } catch (parseError) {
+        log.error('解析CDATA中的JSON失败', {
+          cdataContent: cdataContent.substring(0, 200),
+          error: parseError instanceof Error ? parseError.message : String(parseError)
+        });
+        throw new Error('阿里云API响应解析失败');
+      }
+    } else {
+      // JSON格式响应（降级情况）
+      log.info('阿里云API返回JSON格式');
+      result = JSON.parse(responseText);
+    }
+
+    if (!result || (!result.success && result.code !== 'SUCCESS')) {
+      log.error('阿里云API业务错误或响应格式不匹配', {
+        result: result,
+        hasSuccess: !!result?.success,
+        hasCode: !!result?.code,
+        success: result?.success,
+        code: result?.code,
+        message: result?.message,
+        rawKeys: result ? Object.keys(result) : 'no result'
       });
-      throw new Error(`阿里云API返回错误: ${result.code} - ${result.message}`);
+      throw new Error(`阿里云API返回错误: ${result?.code || 'UNKNOWN'} - ${result?.message || '未知错误'}`);
     }
 
     // 解析data字段（JSON字符串）

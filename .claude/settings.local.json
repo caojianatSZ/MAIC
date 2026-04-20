@@ -89,7 +89,9 @@
       "Bash(ssh *)",
       "Bash(rtk proxy *)",
       "Bash(/tmp/test-layout.sh)",
-      "Bash(/tmp/test-v5-api.sh)"
+      "Bash(/tmp/test-v5-api.sh)",
+      "Bash(/tmp/test-aliyun-api.sh)",
+      "Bash(rsync -avz /Users/caojian/Projects/OpenMAIC/lib/aliyun/edututor-client.ts hongzhi:/opt/openmaic/lib/aliyun/edututor-client.ts)"
     ]
   }
 }

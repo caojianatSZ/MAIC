@@ -84,7 +84,7 @@ export async function extractOptionImages(
 
     // 生成切割后的图片URL
     // 这里使用阿里云OSS的图片处理功能
-    const croppedUrl = generateCroppedImageUrl(mergedImageUrl, expandedBbox);
+    const croppedUrl = generateCroppedImageUrl(mergedImageUrl, expandedBbox as [number, number, number, number]);
 
     results.push({
       optionLetter: option.text.trim(),

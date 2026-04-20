@@ -121,14 +121,14 @@ export async function POST(request: NextRequest) {
         return {
           ...q,
           optionImages: enriched.optionImages
-        };
+        } as typeof q & { optionImages?: typeof enriched.optionImages };
       }
       return q;
     });
 
     // 统计选项图形数量
     const totalOptionImages = enrichedQuestions.reduce(
-      (sum, q) => sum + (q.optionImages?.length || 0),
+      (sum, q) => sum + ((q as any).optionImages?.length || 0),
       0
     );
 
