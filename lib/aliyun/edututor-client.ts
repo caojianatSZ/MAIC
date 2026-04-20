@@ -201,25 +201,38 @@ export async function cutQuestions(
       result = JSON.parse(responseText);
     }
 
-    if (!result || (!result.success && result.code !== 'SUCCESS')) {
-      log.error('阿里云API业务错误或响应格式不匹配', {
-        result: result,
+    // 判断返回格式
+    let data: CutQuestionsData;
+
+    if (result.questions && Array.isArray(result.questions)) {
+      // 直接返回格式：{questions: [...]}
+      log.info('阿里云API直接返回题目数据');
+      data = { questions: result.questions };
+    } else if (result.data) {
+      // 包装格式：{success: true, code: "SUCCESS", data: "{...}"}
+      if (!result.success && result.code !== 'SUCCESS') {
+        log.error('阿里云API业务错误', {
+          code: result.code,
+          message: result.message,
+          requestId: result.requestId
+        });
+        throw new Error(`阿里云API返回错误: ${result.code} - ${result.message}`);
+      }
+      data = JSON.parse(result.data);
+    } else {
+      log.error('阿里云API响应格式不匹配', {
+        hasQuestions: !!result?.questions,
+        hasData: !!result?.data,
         hasSuccess: !!result?.success,
         hasCode: !!result?.code,
-        success: result?.success,
-        code: result?.code,
-        message: result?.message,
         rawKeys: result ? Object.keys(result) : 'no result'
       });
-      throw new Error(`阿里云API返回错误: ${result?.code || 'UNKNOWN'} - ${result?.message || '未知错误'}`);
+      throw new Error('阿里云API响应格式错误：无法找到题目数据');
     }
-
-    // 解析data字段（JSON字符串）
-    const data: CutQuestionsData = JSON.parse(result.data);
 
     log.info('阿里云CutQuestions API调用成功', {
       questionCount: data.questions.length,
-      requestId: result.requestId
+      requestId: result.requestId || 'unknown'
     });
 
     return data;
