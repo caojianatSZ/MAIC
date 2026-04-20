@@ -3,12 +3,11 @@
  *
  * 文档: https://help.aliyun.com/zh/model-studio/api-edututor-2025-07-07-cutquestions
  *
- * 使用正确的endpoint和API Key
- * - Endpoint: edututor.cn-hangzhou.aliyuncs.com
- * - API Key: sk-e5714f9dd6bf44cb8ec2c4936e0f642d
+ * 认证方式: 阿里云Access Key签名认证
  */
 
 import { createLogger } from '@/lib/logger';
+import { createHmac } from 'crypto';
 
 const log = createLogger('AliyunEduTutor');
 
@@ -60,7 +59,29 @@ interface CutQuestionsData {
 }
 
 /**
- * 调用阿里云CutQuestions API（使用正确的endpoint和API Key）
+ * 生成阿里云API签名
+ */
+function generateSignature(
+  method: string,
+  accept: string,
+  contentType: string,
+  date: string,
+  urlPath: string,
+  accessKeySecret: string
+): string {
+  // 构建待签名字符串
+  const stringToSign = `${method}\n${accept}\n\n${contentType}\n${date}\n${urlPath}`;
+
+  // 使用HMAC-SHA1计算签名
+  const signature = createHmac('sha1', accessKeySecret)
+    .update(stringToSign)
+    .digest('base64');
+
+  return signature;
+}
+
+/**
+ * 调用阿里云CutQuestions API（使用Access Key签名认证）
  */
 export async function cutQuestions(
   imageUrl: string,
@@ -74,49 +95,83 @@ export async function cutQuestions(
     extract_images = true
   } = options;
 
-  const apiKey = process.env.ALIYUN_API_KEY;
+  const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
+  const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
   const workspaceId = process.env.ALIYUN_WORKSPACE_ID;
 
-  if (!apiKey || !workspaceId) {
-    throw new Error('缺少阿里云配置: ALIYUN_API_KEY 和 ALIYUN_WORKSPACE_ID');
+  if (!accessKeyId || !accessKeySecret || !workspaceId) {
+    throw new Error('缺少阿里云配置: ALIYUN_ACCESS_KEY_ID, ALIYUN_ACCESS_KEY_SECRET 和 ALIYUN_WORKSPACE_ID');
   }
 
   log.info('调用阿里云CutQuestions API', {
     imageUrl,
     struct,
     extract_images,
-    apiKey: apiKey.substring(0, 10) + '...', // 只显示前10个字符
+    accessKeyId: accessKeyId.substring(0, 10) + '...',
     workspaceId
   });
 
   try {
-    const response = await fetch(
-      `https://edututor.cn-hangzhou.aliyuncs.com/service/cutApi?workspaceId=${workspaceId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer sk-e5714f9dd6bf44cb8ec2c4936e0f642d`,
-          'X-DashScope-DataInspection': 'enable'
-        },
-        body: JSON.stringify({
-          image: imageUrl,
-          parameters: {
-            struct,
-            extract_images
-          }
-        })
-      }
+    const method = 'POST';
+    const accept = '*/*';
+    const contentType = 'application/json';
+    const date = new Date().toUTCString();
+    const urlPath = `/service/cutApi?workspaceId=${workspaceId}`;
+
+    // 生成签名
+    const signature = generateSignature(
+      method,
+      accept,
+      contentType,
+      date,
+      urlPath,
+      accessKeySecret
     );
+
+    const url = `https://edututor.cn-hangzhou.aliyuncs.com${urlPath}`;
+
+    log.info('发送请求到阿里云', {
+      url,
+      method,
+      date,
+      signature: signature.substring(0, 10) + '...'
+    });
+
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'Accept': accept,
+        'Content-Type': contentType,
+        'Date': date,
+        'Authorization': `acs ${accessKeyId}:${signature}`,
+        'X-DashScope-DataInspection': 'enable'
+      },
+      body: JSON.stringify({
+        image: imageUrl,
+        parameters: {
+          struct,
+          extract_images
+        }
+      })
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
+      log.error('阿里云API HTTP错误', {
+        status: response.status,
+        body: errorText
+      });
       throw new Error(`阿里云API调用失败: ${response.status} ${errorText}`);
     }
 
     const result: CutQuestionsResponse = await response.json();
 
     if (!result.success || result.code !== 'SUCCESS') {
+      log.error('阿里云API业务错误', {
+        code: result.code,
+        message: result.message,
+        requestId: result.requestId
+      });
       throw new Error(`阿里云API返回错误: ${result.code} - ${result.message}`);
     }
 
@@ -134,6 +189,106 @@ export async function cutQuestions(
       error: error instanceof Error ? error.message : String(error)
     });
     throw error;
+  }
+}
+
+/**
+ * 测试阿里云API认证
+ */
+export async function testAuthentication(imageUrl: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: any;
+}> {
+  try {
+    const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
+    const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
+    const workspaceId = process.env.ALIYUN_WORKSPACE_ID;
+
+    if (!accessKeyId || !accessKeySecret || !workspaceId) {
+      return {
+        success: false,
+        message: '缺少环境变量: ALIYUN_ACCESS_KEY_ID, ALIYUN_ACCESS_KEY_SECRET 或 ALIYUN_WORKSPACE_ID'
+      };
+    }
+
+    log.info('测试阿里云API认证', {
+      imageUrl,
+      accessKeyId: accessKeyId.substring(0, 10) + '...',
+      workspaceId
+    });
+
+    const method = 'POST';
+    const accept = '*/*';
+    const contentType = 'application/json';
+    const date = new Date().toUTCString();
+    const urlPath = `/service/cutApi?workspaceId=${workspaceId}`;
+
+    // 生成签名
+    const signature = generateSignature(
+      method,
+      accept,
+      contentType,
+      date,
+      urlPath,
+      accessKeySecret
+    );
+
+    const url = `https://edututor.cn-hangzhou.aliyuncs.com${urlPath}`;
+
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'Accept': accept,
+        'Content-Type': contentType,
+        'Date': date,
+        'Authorization': `acs ${accessKeyId}:${signature}`,
+        'X-DashScope-DataInspection': 'enable'
+      },
+      body: JSON.stringify({
+        image: imageUrl,
+        parameters: {
+          struct: true,
+          extract_images: true
+        }
+      })
+    });
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `HTTP ${response.status}: ${responseText}`,
+        data: { status: response.status, body: responseText }
+      };
+    }
+
+    const result: CutQuestionsResponse = JSON.parse(responseText);
+
+    if (!result.success || result.code !== 'SUCCESS') {
+      return {
+        success: false,
+        message: `API错误: ${result.code} - ${result.message}`,
+        data: result
+      };
+    }
+
+    const data = JSON.parse(result.data);
+
+    return {
+      success: true,
+      message: '认证成功',
+      data: {
+        requestId: result.requestId,
+        questionCount: data.questions?.length || 0
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : String(error)
+    };
   }
 }
 
@@ -196,88 +351,6 @@ export function convertAliyunQuestionsToOurFormat(
       aliyunData: question
     };
   });
-}
-
-/**
- * 测试阿里云API认证
- */
-export async function testAuthentication(imageUrl: string): Promise<{
-  success: boolean;
-  message: string;
-  data?: any;
-}> {
-  try {
-    const apiKey = process.env.ALIYUN_API_KEY;
-    const workspaceId = process.env.ALIYUN_WORKSPACE_ID;
-
-    if (!apiKey || !workspaceId) {
-      return {
-        success: false,
-        message: '缺少环境变量: ALIYUN_API_KEY 或 ALIYUN_WORKSPACE_ID'
-      };
-    }
-
-    log.info('测试阿里云API认证', {
-      imageUrl,
-      apiKey: apiKey.substring(0, 10) + '...',
-      workspaceId
-    });
-
-    const response = await fetch(
-      `https://edututor.cn-hangzhou.aliyuncs.com/service/cutApi?workspaceId=${workspaceId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer sk-e5714f9dd6bf44cb8ec2c4936e0f642d`,
-          'X-DashScope-DataInspection': 'enable'
-        },
-        body: JSON.stringify({
-          image: imageUrl,
-          parameters: {
-            struct: true,
-            extract_images: true
-          }
-        })
-      }
-    );
-
-    const responseText = await response.text();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        message: `HTTP ${response.status}: ${responseText}`,
-        data: { status: response.status, body: responseText }
-      };
-    }
-
-    const result: CutQuestionsResponse = JSON.parse(responseText);
-
-    if (!result.success || result.code !== 'SUCCESS') {
-      return {
-        success: false,
-        message: `API错误: ${result.code} - ${result.message}`,
-        data: result
-      };
-    }
-
-    const data = JSON.parse(result.data);
-
-    return {
-      success: true,
-      message: '认证成功',
-      data: {
-        requestId: result.requestId,
-        questionCount: data.questions?.length || 0
-      }
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : String(error)
-    };
-  }
 }
 
 /**
