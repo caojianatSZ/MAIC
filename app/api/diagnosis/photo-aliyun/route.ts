@@ -20,6 +20,7 @@ import {
   cutQuestions,
   convertAliyunQuestionsToOurFormat
 } from '@/lib/aliyun/edututor-client';
+import { enrichQuestionWithOptions } from '@/lib/aliyun/extract-option-images';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -111,29 +112,55 @@ export async function POST(request: NextRequest) {
 
     const questions = convertAliyunQuestionsToOurFormat(aliyunResult.questions);
 
+    // ==================== Step 4: 提取选项图形 ====================
+    log.info('Step 4: 提取选项图形', { requestId });
+
+    const enrichedQuestions = questions.map(q => {
+      if (q.aliyunData) {
+        const enriched = enrichQuestionWithOptions(q.aliyunData);
+        return {
+          ...q,
+          optionImages: enriched.optionImages
+        };
+      }
+      return q;
+    });
+
+    // 统计选项图形数量
+    const totalOptionImages = enrichedQuestions.reduce(
+      (sum, q) => sum + (q.optionImages?.length || 0),
+      0
+    );
+
+    log.info('选项图形提取完成', {
+      requestId,
+      totalOptionImages
+    });
+
     // 清理临时文件（异步，不阻塞响应）
     cleanupTempImageFile(tempImageUrl).catch(error => {
       log.warn('清理临时文件失败', { error, tempImageUrl });
     });
 
-    // ==================== Step 4: 返回结果 ====================
+    // ==================== Step 5: 返回结果 ====================
     const result = {
       status: 'success',
       mode: 'aliyun-edututor',
       markdown: questions.map(q => q.content).join('\n\n'),
-      questions,
+      questions: enrichedQuestions,
       originalImage: image,
       summary: {
-        total_questions: questions.length,
+        total_questions: enrichedQuestions.length,
         markdown_length: questions.map(q => q.content).join('\n\n').length,
         questions_with_images: questions.filter(q => q.images && q.images.length > 0).length,
-        questions_with_options: questions.filter(q => q.options && q.options.length > 0).length
+        questions_with_options: questions.filter(q => q.options && q.options.length > 0).length,
+        total_option_images: totalOptionImages
       },
       metadata: {
         requestId,
         timestamp: new Date().toISOString(),
         method: 'aliyun-edututor',
-        version: '6.0.0'
+        version: '6.1.0'
       }
     };
 
