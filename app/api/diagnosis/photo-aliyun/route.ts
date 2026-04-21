@@ -139,11 +139,11 @@ export async function POST(request: NextRequest) {
           const enriched = enrichQuestionWithOptions(q.aliyunData);
 
           // 将optionImages合并到options数组中
-          const optionsWithImages = q.options?.map((opt, idx) => {
+          const optionsWithImages = (q.options || []).map((opt, idx) => {
             const optionImage = enriched.optionImages?.[idx];
 
             // 检查是否有裁剪图片
-            if (opt.croppedImage || optionImage?.imageUrl) {
+            if (opt && (opt.croppedImage || optionImage?.imageUrl)) {
               const imageUrl = opt.croppedImage || optionImage?.imageUrl || '';
               const bbox = opt.bbox_2d || optionImage?.bbox || [];
 
@@ -152,8 +152,8 @@ export async function POST(request: NextRequest) {
                 ...opt,
                 images: [
                   {
-                    bbox: bbox,
-                    label: `选项${opt.text.trim()}`,
+                    bbox: bbox || [],
+                    label: `选项${opt.text?.trim() || ''}`,
                     url: imageUrl
                   }
                 ]
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
             }
 
             return opt;
-          }) || [];
+          });
 
           return {
             ...q,
@@ -169,7 +169,6 @@ export async function POST(request: NextRequest) {
             optionImages: enriched.optionImages
           } as typeof q & {
             optionImages?: typeof enriched.optionImages;
-            options: typeof q.options & Array<{croppedImage?: string; imageBbox?: number[]}>
           };
         }
         return q;
