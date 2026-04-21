@@ -152,6 +152,18 @@ export async function POST(request: NextRequest) {
       totalOptionImages
     });
 
+    // 调试：打印题6的选项数据
+    const question6 = enrichedQuestions[5];
+    if (question6) {
+      log.info('题6选项数据示例', {
+        id: question6.id,
+        optionsCount: question6.options?.length,
+        firstOption: question6.options?.[0],
+        hasOptionImages: !!(question6 as any).optionImages?.length,
+        firstOptionImage: (question6 as any).optionImages?.[0]
+      });
+    }
+
     // 清理临时文件（异步，不阻塞响应）
     cleanupTempImageFile(tempImageUrl).catch(error => {
       log.warn('清理临时文件失败', { error, tempImageUrl });
