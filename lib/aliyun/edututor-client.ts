@@ -394,8 +394,16 @@ export function convertAliyunQuestionsToOurFormat(
     const options = info.option?.map((opt) => {
       const bbox = posListToBbox2d(opt.pos_list[0]);
 
-      // 使用原始图片URL生成裁剪URL，而不是阿里云OSS临时URL
-      const imageSource = originalImageUrl || merged_image;
+      // 必须使用原始图片URL生成裁剪URL
+      // 阿里云OSS临时URL会签名失效，导致403错误
+      if (!originalImageUrl) {
+        console.warn('缺少原始图片URL，无法生成选项裁剪图片');
+        return {
+          text: opt.text,
+          bbox_2d: bbox,
+          croppedImage: ''  // 无裁剪图片
+        };
+      }
 
       // 为选项生成裁剪图片URL（扩展30px确保完整显示）
       const paddedBbox = [
@@ -404,7 +412,7 @@ export function convertAliyunQuestionsToOurFormat(
         bbox[2] + 30,
         bbox[3] + 30
       ];
-      const croppedUrl = generateCroppedImageUrl(imageSource, paddedBbox as [number, number, number, number]);
+      const croppedUrl = generateCroppedImageUrl(originalImageUrl, paddedBbox as [number, number, number, number]);
 
       return {
         text: opt.text,
@@ -415,11 +423,17 @@ export function convertAliyunQuestionsToOurFormat(
 
     // 提取插图（包含URL）
     const figures = info.figure?.map((fig, figIndex) => {
-      const imageSource = originalImageUrl || merged_image;
+      if (!originalImageUrl) {
+        return {
+          bbox: posListToBbox2d(fig.pos_list[0]),
+          label: `插图${figIndex + 1}`,
+          url: ''  // 无图片
+        };
+      }
       return {
         bbox: posListToBbox2d(fig.pos_list[0]),
         label: `插图${figIndex + 1}`,
-        url: imageSource  // 使用原始图片URL，后续会在前端裁剪
+        url: originalImageUrl  // 使用原始图片URL
       };
     }) || [];
 
