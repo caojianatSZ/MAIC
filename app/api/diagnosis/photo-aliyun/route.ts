@@ -110,7 +110,10 @@ export async function POST(request: NextRequest) {
     // ==================== Step 3: 转换数据格式 ====================
     log.info('Step 3: 转换数据格式', { requestId });
 
-    const questions = convertAliyunQuestionsToOurFormat(aliyunResult.questions);
+    const questions = convertAliyunQuestionsToOurFormat(
+      aliyunResult.questions,
+      tempImageUrl  // 传递我们自己的临时图片URL
+    );
 
     // ==================== Step 4: 提取选项图形 ====================
     log.info('Step 4: 提取选项图形', { requestId });

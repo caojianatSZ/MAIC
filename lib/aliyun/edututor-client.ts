@@ -362,7 +362,8 @@ function generateCroppedImageUrl(
  * 将阿里云格式转换为我们的题目格式
  */
 export function convertAliyunQuestionsToOurFormat(
-  aliyunQuestions: Question[]
+  aliyunQuestions: Question[],
+  originalImageUrl?: string  // 添加原始图片URL参数
 ): Array<{
   id: string;
   content: string;
@@ -392,6 +393,10 @@ export function convertAliyunQuestionsToOurFormat(
     // 提取选项（包含坐标信息和裁剪图片）
     const options = info.option?.map((opt) => {
       const bbox = posListToBbox2d(opt.pos_list[0]);
+
+      // 使用原始图片URL生成裁剪URL，而不是阿里云OSS临时URL
+      const imageSource = originalImageUrl || merged_image;
+
       // 为选项生成裁剪图片URL（扩展30px确保完整显示）
       const paddedBbox = [
         Math.max(0, bbox[0] - 30),
@@ -399,7 +404,7 @@ export function convertAliyunQuestionsToOurFormat(
         bbox[2] + 30,
         bbox[3] + 30
       ];
-      const croppedUrl = generateCroppedImageUrl(merged_image, paddedBbox as [number, number, number, number]);
+      const croppedUrl = generateCroppedImageUrl(imageSource, paddedBbox as [number, number, number, number]);
 
       return {
         text: opt.text,
@@ -409,11 +414,14 @@ export function convertAliyunQuestionsToOurFormat(
     }) || [];
 
     // 提取插图（包含URL）
-    const figures = info.figure?.map((fig, figIndex) => ({
-      bbox: posListToBbox2d(fig.pos_list[0]),
-      label: `插图${figIndex + 1}`,
-      url: sub_images[figIndex] || merged_image
-    })) || [];
+    const figures = info.figure?.map((fig, figIndex) => {
+      const imageSource = originalImageUrl || merged_image;
+      return {
+        bbox: posListToBbox2d(fig.pos_list[0]),
+        label: `插图${figIndex + 1}`,
+        url: imageSource  // 使用原始图片URL，后续会在前端裁剪
+      };
+    }) || [];
 
     // 如果没有单独的插图URL，使用merged_image
     const images = figures.length > 0 ? figures : undefined;
