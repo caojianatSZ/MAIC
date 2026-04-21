@@ -108,41 +108,65 @@ export async function POST(request: NextRequest) {
     });
 
     // ==================== Step 3: 转换数据格式 ====================
-    log.info('Step 3: 转换数据格式', { requestId });
+    log.info('Step 3: 转换数据格式', {
+      requestId,
+      questionsCount: aliyunResult.questions.length,
+      hasTempImageUrl: !!tempImageUrl
+    });
 
-    const questions = convertAliyunQuestionsToOurFormat(
-      aliyunResult.questions,
-      tempImageUrl  // 传递我们自己的临时图片URL
-    );
+    let questions;
+    try {
+      questions = convertAliyunQuestionsToOurFormat(
+        aliyunResult.questions,
+        tempImageUrl  // 传递我们自己的临时图片URL
+      );
+      log.info('数据格式转换成功', { questionsCount: questions.length });
+    } catch (error) {
+      log.error('数据格式转换失败', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
 
     // ==================== Step 4: 提取选项图形 ====================
     log.info('Step 4: 提取选项图形', { requestId });
 
-    const enrichedQuestions = questions.map(q => {
-      if (q.aliyunData) {
-        const enriched = enrichQuestionWithOptions(q.aliyunData);
+    let enrichedQuestions;
+    try {
+      enrichedQuestions = questions.map(q => {
+        if (q.aliyunData) {
+          const enriched = enrichQuestionWithOptions(q.aliyunData);
 
-        // 将optionImages合并到options数组中
-        const optionsWithImages = q.options?.map((opt, idx) => {
-          const optionImage = enriched.optionImages?.[idx];
+          // 将optionImages合并到options数组中
+          const optionsWithImages = q.options?.map((opt, idx) => {
+            const optionImage = enriched.optionImages?.[idx];
+            return {
+              ...opt,
+              croppedImage: optionImage?.imageUrl || '',
+              imageBbox: optionImage?.bbox
+            };
+          }) || [];
+
           return {
-            ...opt,
-            croppedImage: optionImage?.imageUrl || '',
-            imageBbox: optionImage?.bbox
+            ...q,
+            options: optionsWithImages,
+            optionImages: enriched.optionImages
+          } as typeof q & {
+            optionImages?: typeof enriched.optionImages;
+            options: typeof q.options & Array<{croppedImage?: string; imageBbox?: number[]}>
           };
-        }) || [];
-
-        return {
-          ...q,
-          options: optionsWithImages,
-          optionImages: enriched.optionImages
-        } as typeof q & {
-          optionImages?: typeof enriched.optionImages;
-          options: typeof q.options & Array<{croppedImage?: string; imageBbox?: number[]}>
-        };
-      }
-      return q;
-    });
+        }
+        return q;
+      });
+      log.info('选项图形提取成功', { enrichedCount: enrichedQuestions.length });
+    } catch (error) {
+      log.error('选项图形提取失败', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
 
     // 统计选项图形数量
     const totalOptionImages = enrichedQuestions.reduce(
@@ -156,7 +180,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 调试：打印题6的选项数据
-    const question6 = enrichedQuestions[5];
+    const question6 = enrichedQuestions.find(q => q.id === '6');
     if (question6) {
       log.info('题6选项数据示例', {
         id: question6.id,
