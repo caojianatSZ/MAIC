@@ -118,10 +118,25 @@ export async function POST(request: NextRequest) {
     const enrichedQuestions = questions.map(q => {
       if (q.aliyunData) {
         const enriched = enrichQuestionWithOptions(q.aliyunData);
+
+        // 将optionImages合并到options数组中
+        const optionsWithImages = q.options?.map((opt, idx) => {
+          const optionImage = enriched.optionImages?.[idx];
+          return {
+            ...opt,
+            croppedImage: optionImage?.imageUrl || '',
+            imageBbox: optionImage?.bbox
+          };
+        }) || [];
+
         return {
           ...q,
+          options: optionsWithImages,
           optionImages: enriched.optionImages
-        } as typeof q & { optionImages?: typeof enriched.optionImages };
+        } as typeof q & {
+          optionImages?: typeof enriched.optionImages;
+          options: typeof q.options & Array<{croppedImage?: string; imageBbox?: number[]}>
+        };
       }
       return q;
     });
