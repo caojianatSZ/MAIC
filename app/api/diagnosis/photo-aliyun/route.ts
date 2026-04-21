@@ -24,7 +24,6 @@ import { enrichQuestionWithOptions } from '@/lib/aliyun/extract-option-images';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { verifyWithLLM } from '@/lib/aliyun/llm-verifier';
 
 const log = createLogger('PhotoAliyun');
 
@@ -194,47 +193,6 @@ export async function POST(request: NextRequest) {
       totalOptionImages
     });
 
-    // ==================== Step 4.5: LLM校验（可选） ====================
-    // 如果阿里云识别题目数较少（< 3道），使用GLM-4V-Plus视觉检查是否有遗漏
-    let verificationResult;
-    if (enrichedQuestions.length < 3) {
-      log.info('Step 4.5: LLM校验识别完整性', {
-        requestId,
-        questionCount: enrichedQuestions.length
-      });
-
-      try {
-        verificationResult = await verifyWithLLM({
-          originalImageUrl: tempImageUrl,
-          aliyunQuestions: aliyunResult.questions,
-          imageBase64: image
-        });
-
-        log.info('LLM校验完成', {
-          requestId,
-          ...verificationResult
-        });
-
-        // 如果LLM认为有遗漏，记录警告但不阻止返回
-        // 后续可以在这里添加补充识别逻辑
-        if (verificationResult.hasMissingQuestions) {
-          log.warn('LLM检测到可能遗漏的题目', {
-            requestId,
-            aliyunCount: enrichedQuestions.length,
-            llmTotalCount: verificationResult.totalQuestionCount,
-            missingCount: verificationResult.missingQuestionCount,
-            reason: verificationResult.reason
-          });
-        }
-      } catch (error) {
-        log.error('LLM校验失败', {
-          requestId,
-          error: error instanceof Error ? error.message : String(error)
-        });
-        // LLM校验失败不影响主流程
-      }
-    }
-
     // 调试：打印题6的选项数据
     const question6 = enrichedQuestions.find(q => q.id === '6');
     if (question6) {
@@ -266,22 +224,11 @@ export async function POST(request: NextRequest) {
         questions_with_options: questions.filter(q => q.options && q.options.length > 0).length,
         total_option_images: totalOptionImages
       },
-      verification: verificationResult ? {
-        enabled: true,
-        has_missing_questions: verificationResult.hasMissingQuestions,
-        llm_total_count: verificationResult.totalQuestionCount,
-        missing_count: verificationResult.missingQuestionCount,
-        confidence: verificationResult.confidence,
-        reason: verificationResult.reason
-      } : {
-        enabled: false,
-        reason: '题目数较多，未启用LLM校验'
-      },
       metadata: {
         requestId,
         timestamp: new Date().toISOString(),
         method: 'aliyun-edututor',
-        version: '6.2.0'
+        version: '6.3.0'
       }
     };
 
