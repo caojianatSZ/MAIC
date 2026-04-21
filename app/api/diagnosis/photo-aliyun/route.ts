@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
             // 检查是否有裁剪图片
             if (opt.croppedImage || optionImage?.imageUrl) {
               const imageUrl = opt.croppedImage || optionImage?.imageUrl || '';
-              const bbox = opt.imageBbox || optionImage?.bbox || [];
+              const bbox = opt.bbox_2d || optionImage?.bbox || [];
 
               // 将croppedImage转换为小程序期望的images格式
               return {
