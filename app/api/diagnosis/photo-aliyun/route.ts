@@ -141,11 +141,26 @@ export async function POST(request: NextRequest) {
           // 将optionImages合并到options数组中
           const optionsWithImages = q.options?.map((opt, idx) => {
             const optionImage = enriched.optionImages?.[idx];
-            return {
-              ...opt,
-              croppedImage: optionImage?.imageUrl || '',
-              imageBbox: optionImage?.bbox
-            };
+
+            // 检查是否有裁剪图片
+            if (opt.croppedImage || optionImage?.imageUrl) {
+              const imageUrl = opt.croppedImage || optionImage?.imageUrl || '';
+              const bbox = opt.imageBbox || optionImage?.bbox || [];
+
+              // 将croppedImage转换为小程序期望的images格式
+              return {
+                ...opt,
+                images: [
+                  {
+                    bbox: bbox,
+                    label: `选项${opt.text.trim()}`,
+                    url: imageUrl
+                  }
+                ]
+              };
+            }
+
+            return opt;
           }) || [];
 
           return {
