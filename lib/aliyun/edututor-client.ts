@@ -342,6 +342,23 @@ export async function testAuthentication(imageUrl: string): Promise<{
 }
 
 /**
+ * 生成切割后的图片URL
+ * 使用阿里云OSS的图片处理功能
+ */
+function generateCroppedImageUrl(
+  originalUrl: string,
+  bbox: [number, number, number, number]
+): string {
+  const [x1, y1, x2, y2] = bbox;
+  const width = x2 - x1;
+  const height = y2 - y1;
+
+  // 在URL中添加裁剪参数
+  const separator = originalUrl.includes('?') ? '&' : '?';
+  return `${originalUrl}${separator}x-oss-process=image/crop,x_${x1},y_${y1},w_${width},h_${height}`;
+}
+
+/**
  * 将阿里云格式转换为我们的题目格式
  */
 export function convertAliyunQuestionsToOurFormat(
@@ -353,6 +370,7 @@ export function convertAliyunQuestionsToOurFormat(
   options?: Array<{
     text: string;
     bbox_2d?: number[];
+    croppedImage?: string;
     images?: Array<{ bbox: number[]; label?: string; url?: string }>;
   }>;
   images?: Array<{ bbox: number[]; label?: string; url?: string }>;
@@ -371,11 +389,24 @@ export function convertAliyunQuestionsToOurFormat(
     // 提取题干文本
     const content = info.stem?.text || '';
 
-    // 提取选项（包含坐标信息）
-    const options = info.option?.map((opt) => ({
-      text: opt.text,
-      bbox_2d: posListToBbox2d(opt.pos_list[0])
-    })) || [];
+    // 提取选项（包含坐标信息和裁剪图片）
+    const options = info.option?.map((opt) => {
+      const bbox = posListToBbox2d(opt.pos_list[0]);
+      // 为选项生成裁剪图片URL（扩展30px确保完整显示）
+      const paddedBbox = [
+        Math.max(0, bbox[0] - 30),
+        Math.max(0, bbox[1] - 30),
+        bbox[2] + 30,
+        bbox[3] + 30
+      ];
+      const croppedUrl = generateCroppedImageUrl(merged_image, paddedBbox as [number, number, number, number]);
+
+      return {
+        text: opt.text,
+        bbox_2d: bbox,
+        croppedImage: croppedUrl  // 添加裁剪图片URL
+      };
+    }) || [];
 
     // 提取插图（包含URL）
     const figures = info.figure?.map((fig, figIndex) => ({
