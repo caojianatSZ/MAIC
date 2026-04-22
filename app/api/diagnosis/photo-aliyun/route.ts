@@ -200,8 +200,9 @@ export async function POST(request: NextRequest) {
               };
             }
 
-            // 不需要图片的选项，不添加images字段
-            return opt;
+            // 不需要图片的选项，明确删除images字段
+            const { images, ...optionWithoutImages } = opt as any;
+            return optionWithoutImages;
           });
 
           return {
