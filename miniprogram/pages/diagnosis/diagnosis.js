@@ -916,21 +916,62 @@ Page({
   },
 
   /**
+   * 判断题目是否需要显示配图
+   * 如果题干文本已经完整识别（包含公式、足够长），就不需要显示配图
+   */
+  determineIfNeedImage(content, images) {
+    // 如果没有图片，肯定不需要
+    if (!images || images.length === 0) {
+      return false
+    }
+
+    const contentLength = content?.length || 0
+
+    // 检查是否包含LaTeX公式标记
+    const hasFormula = /\\[\(\[]|\\[\)\]]/.test(content)
+
+    // 判断规则：
+    // 1. 如果题干长度 >= 100 且包含公式，文本已完整，不需要图片
+    if (contentLength >= 100 && hasFormula) {
+      return false
+    }
+
+    // 2. 如果题干长度 >= 150（非常长），不需要图片
+    if (contentLength >= 150) {
+      return false
+    }
+
+    // 3. 如果图片标签是"插图"或"图表"，可能需要显示（非公式图表）
+    const hasFigureImage = images.some(img =>
+      img.label && (img.label.includes('插图') || img.label.includes('图表') || img.label.includes('图'))
+    )
+
+    // 4. 其他情况需要显示图片
+    return true
+  },
+
+  /**
    * 显示拍照识别结果预览
    */
   showPhotoResultPreview(data) {
     // 清理题目内容和选项的格式
-    const cleanedQuestions = (data.questions || []).map(q => ({
-      ...q,
-      content: this.cleanOcrText(q.content),
-      options: q.options ? q.options.map(opt => this.cleanOcrText(opt)) : [],
-      // 添加图片坐标信息
-      images: q.images || [],
-      // V2 字段：置信度和复核标记
-      confidence: q.confidence || 0,
-      needsReview: q.needsReview || false,
-      warnings: q.warnings || []
-    }))
+    const cleanedQuestions = (data.questions || []).map(q => {
+      const cleanedContent = this.cleanOcrText(q.content)
+
+      return {
+        ...q,
+        content: cleanedContent,
+        options: q.options ? q.options.map(opt => this.cleanOcrText(opt)) : [],
+        // 添加图片坐标信息
+        images: q.images || [],
+        // 判断是否需要显示配图
+        needImage: this.determineIfNeedImage(cleanedContent, q.images || []),
+        // V2 字段：置信度和复核标记
+        confidence: q.confidence || 0,
+        needsReview: q.needsReview || false,
+        warnings: q.warnings || []
+      }
+    })
 
     // 处理原始图片和图片坐标
     let originalImageUrl = ''

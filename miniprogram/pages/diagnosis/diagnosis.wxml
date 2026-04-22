@@ -348,8 +348,8 @@
 
         <rich-text class="question-content" nodes="{{item.content}}"></rich-text>
 
-        <!-- 题目图片（如果有） -->
-        <view class="question-images" wx:if="{{item.images && item.images.length > 0}}">
+        <!-- 题目图片（仅当文本识别不完整时显示） -->
+        <view class="question-images" wx:if="{{item.images && item.images.length > 0 && item.needImage}}">
           <view class="question-image-wrapper" wx:for="{{item.images}}" wx:for-item="img" wx:key="bbox">
             <canvas
               class="question-image-canvas"
