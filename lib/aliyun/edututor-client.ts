@@ -457,7 +457,7 @@ export function convertAliyunQuestionsToOurFormat(
         return {
           bbox: bbox,
           label: `插图${figIndex + 1}`,
-          url: sub_images[figIndex]  // 使用阿里云切割后的子图URL
+          url: sub_images[figIndex].replace(/^http:\/\//, 'https://')  // 替换为HTTPS
         };
       }
 
@@ -466,7 +466,7 @@ export function convertAliyunQuestionsToOurFormat(
         return {
           bbox: bbox,
           label: `插图${figIndex + 1}`,
-          url: merged_image
+          url: merged_image.replace(/^http:\/\//, 'https://')  // 替换为HTTPS
         };
       }
 
@@ -475,7 +475,7 @@ export function convertAliyunQuestionsToOurFormat(
         return {
           bbox: bbox,
           label: `插图${figIndex + 1}`,
-          url: originalImageUrl
+          url: originalImageUrl.replace(/^http:\/\//, 'https://')  // 确保HTTPS
         };
       }
 
