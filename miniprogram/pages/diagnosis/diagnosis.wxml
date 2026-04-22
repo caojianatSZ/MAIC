@@ -348,15 +348,17 @@
 
         <rich-text class="question-content" nodes="{{item.content}}"></rich-text>
 
-        <!-- 题目图片（仅当文本识别不完整时显示） -->
-        <view class="question-images" wx:if="{{item.images && item.images.length > 0 && item.needImage}}">
+        <!-- 题目图片（始终显示插图、图表等） -->
+        <view class="question-images" wx:if="{{item.images && item.images.length > 0}}">
           <view class="question-image-wrapper" wx:for="{{item.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="*this">
-            <canvas
-              class="question-image-canvas"
-              canvas-id="question-canvas-{{item.id}}-{{imgIdx}}"
-              id="question-canvas-{{item.id}}-{{imgIdx}}"
-              style="width: 600rpx; height: 600rpx;"
-            ></canvas>
+            <image
+              class="question-image"
+              src="{{img.url}}"
+              mode="aspectFit"
+              style="width: 600rpx; height: auto; border-radius: 8rpx; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.08);"
+              bindtap="previewImage"
+              data-url="{{img.url}}"
+            />
             <text class="image-label">{{img.label || '图表'}}</text>
           </view>
         </view>
@@ -371,12 +373,14 @@
             <view class="option-images" wx:if="{{opt.images && opt.images.length > 0}}">
               <block wx:for="{{opt.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="*this">
                 <view class="option-image-wrapper" wx:if="{{img.url}}">
-                  <canvas
-                    class="option-image-canvas"
-                    canvas-id="option-canvas-{{item.id}}-{{idx}}-{{imgIdx}}"
-                    id="option-canvas-{{item.id}}-{{idx}}-{{imgIdx}}"
-                    style="width: 500rpx; height: 500rpx;"
-                  ></canvas>
+                  <image
+                    class="option-image"
+                    src="{{img.url}}"
+                    mode="aspectFit"
+                    style="width: 500rpx; height: auto; border-radius: 8rpx; margin-top: 8rpx; box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.06);"
+                    bindtap="previewImage"
+                    data-url="{{img.url}}"
+                  />
                   <text class="image-label">{{img.label || '选项图'}}</text>
                 </view>
               </block>

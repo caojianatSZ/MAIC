@@ -236,6 +236,21 @@ export async function cutQuestions(
       requestId: result.requestId || 'unknown'
     });
 
+    // 调试日志：查看第一道题的图片数据
+    if (data.questions.length > 0) {
+      const firstQuestion = data.questions[0];
+      log.info('阿里云API返回的图片数据（第1题）', {
+        hasSubImages: 'sub_images' in firstQuestion,
+        subImagesType: typeof firstQuestion.sub_images,
+        subImages: firstQuestion.sub_images,
+        hasMergedImage: 'merged_image' in firstQuestion,
+        mergedImage: firstQuestion.merged_image?.substring(0, 100) + '...',
+        hasInfo: 'info' in firstQuestion,
+        hasFigures: !!firstQuestion.info?.figure,
+        figuresCount: Array.isArray(firstQuestion.info?.figure) ? firstQuestion.info.figure.length : 0
+      });
+    }
+
     return data;
   } catch (error) {
     log.error('阿里云CutQuestions API调用失败', {
@@ -382,6 +397,17 @@ export function convertAliyunQuestionsToOurFormat(
     const qId = String(index + 1);
     const { info, sub_images, merged_image, pos_list } = question;
 
+    // 调试日志：查看阿里云API返回的图片数据
+    log.info(`题目${index + 1}图片数据`, {
+      hasSubImages: !!sub_images,
+      subImagesCount: Array.isArray(sub_images) ? sub_images.length : 0,
+      subImages: sub_images,
+      hasMergedImage: !!merged_image,
+      mergedImage: merged_image?.substring(0, 50) + '...',
+      hasFigures: Array.isArray(info?.figure),
+      figuresCount: Array.isArray(info?.figure) ? info.figure.length : 0
+    });
+
     // 确定题目类型
     let type: 'choice' | 'fill_blank' | 'essay' = 'essay';
     if (info.type === '选择题') type = 'choice';
@@ -422,20 +448,41 @@ export function convertAliyunQuestionsToOurFormat(
     });
 
     // 提取插图（包含URL）
+    // 优先使用阿里云API返回的sub_images（切割后的子图）
     const figures = (Array.isArray(info.figure) ? info.figure : []).map((fig, figIndex) => {
       const bbox = posListToBbox2d(fig?.pos_list?.[0]);
 
-      if (!originalImageUrl) {
+      // 优先使用sub_images中的URL（已切割的子图）
+      if (sub_images && Array.isArray(sub_images) && sub_images[figIndex]) {
         return {
           bbox: bbox,
           label: `插图${figIndex + 1}`,
-          url: ''  // 无图片
+          url: sub_images[figIndex]  // 使用阿里云切割后的子图URL
         };
       }
+
+      // 降级：使用merged_image
+      if (merged_image) {
+        return {
+          bbox: bbox,
+          label: `插图${figIndex + 1}`,
+          url: merged_image
+        };
+      }
+
+      // 最后降级：使用原始图片URL
+      if (originalImageUrl) {
+        return {
+          bbox: bbox,
+          label: `插图${figIndex + 1}`,
+          url: originalImageUrl
+        };
+      }
+
       return {
         bbox: bbox,
         label: `插图${figIndex + 1}`,
-        url: originalImageUrl  // 使用原始图片URL
+        url: ''
       };
     });
 

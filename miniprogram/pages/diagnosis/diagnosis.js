@@ -1505,5 +1505,18 @@ Page({
         // 可以添加庆祝动画或音效
       }
     })
+  },
+
+  /**
+   * 预览图片
+   */
+  previewImage(e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.previewImage({
+        current: url,
+        urls: [url]
+      })
+    }
   }
 })

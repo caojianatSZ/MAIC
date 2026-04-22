@@ -299,9 +299,16 @@ export async function POST(request: NextRequest) {
       // 验证失败不影响主流程
     }
 
-    // 清理临时文件（异步，不阻塞响应）
-    cleanupTempImageFile(tempImageUrl).catch(error => {
-      log.warn('清理临时文件失败', { error, tempImageUrl });
+    // 暂时禁用临时文件清理，测试图片显示
+    // TODO: 确认图片正常显示后，恢复延迟删除逻辑
+    // setTimeout(() => {
+    //   cleanupTempImageFile(tempImageUrl).catch(error => {
+    //     log.warn('清理临时文件失败', { error, tempImageUrl });
+    //   });
+    // }, 5 * 60 * 1000);
+
+    log.info('临时文件清理已禁用（测试模式）', {
+      tempImageUrl
     });
 
     // ==================== Step 7: 返回结果 ====================
