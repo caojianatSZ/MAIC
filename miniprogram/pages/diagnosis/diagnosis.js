@@ -928,19 +928,21 @@ Page({
     const contentLength = content?.length || 0
 
     // 检查是否包含公式标记（多种格式）
-    const hasFormula = /\\[\(\[]|\\[\)\]]|\$.*\$|\\\(|\\\)/.test(content)
+    const hasFormula = /\\[\(\[]|\\[\)\]]|\$.*\$|\\\(|\\\)|a\s*[+\-]=/.test(content)
 
     // 检查是否包含HTML标签（说明公式已被转换）
-    const hasHTML = /<[a-z]|&lt;|&gt;|<img/i.test(content)
+    const hasHTML = /<[a-z]|&lt;|&gt;|<img|<span/i.test(content)
 
     // 判断规则：
-    // 1. 如果题干包含公式或HTML，且长度>=50，文本已足够完整，不需要图片
-    if ((hasFormula || hasHTML) && contentLength >= 50) {
+    // 1. 如果题干包含公式或HTML，且长度>=30，文本已足够完整，不需要图片
+    if ((hasFormula || hasHTML) && contentLength >= 30) {
+      console.log('规则1命中: 公式题，长度>=30，不显示图片')
       return false
     }
 
-    // 2. 如果题干长度 >= 100（即使没有公式），不需要图片
-    if (contentLength >= 100) {
+    // 2. 如果题干长度 >= 80（即使没有公式），不需要图片
+    if (contentLength >= 80) {
+      console.log('规则2命中: 题干很长，不显示图片')
       return false
     }
 
@@ -949,6 +951,7 @@ Page({
 
     // 4. 如果题干引用了图片，但图片标签不是"插图"或"图表"，需要显示
     if (hasFigureReference) {
+      console.log('规则3命中: 题干引用图片，显示图片')
       return true
     }
 
@@ -958,6 +961,7 @@ Page({
     )
 
     // 6. 其他情况也显示图片（作为补充）
+    console.log('规则6: 默认显示图片', { hasFigureImage })
     return true
   },
 
@@ -969,14 +973,26 @@ Page({
     const cleanedQuestions = (data.questions || []).map(q => {
       const cleanedContent = this.cleanOcrText(q.content)
 
+      // 判断是否需要显示配图
+      const needImage = this.determineIfNeedImage(cleanedContent, q.images || [])
+
+      // 调试日志
+      console.log('题目图片显示判断:', {
+        id: q.id,
+        contentLength: cleanedContent?.length || 0,
+        hasFormula: /\\[\(\[]|\\[\)\]]|\$|<|&/.test(cleanedContent),
+        imagesCount: (q.images || []).length,
+        needImage: needImage,
+        contentPreview: cleanedContent?.substring(0, 50)
+      })
+
       return {
         ...q,
         content: cleanedContent,
         options: q.options ? q.options.map(opt => this.cleanOcrText(opt)) : [],
         // 添加图片坐标信息
         images: q.images || [],
-        // 判断是否需要显示配图
-        needImage: this.determineIfNeedImage(cleanedContent, q.images || []),
+        needImage: needImage,
         // V2 字段：置信度和复核标记
         confidence: q.confidence || 0,
         needsReview: q.needsReview || false,
