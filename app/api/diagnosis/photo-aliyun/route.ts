@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
         id: q.id,
         content: q.content,
         type: q.type,
-        options: q.options?.map(opt => opt.text) || []
+        options: (q.options || []).map(opt => typeof opt === 'string' ? opt : opt.text)
       }));
 
       validation = validateQuestionContinuity(questionsForValidation);
