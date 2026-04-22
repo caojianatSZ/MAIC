@@ -24,6 +24,9 @@ import { enrichQuestionWithOptions } from '@/lib/aliyun/extract-option-images';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { quickPreprocess, needsPreprocessing } from '@/lib/image/preprocessing';
+import { validateQuestionContinuity } from '@/lib/validation/continuity';
+import { adaptiveRecognize } from '@/lib/recognition/adaptive-retry';
 
 const log = createLogger('PhotoAliyun');
 
@@ -84,18 +87,50 @@ export async function POST(request: NextRequest) {
       imageSize: image.length
     });
 
-    // ==================== Step 1: 将Base64转换为临时文件URL ====================
-    log.info('Step 1: 创建临时图片文件', { requestId });
+    // ==================== Step 1: 图像预处理（可选） ====================
+    log.info('Step 1: 检查是否需要图像预处理', { requestId });
 
-    const tempImageUrl = await createTempImageFile(image, requestId);
+    let processedImage = image;
+    let preprocessUsed = false;
+
+    try {
+      const preprocessCheck = await needsPreprocessing(image);
+
+      if (preprocessCheck.needs) {
+        log.info('图像需要预处理', {
+          requestId,
+          reason: preprocessCheck.reason,
+          suggestions: preprocessCheck.suggestions
+        });
+
+        processedImage = await quickPreprocess(image);
+        preprocessUsed = true;
+
+        log.info('图像预处理完成', { requestId });
+      } else {
+        log.info('图像质量良好，跳过预处理', { requestId });
+      }
+    } catch (error) {
+      log.warn('图像预处理失败，使用原图', {
+        requestId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // 预处理失败不影响主流程
+    }
+
+    // ==================== Step 2: 将Base64转换为临时文件URL ====================
+    log.info('Step 2: 创建临时图片文件', { requestId });
+
+    const tempImageUrl = await createTempImageFile(processedImage, requestId);
 
     log.info('临时图片创建成功', {
       requestId,
+      preprocessUsed,
       tempImageUrl
     });
 
-    // ==================== Step 2: 调用阿里云CutQuestions API ====================
-    log.info('Step 2: 调用阿里云CutQuestions API', { requestId });
+    // ==================== Step 3: 调用阿里云CutQuestions API ====================
+    log.info('Step 3: 调用阿里云CutQuestions API', { requestId });
 
     const aliyunResult = await cutQuestions(tempImageUrl, {
       struct: true,
@@ -107,8 +142,8 @@ export async function POST(request: NextRequest) {
       questionCount: aliyunResult.questions.length
     });
 
-    // ==================== Step 3: 转换数据格式 ====================
-    log.info('Step 3: 转换数据格式', {
+    // ==================== Step 4: 转换数据格式 ====================
+    log.info('Step 4: 转换数据格式', {
       requestId,
       questionsCount: aliyunResult.questions.length,
       hasTempImageUrl: !!tempImageUrl
@@ -129,9 +164,8 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    // ==================== Step 4: 提取选项图形 ====================
-    log.info('Step 4: 提取选项图形', { requestId });
-
+    // ==================== Step 5: 提取选项图形 ====================
+    log.info('Step 5: 提取选项图形', { requestId });
     let enrichedQuestions;
     try {
       enrichedQuestions = questions.map(q => {
@@ -205,12 +239,50 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // ==================== Step 6: 连续性验证 ====================
+    log.info('Step 6: 连续性验证', { requestId });
+
+    let validation;
+    try {
+      // 转换为验证模块期望的格式
+      const questionsForValidation = questions.map(q => ({
+        id: q.id,
+        content: q.content,
+        type: q.type,
+        options: q.options?.map(opt => opt.text) || []
+      }));
+
+      validation = validateQuestionContinuity(questionsForValidation);
+
+      log.info('连续性验证完成', {
+        requestId,
+        isValid: validation.isValid,
+        score: validation.score,
+        issueCount: validation.issues.length,
+        errorCount: validation.issues.filter(i => i.severity === 'error').length
+      });
+
+      // 如果有错误级别的问题，记录警告
+      if (!validation.isValid) {
+        log.warn('连续性验证发现问题', {
+          requestId,
+          issues: validation.issues.map(i => ({ type: i.type, message: i.message }))
+        });
+      }
+    } catch (error) {
+      log.error('连续性验证失败', {
+        requestId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // 验证失败不影响主流程
+    }
+
     // 清理临时文件（异步，不阻塞响应）
     cleanupTempImageFile(tempImageUrl).catch(error => {
       log.warn('清理临时文件失败', { error, tempImageUrl });
     });
 
-    // ==================== Step 5: 返回结果 ====================
+    // ==================== Step 7: 返回结果 ====================
     const result = {
       status: 'success',
       mode: 'aliyun-edututor',
@@ -224,15 +296,25 @@ export async function POST(request: NextRequest) {
         questions_with_options: questions.filter(q => q.options && q.options.length > 0).length,
         total_option_images: totalOptionImages
       },
+      validation: validation ? {
+        isValid: validation.isValid,
+        score: validation.score,
+        issueCount: validation.issues.length,
+        errorCount: validation.issues.filter(i => i.severity === 'error').length,
+        warningCount: validation.issues.filter(i => i.severity === 'warning').length,
+        issues: validation.issues,
+        suggestions: validation.suggestions
+      } : undefined,
       metadata: {
         requestId,
         timestamp: new Date().toISOString(),
         method: 'aliyun-edututor',
-        version: '6.3.0'
+        version: '6.4.0',
+        preprocessUsed
       }
     };
 
-    log.info('阿里云EduTutor 流程完成', {
+    log.info('阿里云EduTutor 流程完成（V6.4.0 - 增强版）', {
       requestId,
       questionCount: result.summary.total_questions
     });
