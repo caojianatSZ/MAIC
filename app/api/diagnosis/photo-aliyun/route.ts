@@ -286,14 +286,14 @@ export async function POST(request: NextRequest) {
     const result = {
       status: 'success',
       mode: 'aliyun-edututor',
-      markdown: questions.map(q => q.content).join('\n\n'),
+      markdown: (questions || []).map(q => q.content || '').join('\n\n'),
       questions: enrichedQuestions,
       originalImage: image,
       summary: {
         total_questions: enrichedQuestions.length,
-        markdown_length: questions.map(q => q.content).join('\n\n').length,
-        questions_with_images: questions.filter(q => q.images && q.images.length > 0).length,
-        questions_with_options: questions.filter(q => q.options && q.options.length > 0).length,
+        markdown_length: (questions || []).map(q => q.content || '').join('\n\n').length,
+        questions_with_images: (questions || []).filter(q => q.images && q.images.length > 0).length,
+        questions_with_options: (questions || []).filter(q => q.options && q.options.length > 0).length,
         total_option_images: totalOptionImages
       },
       validation: validation ? {

@@ -391,15 +391,15 @@ export function convertAliyunQuestionsToOurFormat(
     const content = info.stem?.text || '';
 
     // 提取选项（包含坐标信息和裁剪图片）
-    const options = info.option?.map((opt) => {
-      const bbox = posListToBbox2d(opt.pos_list[0]);
+    const options = (Array.isArray(info.option) ? info.option : []).map((opt) => {
+      const bbox = posListToBbox2d(opt.pos_list?.[0]);
 
       // 必须使用原始图片URL生成裁剪URL
       // 阿里云OSS临时URL会签名失效，导致403错误
       if (!originalImageUrl) {
         console.warn('缺少原始图片URL，无法生成选项裁剪图片');
         return {
-          text: opt.text,
+          text: opt.text || '',
           bbox_2d: bbox,
           croppedImage: ''  // 无裁剪图片
         };
@@ -407,35 +407,37 @@ export function convertAliyunQuestionsToOurFormat(
 
       // 为选项生成裁剪图片URL（扩展30px确保完整显示）
       const paddedBbox = [
-        Math.max(0, bbox[0] - 30),
-        Math.max(0, bbox[1] - 30),
-        bbox[2] + 30,
-        bbox[3] + 30
+        Math.max(0, (bbox || [0, 0, 0, 0])[0] - 30),
+        Math.max(0, (bbox || [0, 0, 0, 0])[1] - 30),
+        (bbox || [0, 0, 0, 0])[2] + 30,
+        (bbox || [0, 0, 0, 0])[3] + 30
       ];
       const croppedUrl = generateCroppedImageUrl(originalImageUrl, paddedBbox as [number, number, number, number]);
 
       return {
-        text: opt.text,
+        text: opt.text || '',
         bbox_2d: bbox,
         croppedImage: croppedUrl  // 添加裁剪图片URL
       };
-    }) || [];
+    });
 
     // 提取插图（包含URL）
-    const figures = info.figure?.map((fig, figIndex) => {
+    const figures = (Array.isArray(info.figure) ? info.figure : []).map((fig, figIndex) => {
+      const bbox = posListToBbox2d(fig.pos_list?.[0]);
+
       if (!originalImageUrl) {
         return {
-          bbox: posListToBbox2d(fig.pos_list[0]),
+          bbox: bbox,
           label: `插图${figIndex + 1}`,
           url: ''  // 无图片
         };
       }
       return {
-        bbox: posListToBbox2d(fig.pos_list[0]),
+        bbox: bbox,
         label: `插图${figIndex + 1}`,
         url: originalImageUrl  // 使用原始图片URL
       };
-    }) || [];
+    });
 
     // 如果没有单独的插图URL，使用merged_image
     const images = figures.length > 0 ? figures : undefined;
