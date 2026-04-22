@@ -178,9 +178,23 @@ export async function POST(request: NextRequest) {
             const optionText = typeof opt === 'string' ? opt : opt.text || '';
 
             // 判断选项是否需要图片（LaTeX公式题不需要）
-            const hasFormula = /\\[\(\[]|\\[\)\]]|\$.*\$|\\\(|\\\)|\\frac|\\sqrt|\\text/.test(optionText);
-            const isLongEnough = optionText.length >= 20;
+            const hasFormula = /\\[\(\[]|\\[\)\]]|\$.*\$|\\\(|\\\)|\\frac|\\sqrt|\\text|_|\^/.test(optionText);
+            const isLongEnough = optionText.length >= 15; // 降低阈值到15
             const needsImage = !(hasFormula && isLongEnough);
+
+            // 调试日志
+            if (q.id === '1' || q.id === '7') {
+              log.info(`选项图片判断`, {
+                questionId: q.id,
+                optionIndex: idx,
+                optionText: optionText.substring(0, 50),
+                textLength: optionText.length,
+                hasFormula,
+                isLongEnough,
+                needsImage,
+                hasExistingImages: typeof opt !== 'string' && !!(opt as any).images?.length
+              });
+            }
 
             // 只有需要图片的选项才添加images
             if (opt && needsImage && (opt.croppedImage || optionImage?.imageUrl)) {
