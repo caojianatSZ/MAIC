@@ -966,6 +966,43 @@ Page({
   },
 
   /**
+   * 判断选项是否需要跳过图片裁剪
+   * 如果选项文本已经包含完整公式（LaTeX格式），就不需要裁剪图片
+   */
+  determineIfSkipOptionImage(optionText, optIndex) {
+    if (!optionText) {
+      return false
+    }
+
+    const textLength = optionText?.length || 0
+
+    // 检查是否包含LaTeX公式标记（多种格式）
+    const hasFormula = /\\[\(\[]|\\[\)\]]|\$.*\$|\\\(|\\\)|\\frac|\\sqrt|\\text/.test(optionText)
+
+    // 判断规则：
+    // 1. 如果选项包含公式，且长度>=20，文本已足够完整，跳过图片裁剪
+    if (hasFormula && textLength >= 20) {
+      console.log(`✅ 选项${optIndex}跳过图片裁剪: 包含LaTeX公式且长度>=20`, {
+        textLength,
+        preview: optionText.substring(0, 30)
+      })
+      return true
+    }
+
+    // 2. 如果选项很长（>=50），即使没有公式也可能已完整识别
+    if (textLength >= 50) {
+      console.log(`✅ 选项${optIndex}跳过图片裁剪: 选项文本很长`, {
+        textLength,
+        preview: optionText.substring(0, 30)
+      })
+      return true
+    }
+
+    console.log(`⏸️ 选项${optIndex}需要裁剪图片: ${textLength}字符, hasFormula=${hasFormula}`)
+    return false
+  },
+
+  /**
    * 显示拍照识别结果预览
    */
   showPhotoResultPreview(data) {
@@ -1123,6 +1160,14 @@ Page({
           const optionImages = typeof option === 'string' ? null : option.images
 
           if (optionImages && optionImages.length > 0) {
+            // 判断选项是否需要裁剪图片
+            const shouldSkipCrop = this.determineIfSkipOptionImage(optionText, optIndex)
+
+            if (shouldSkipCrop) {
+              console.log(`⏭️ 跳过选项${optIndex}的图片裁剪（文本已包含完整公式）`)
+              return
+            }
+
             console.log(`题目${question.id} 选项${optIndex}: 有${optionImages.length}张图片`)
 
             optionImages.forEach((img, imgIndex) => {
