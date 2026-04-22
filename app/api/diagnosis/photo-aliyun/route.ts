@@ -175,9 +175,15 @@ export async function POST(request: NextRequest) {
           // 将optionImages合并到options数组中
           const optionsWithImages = (q.options || []).map((opt, idx) => {
             const optionImage = enriched.optionImages?.[idx];
+            const optionText = typeof opt === 'string' ? opt : opt.text || '';
 
-            // 检查是否有裁剪图片
-            if (opt && (opt.croppedImage || optionImage?.imageUrl)) {
+            // 判断选项是否需要图片（LaTeX公式题不需要）
+            const hasFormula = /\\[\(\[]|\\[\)\]]|\$.*\$|\\\(|\\\)|\\frac|\\sqrt|\\text/.test(optionText);
+            const isLongEnough = optionText.length >= 20;
+            const needsImage = !(hasFormula && isLongEnough);
+
+            // 只有需要图片的选项才添加images
+            if (opt && needsImage && (opt.croppedImage || optionImage?.imageUrl)) {
               const imageUrl = opt.croppedImage || optionImage?.imageUrl || '';
               const bbox = opt.bbox_2d || optionImage?.bbox || [];
 
@@ -194,6 +200,7 @@ export async function POST(request: NextRequest) {
               };
             }
 
+            // 不需要图片的选项，不添加images字段
             return opt;
           });
 
