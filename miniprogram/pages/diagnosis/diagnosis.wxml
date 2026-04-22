@@ -350,11 +350,11 @@
 
         <!-- 题目图片（仅当文本识别不完整时显示） -->
         <view class="question-images" wx:if="{{item.images && item.images.length > 0 && item.needImage}}">
-          <view class="question-image-wrapper" wx:for="{{item.images}}" wx:for-item="img" wx:key="bbox">
+          <view class="question-image-wrapper" wx:for="{{item.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="*this">
             <canvas
               class="question-image-canvas"
-              canvas-id="question-canvas-{{item.id}}-{{index}}"
-              id="question-canvas-{{item.id}}-{{index}}"
+              canvas-id="question-canvas-{{item.id}}-{{imgIdx}}"
+              id="question-canvas-{{item.id}}-{{imgIdx}}"
               style="width: 600rpx; height: 600rpx;"
             ></canvas>
             <text class="image-label">{{img.label || '图表'}}</text>
@@ -369,7 +369,7 @@
 
             <!-- 选项图片（只有当图片URL存在时才显示） -->
             <view class="option-images" wx:if="{{opt.images && opt.images.length > 0}}">
-              <block wx:for="{{opt.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="bbox">
+              <block wx:for="{{opt.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="*this">
                 <view class="option-image-wrapper" wx:if="{{img.url}}">
                   <canvas
                     class="option-image-canvas"
