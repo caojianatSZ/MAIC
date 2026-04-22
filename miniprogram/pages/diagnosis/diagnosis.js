@@ -927,26 +927,37 @@ Page({
 
     const contentLength = content?.length || 0
 
-    // 检查是否包含LaTeX公式标记
-    const hasFormula = /\\[\(\[]|\\[\)\]]/.test(content)
+    // 检查是否包含公式标记（多种格式）
+    const hasFormula = /\\[\(\[]|\\[\)\]]|\$.*\$|\\\(|\\\)/.test(content)
+
+    // 检查是否包含HTML标签（说明公式已被转换）
+    const hasHTML = /<[a-z]|&lt;|&gt;|<img/i.test(content)
 
     // 判断规则：
-    // 1. 如果题干长度 >= 100 且包含公式，文本已完整，不需要图片
-    if (contentLength >= 100 && hasFormula) {
+    // 1. 如果题干包含公式或HTML，且长度>=50，文本已足够完整，不需要图片
+    if ((hasFormula || hasHTML) && contentLength >= 50) {
       return false
     }
 
-    // 2. 如果题干长度 >= 150（非常长），不需要图片
-    if (contentLength >= 150) {
+    // 2. 如果题干长度 >= 100（即使没有公式），不需要图片
+    if (contentLength >= 100) {
       return false
     }
 
-    // 3. 如果图片标签是"插图"或"图表"，可能需要显示（非公式图表）
+    // 3. 检查题干是否包含"如图"、"见图"等字样（说明有配图）
+    const hasFigureReference = /如图|见图|下图|上图|附图|所示图/.test(content)
+
+    // 4. 如果题干引用了图片，但图片标签不是"插图"或"图表"，需要显示
+    if (hasFigureReference) {
+      return true
+    }
+
+    // 5. 如果图片标签是"插图"或"图表"，需要显示
     const hasFigureImage = images.some(img =>
       img.label && (img.label.includes('插图') || img.label.includes('图表') || img.label.includes('图'))
     )
 
-    // 4. 其他情况需要显示图片
+    // 6. 其他情况也显示图片（作为补充）
     return true
   },
 
