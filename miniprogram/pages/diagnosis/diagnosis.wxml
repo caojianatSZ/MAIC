@@ -348,8 +348,8 @@
 
         <rich-text class="question-content" nodes="{{item.content}}"></rich-text>
 
-        <!-- 题目图片（始终显示插图、图表等） -->
-        <view class="question-images" wx:if="{{item.images && item.images.length > 0}}">
+        <!-- 题目图片（只显示真正的图形/图表） -->
+        <view class="question-images" wx:if="{{item.needImage && item.images && item.images.length > 0}}">
           <view class="question-image-wrapper" wx:for="{{item.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="*this">
             <image
               class="question-image"
@@ -371,8 +371,8 @@
             <!-- 选项文本 -->
             <rich-text class="option-text" nodes="{{opt.text || opt}}"></rich-text>
 
-            <!-- 选项图片（只有当图片URL存在时才显示） -->
-            <view class="option-images" wx:if="{{opt.images && opt.images.length > 0}}">
+            <!-- 选项图片（只显示包含图形的选项图片） -->
+            <view class="option-images" wx:if="{{opt.hasFigureImage && opt.images && opt.images.length > 0}}">
               <block wx:for="{{opt.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="*this">
                 <view class="option-image-wrapper" wx:if="{{img.url}}">
                   <image

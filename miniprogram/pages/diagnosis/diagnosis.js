@@ -1026,7 +1026,19 @@ Page({
       return {
         ...q,
         content: cleanedContent,
-        options: q.options ? q.options.map(opt => this.cleanOcrText(opt)) : [],
+        options: q.options ? q.options.map((opt) => {
+          const cleanedOpt = this.cleanOcrText(opt)
+          const optText = typeof cleanedOpt === 'string' ? cleanedOpt : cleanedOpt.text || ''
+
+          // 判断选项是否包含图形（只有包含图形的选项才显示图片）
+          const hasGeometryKeywords = /图|图形|图像|坐标|函数|曲线|几何|三角形|圆形|方形|rectangle|triangle|circle/.test(optText)
+          const isShortText = optText.length < 20
+
+          return {
+            ...cleanedOpt,
+            hasFigureImage: hasGeometryKeywords && !isShortText
+          }
+        }) : [],
         // 添加图片坐标信息
         images: q.images || [],
         needImage: needImage,

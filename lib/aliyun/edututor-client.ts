@@ -448,53 +448,67 @@ export function convertAliyunQuestionsToOurFormat(
     });
 
     // 提取插图（包含URL）
-    // 优先使用阿里云API返回的sub_images（切割后的子图）
-    const figures = (Array.isArray(info.figure) ? info.figure : []).map((fig, figIndex) => {
-      const bbox = posListToBbox2d(fig?.pos_list?.[0]);
+    // 只显示真正的图形，过滤掉纯文字区域
+    const figures = (Array.isArray(info.figure) ? info.figure : [])
+      .map((fig, figIndex) => {
+        const bbox = posListToBbox2d(fig?.pos_list?.[0]);
 
-      // 优先使用sub_images中的URL（已切割的子图）
-      if (sub_images && Array.isArray(sub_images) && sub_images[figIndex]) {
-        const httpsUrl = sub_images[figIndex].replace(/^http:\/\//, 'https://');
+        // 计算图形面积，过滤掉太小的可能是噪声的区域
+        const width = (bbox?.[2] || 0) - (bbox?.[0] || 0);
+        const height = (bbox?.[3] || 0) - (bbox?.[1] || 0);
+        const area = width * height;
 
-        // 调试日志
-        if (figIndex === 0) {
-          log.info('插图URL转换', {
-            原始URL: sub_images[figIndex].substring(0, 80) + '...',
-            转换后URL: httpsUrl.substring(0, 80) + '...'
-          });
+        // 面积阈值：小于10000像素平方的可能是文字或噪声，不显示
+        const MIN_FIGURE_AREA = 10000;
+        if (area < MIN_FIGURE_AREA) {
+          log.info(`过滤小面积图形${figIndex + 1}`, { area, width, height });
+          return null;
+        }
+
+        // 优先使用sub_images中的URL（已切割的子图）
+        if (sub_images && Array.isArray(sub_images) && sub_images[figIndex]) {
+          const httpsUrl = sub_images[figIndex].replace(/^http:\/\//, 'https://');
+
+          // 调试日志
+          if (figIndex === 0) {
+            log.info('插图URL转换', {
+              原始URL: sub_images[figIndex].substring(0, 80) + '...',
+              转换后URL: httpsUrl.substring(0, 80) + '...'
+            });
+          }
+
+          return {
+            bbox: bbox,
+            label: `插图${figIndex + 1}`,
+            url: httpsUrl  // 替换为HTTPS
+          };
+        }
+
+        // 降级：使用merged_image
+        if (merged_image) {
+          return {
+            bbox: bbox,
+            label: `插图${figIndex + 1}`,
+            url: merged_image.replace(/^http:\/\//, 'https://')  // 替换为HTTPS
+          };
+        }
+
+        // 最后降级：使用原始图片URL
+        if (originalImageUrl) {
+          return {
+            bbox: bbox,
+            label: `插图${figIndex + 1}`,
+            url: originalImageUrl.replace(/^http:\/\//, 'https://')  // 确保HTTPS
+          };
         }
 
         return {
           bbox: bbox,
           label: `插图${figIndex + 1}`,
-          url: httpsUrl  // 替换为HTTPS
+          url: ''
         };
-      }
-
-      // 降级：使用merged_image
-      if (merged_image) {
-        return {
-          bbox: bbox,
-          label: `插图${figIndex + 1}`,
-          url: merged_image.replace(/^http:\/\//, 'https://')  // 替换为HTTPS
-        };
-      }
-
-      // 最后降级：使用原始图片URL
-      if (originalImageUrl) {
-        return {
-          bbox: bbox,
-          label: `插图${figIndex + 1}`,
-          url: originalImageUrl.replace(/^http:\/\//, 'https://')  // 确保HTTPS
-        };
-      }
-
-      return {
-        bbox: bbox,
-        label: `插图${figIndex + 1}`,
-        url: ''
-      };
-    });
+      })
+      .filter(fig => fig !== null); // 过滤掉null值
 
     // 如果没有单独的插图URL，使用merged_image
     const images = figures.length > 0 ? figures : undefined;
