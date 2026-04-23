@@ -359,7 +359,16 @@ export async function POST(request: NextRequest) {
 
             // 判断选项是否需要图片
             // 如果选项文本已包含完整LaTeX公式，就不需要显示图片
-            const hasLatexFormula = /\\[a-zA-Z]+{.*}|\\frac|\\sqrt|\\sum|\\int|_[a-zA-Z]|\\^[a-zA-Z]|\$.*\$|[a-zA-Z]_[{]|[a-zA-Z]\\^[{]/.test(optionText);
+            // 检测 $...$ 或 $$...$$ 包裹的公式
+            const hasMathDelimiters = /\$\$?[^\$]+\$\$?/.test(optionText);
+            // 检测 LaTeX 命令（如 \frac, \sqrt, \text 等）
+            const hasLatexCommands = /\\[a-zA-Z]+/.test(optionText);
+            // 检测下标/上标模式 (如 _{...} 或 ^{...})
+            const hasSubSuperscript = /[\_\^]\{/.test(optionText);
+            // 检测独立下标（如 W_F 或 x^2）
+            const hasSimpleSubSuperscript = /[a-zA-Z][\_\^][a-zA-Z0-9]/.test(optionText);
+
+            const hasLatexFormula = hasMathDelimiters || hasLatexCommands || hasSubSuperscript || hasSimpleSubSuperscript;
             const isVeryShortText = optionText.length < 10;
             const needsImage = !hasLatexFormula && !isVeryShortText;
 
