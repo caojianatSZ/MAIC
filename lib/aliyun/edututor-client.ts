@@ -499,6 +499,19 @@ export function convertAliyunQuestionsToOurFormat(
     // 如果没有单独的插图URL，使用merged_image
     const images = figures.length > 0 ? figures : undefined;
 
+    // 调试日志：查看返回的图片数据
+    if (qId === '1') {
+      log.info('题目1图片数据准备返回', {
+        imagesCount: figures.length,
+        images: figures.map(f => ({
+          hasUrl: !!f.url,
+          urlLength: f.url?.length || 0,
+          urlPreview: f.url ? f.url.substring(0, 60) + '...' : '空URL',
+          label: f.label
+        }))
+      });
+    }
+
     // 提取题目bbox（使用第一个pos_list）
     const bbox_2d = (pos_list && Array.isArray(pos_list) && pos_list[0])
       ? posListToBbox2d(pos_list[0])

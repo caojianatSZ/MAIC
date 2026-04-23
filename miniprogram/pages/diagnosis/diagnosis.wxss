@@ -1224,3 +1224,10 @@
 .intro-actions .confirm-button::after {
   border: none;
 }
+
+/* 题目图片样式 */
+.question-image {
+  width: 100%;
+  display: block;
+  margin: 0 auto;
+}

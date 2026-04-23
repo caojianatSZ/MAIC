@@ -1064,17 +1064,30 @@ Page({
       mode: 'photo_result'
     })
 
+    // 调试日志：查看图片数据
+    console.log('=== 图片数据调试 ===')
+    cleanedQuestions.forEach((q, idx) => {
+      if (q.images && q.images.length > 0) {
+        console.log(`题目${idx + 1}有${q.images.length}张图片:`, q.images.map(img => ({
+          url: img.url ? img.url.substring(0, 60) + '...' : '无URL',
+          label: img.label
+        })))
+      }
+    })
+
     console.log('图片坐标信息:', {
       total: imageCoordinates.length,
       coordinates: imageCoordinates,
       questionsWithImages: cleanedQuestions.filter(q => q.images && q.images.length > 0).length
     })
 
-    // 裁剪并显示题目图片（延迟更长时间确保canvas渲染完成）
-    setTimeout(() => {
-      console.log('=== 开始执行图片裁剪 ===')
-      this.cropAndShowImages()
-    }, 1000)
+    // 注释掉Canvas裁剪逻辑，现在使用<image>标签直接显示图片
+    // setTimeout(() => {
+    //   console.log('=== 开始执行图片裁剪 ===')
+    //   this.cropAndShowImages()
+    // }, 1000)
+
+    console.log('✅ 图片显示：使用<image>标签直接显示，无需Canvas裁剪')
   },
 
   /**
