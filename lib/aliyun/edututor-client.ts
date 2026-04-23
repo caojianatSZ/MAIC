@@ -458,8 +458,8 @@ export function convertAliyunQuestionsToOurFormat(
         const height = (bbox?.[3] || 0) - (bbox?.[1] || 0);
         const area = width * height;
 
-        // 面积阈值：小于10000像素平方的可能是文字或噪声，不显示
-        const MIN_FIGURE_AREA = 10000;
+        // 面积阈值：小于2000像素平方的可能是文字或噪声，不显示
+        const MIN_FIGURE_AREA = 2000;
         if (area < MIN_FIGURE_AREA) {
           log.info(`过滤小面积图形${figIndex + 1}`, { area, width, height });
           return null;

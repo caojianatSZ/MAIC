@@ -371,8 +371,8 @@
             <!-- 选项文本 -->
             <rich-text class="option-text" nodes="{{opt.text || opt}}"></rich-text>
 
-            <!-- 选项图片（只显示包含图形的选项图片） -->
-            <view class="option-images" wx:if="{{opt.hasFigureImage && opt.images && opt.images.length > 0}}">
+            <!-- 选项图片（后端已过滤，有就显示） -->
+            <view class="option-images" wx:if="{{opt.images && opt.images.length > 0}}">
               <block wx:for="{{opt.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="*this">
                 <view class="option-image-wrapper" wx:if="{{img.url}}">
                   <image

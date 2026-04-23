@@ -178,11 +178,9 @@ export async function POST(request: NextRequest) {
             const optionText = typeof opt === 'string' ? opt : opt.text || '';
 
             // 判断选项是否需要图片
-            // 只有包含图形/图表的选项才显示图片，纯文字选项不需要
-            const hasGeometryKeywords = /图|图形|图像|坐标|函数|曲线|几何|三角形|圆形|方形|rectangle|triangle|circle/.test(optionText);
-            const hasComplexFormula = /\\[a-zA-Z]+{.*}|graph|plot|chart|diagram/.test(optionText);
-            const isShortText = optionText.length < 20; // 短文本通常不需要图片
-            const needsImage = (hasGeometryKeywords || hasComplexFormula) && !isShortText;
+            // 只有特别短的纯文本选项才不显示图片
+            const isVeryShortText = optionText.length < 10; // 极短文本通常不需要图片
+            const needsImage = !isVeryShortText;
 
             // 调试日志
             if (q.id === '1' || q.id === '7') {
@@ -191,9 +189,7 @@ export async function POST(request: NextRequest) {
                 optionIndex: idx,
                 optionText: optionText.substring(0, 50),
                 textLength: optionText.length,
-                hasGeometryKeywords,
-                hasComplexFormula,
-                isShortText,
+                isVeryShortText,
                 needsImage,
                 hasExistingImages: typeof opt !== 'string' && !!(opt as any).images?.length
               });

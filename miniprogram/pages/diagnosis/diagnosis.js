@@ -917,7 +917,7 @@ Page({
 
   /**
    * 判断题目是否需要显示配图
-   * 如果题干文本已经完整识别（包含公式、足够长），就不需要显示配图
+   * 只过滤掉纯文字题目的图片，保留真正的图形
    */
   determineIfNeedImage(content, images) {
     // 如果没有图片，肯定不需要
@@ -925,43 +925,8 @@ Page({
       return false
     }
 
-    const contentLength = content?.length || 0
-
-    // 检查是否包含公式标记（多种格式）
-    const hasFormula = /\\[\(\[]|\\[\)\]]|\$.*\$|\\\(|\\\)|a\s*[+\-]=/.test(content)
-
-    // 检查是否包含HTML标签（说明公式已被转换）
-    const hasHTML = /<[a-z]|&lt;|&gt;|<img|<span/i.test(content)
-
-    // 判断规则：
-    // 1. 如果题干包含公式或HTML，且长度>=30，文本已足够完整，不需要图片
-    if ((hasFormula || hasHTML) && contentLength >= 30) {
-      console.log('规则1命中: 公式题，长度>=30，不显示图片')
-      return false
-    }
-
-    // 2. 如果题干长度 >= 80（即使没有公式），不需要图片
-    if (contentLength >= 80) {
-      console.log('规则2命中: 题干很长，不显示图片')
-      return false
-    }
-
-    // 3. 检查题干是否包含"如图"、"见图"等字样（说明有配图）
-    const hasFigureReference = /如图|见图|下图|上图|附图|所示图/.test(content)
-
-    // 4. 如果题干引用了图片，但图片标签不是"插图"或"图表"，需要显示
-    if (hasFigureReference) {
-      console.log('规则3命中: 题干引用图片，显示图片')
-      return true
-    }
-
-    // 5. 如果图片标签是"插图"或"图表"，需要显示
-    const hasFigureImage = images.some(img =>
-      img.label && (img.label.includes('插图') || img.label.includes('图表') || img.label.includes('图'))
-    )
-
-    // 6. 其他情况也显示图片（作为补充）
-    console.log('规则6: 默认显示图片', { hasFigureImage })
+    // 只要后端返回了图片，默认就显示
+    // 因为后端已经过滤掉了纯文字区域
     return true
   },
 
@@ -1028,16 +993,8 @@ Page({
         content: cleanedContent,
         options: q.options ? q.options.map((opt) => {
           const cleanedOpt = this.cleanOcrText(opt)
-          const optText = typeof cleanedOpt === 'string' ? cleanedOpt : cleanedOpt.text || ''
-
-          // 判断选项是否包含图形（只有包含图形的选项才显示图片）
-          const hasGeometryKeywords = /图|图形|图像|坐标|函数|曲线|几何|三角形|圆形|方形|rectangle|triangle|circle/.test(optText)
-          const isShortText = optText.length < 20
-
-          return {
-            ...cleanedOpt,
-            hasFigureImage: hasGeometryKeywords && !isShortText
-          }
+          // 只要后端返回了images数组，就显示（后端已做过过滤）
+          return cleanedOpt
         }) : [],
         // 添加图片坐标信息
         images: q.images || [],
