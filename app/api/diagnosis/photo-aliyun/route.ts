@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ==================== Step 6: 提取选项图形 ====================
-    log.info('Step 5: 提取选项图形', { requestId });
+    log.info('Step 6: 提取选项图形', { requestId });
     let enrichedQuestions;
     try {
       enrichedQuestions = questions.map(q => {
