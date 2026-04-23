@@ -372,19 +372,21 @@ export async function POST(request: NextRequest) {
             const isVeryShortText = optionText.length < 10;
             const needsImage = !hasLatexFormula && !isVeryShortText;
 
-            // 调试日志
-            if (q.id === '1' || q.id === '7') {
-              log.info(`选项图片判断`, {
-                questionId: q.id,
-                optionIndex: idx,
-                optionText: optionText.substring(0, 50),
-                textLength: optionText.length,
-                hasLatexFormula,
-                isVeryShortText,
-                needsImage,
-                hasExistingImages: typeof opt !== 'string' && !!(opt as any).images?.length
-              });
-            }
+            // 调试日志 - 显示所有选项
+            log.info(`选项图片判断`, {
+              questionId: q.id,
+              optionIndex: idx,
+              optionText: optionText.substring(0, 50),
+              textLength: optionText.length,
+              hasMathDelimiters,
+              hasLatexCommands,
+              hasSubSuperscript,
+              hasSimpleSubSuperscript,
+              hasLatexFormula,
+              isVeryShortText,
+              needsImage,
+              hasExistingImages: typeof opt !== 'string' && !!(opt as any).images?.length
+            });
 
             // 只有需要图片的选项才添加images
             if (opt && needsImage && (opt.croppedImage || optionImage?.imageUrl)) {
