@@ -221,8 +221,8 @@ export async function POST(request: NextRequest) {
             const height = maxY - minY;
             const area = width * height;
 
-            // 过滤小面积
-            if (area < 2000) {
+            // 过滤小面积 - 提高阈值以过滤更多无效区域
+            if (area < 15000) {
               log.info(`过滤小面积图形 题目${i + 1}-图形${figIndex + 1}`, { area, width, height });
               continue;
             }
@@ -231,9 +231,9 @@ export async function POST(request: NextRequest) {
             const aspectRatio = width / height;
 
             // 过滤可能是公式文字的区域：
-            // 1. 竖向细长区域（长宽比 < 0.3）可能是单行公式
-            // 2. 横向很宽但很矮的区域（长宽比 > 10）可能是横排公式
-            if (aspectRatio < 0.3 || aspectRatio > 10) {
+            // 1. 竖向细长区域（长宽比 < 0.4）可能是单行公式
+            // 2. 横向很宽但很矮的区域（长宽比 > 5）可能是横排公式
+            if (aspectRatio < 0.4 || aspectRatio > 5) {
               log.info(`过滤疑似公式文字区域 题目${i + 1}-图形${figIndex + 1}`, {
                 area,
                 width,
@@ -243,18 +243,16 @@ export async function POST(request: NextRequest) {
               continue;
             }
 
-            // 过滤面积适中但尺寸很小的区域（可能是单个公式符号）
-            if (area < 10000) {
-              const minDimension = Math.min(width, height);
-              if (minDimension < 50) {
-                log.info(`过滤小尺寸区域 题目${i + 1}-图形${figIndex + 1}`, {
-                  area,
-                  width,
-                  height,
-                  minDimension
-                });
-                continue;
-              }
+            // 过滤尺寸很小的区域（可能是单个公式符号）
+            const minDimension = Math.min(width, height);
+            if (minDimension < 100) {
+              log.info(`过滤小尺寸区域 题目${i + 1}-图形${figIndex + 1}`, {
+                area,
+                width,
+                height,
+                minDimension
+              });
+              continue;
             }
 
             // 使用sharp切割图片
