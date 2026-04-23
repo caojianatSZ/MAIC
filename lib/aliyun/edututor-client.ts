@@ -454,10 +454,20 @@ export function convertAliyunQuestionsToOurFormat(
 
       // 优先使用sub_images中的URL（已切割的子图）
       if (sub_images && Array.isArray(sub_images) && sub_images[figIndex]) {
+        const httpsUrl = sub_images[figIndex].replace(/^http:\/\//, 'https://');
+
+        // 调试日志
+        if (figIndex === 0) {
+          log.info('插图URL转换', {
+            原始URL: sub_images[figIndex].substring(0, 80) + '...',
+            转换后URL: httpsUrl.substring(0, 80) + '...'
+          });
+        }
+
         return {
           bbox: bbox,
           label: `插图${figIndex + 1}`,
-          url: sub_images[figIndex].replace(/^http:\/\//, 'https://')  // 替换为HTTPS
+          url: httpsUrl  // 替换为HTTPS
         };
       }
 
