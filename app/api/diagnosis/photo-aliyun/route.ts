@@ -21,12 +21,13 @@ import {
   convertAliyunQuestionsToOurFormat
 } from '@/lib/aliyun/edututor-client';
 import { enrichQuestionWithOptions } from '@/lib/aliyun/extract-option-images';
-import { writeFile, unlink } from 'fs/promises';
+import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { quickPreprocess, needsPreprocessing } from '@/lib/image/preprocessing';
 import { validateQuestionContinuity } from '@/lib/validation/continuity';
 import { adaptiveRecognize } from '@/lib/recognition/adaptive-retry';
+import sharp from 'sharp';
 
 const log = createLogger('PhotoAliyun');
 
@@ -65,6 +66,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const requestId = `aliyun_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
   try {
     log.info('收到 阿里云EduTutor 识别请求', { requestId });
@@ -164,7 +166,140 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    // ==================== Step 5: 提取选项图形 ====================
+    // ==================== Step 5: 服务器端图片切割 ====================
+    log.info('Step 5: 服务器端图片切割', { requestId });
+
+    // 读取原始图片文件
+    const tempImagePath = join(process.cwd(), 'public', 'temp', 'images', tempImageUrl.split('/').pop() || '');
+    let originalImageBuffer: Buffer | null = null;
+
+    try {
+      originalImageBuffer = await readFile(tempImagePath);
+      log.info('原始图片读取成功', { requestId, size: originalImageBuffer.length });
+    } catch (error) {
+      log.warn('读取原始图片失败，将使用阿里云预切割图片', {
+        requestId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+
+    // 如果有原始图片，对每个题目的图形进行切割
+    if (originalImageBuffer) {
+      try {
+        const metadata = await sharp(originalImageBuffer).metadata();
+        log.info('原始图片元数据', {
+          requestId,
+          width: metadata.width,
+          height: metadata.height
+        });
+
+        // 为每个题目切割图形
+        for (let i = 0; i < questions.length; i++) {
+          const q = questions[i];
+          if (!q.aliyunData?.info?.figure || q.aliyunData.info.figure.length === 0) {
+            continue;
+          }
+
+          const cutImages: Array<{ bbox: number[]; label: string; url: string }> = [];
+
+          for (let figIndex = 0; figIndex < q.aliyunData.info.figure.length; figIndex++) {
+            const fig = q.aliyunData.info.figure[figIndex];
+            const posList = fig?.pos_list?.[0];
+
+            if (!posList || posList.length !== 8) {
+              continue;
+            }
+
+            // 计算边界框
+            const [x1, y1, x2, y2, x3, y3, x4, y4] = posList;
+            const minX = Math.min(x1, x2, x3, x4);
+            const maxX = Math.max(x1, x2, x3, x4);
+            const minY = Math.min(y1, y2, y3, y4);
+            const maxY = Math.max(y1, y2, y3, y4);
+
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const area = width * height;
+
+            // 过滤小面积
+            if (area < 2000) {
+              log.info(`过滤小面积图形 题目${i + 1}-图形${figIndex + 1}`, { area, width, height });
+              continue;
+            }
+
+            // 使用sharp切割图片
+            try {
+              // 确保切割区域在图片范围内
+              const imgWidth = metadata.width || 0;
+              const imgHeight = metadata.height || 0;
+
+              if (minX >= imgWidth || minY >= imgHeight || maxX <= 0 || maxY <= 0) {
+                log.warn(`切割区域超出图片范围 题目${i + 1}-图形${figIndex + 1}`, {
+                  bbox: [minX, minY, maxX, maxY],
+                  imageSize: [imgWidth, imgHeight]
+                });
+                continue;
+              }
+
+              const cropX = Math.max(0, minX);
+              const cropY = Math.max(0, minY);
+              const cropW = Math.min(width, imgWidth - cropX);
+              const cropH = Math.min(height, imgHeight - cropY);
+
+              const croppedBuffer = await sharp(originalImageBuffer)
+                .extract({ left: cropX, top: cropY, width: cropW, height: cropH })
+                .jpeg({ quality: 80 })
+                .toBuffer();
+
+              // 保存切割后的图片
+              const croppedFilename = `${requestId}_q${i + 1}_fig${figIndex + 1}.jpg`;
+              const croppedPath = join(process.cwd(), 'public', 'temp', 'images', croppedFilename);
+              await mkdir(join(process.cwd(), 'public', 'temp', 'images'), { recursive: true });
+              await writeFile(croppedPath, croppedBuffer);
+
+              const croppedUrl = `${baseUrl}/temp/images/${croppedFilename}`;
+
+              cutImages.push({
+                bbox: [minX, minY, maxX, maxY],
+                label: `插图${figIndex + 1}`,
+                url: croppedUrl
+              });
+
+              log.info(`图片切割成功 题目${i + 1}-图形${figIndex + 1}`, {
+                bbox: [minX, minY, maxX, maxY],
+                cropSize: [cropW, cropH],
+                outputSize: croppedBuffer.length,
+                url: croppedUrl
+              });
+            } catch (cropError) {
+              log.warn(`切割图片失败 题目${i + 1}-图形${figIndex + 1}`, {
+                error: cropError instanceof Error ? cropError.message : String(cropError)
+              });
+            }
+          }
+
+          // 更新题目图片
+          if (cutImages.length > 0) {
+            (questions[i] as any).images = cutImages;
+          } else {
+            // 没有切割出图片，清空images
+            (questions[i] as any).images = [];
+          }
+        }
+
+        log.info('图片切割完成', {
+          requestId,
+          questionsProcessed: questions.length
+        });
+      } catch (error) {
+        log.error('图片切割失败', {
+          requestId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    // ==================== Step 6: 提取选项图形 ====================
     log.info('Step 5: 提取选项图形', { requestId });
     let enrichedQuestions;
     try {
@@ -389,8 +524,7 @@ async function createTempImageFile(
   await writeFile(tempFilePath, buffer);
 
   // 返回可访问的URL（使用公网域名）
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  return `${baseUrl}/temp/images/${filename}`;
+  return `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/temp/images/${filename}`;
 }
 
 /**
