@@ -200,6 +200,23 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
+          // 检查题干是否已包含完整公式，如果是则跳过图片
+          // 因为OCR已经识别出公式文字，图片是冗余的
+          const content = q.content || '';
+          const hasLatexFormula = /\\[a-zA-Z]+{.*}|\\frac|\\sqrt|\\sum|\\int|\\lim|_[a-zA-Z]|\\^[a-zA-Z]|\$.*\$/.test(content);
+          const contentLength = content.length;
+
+          // 如果题干包含LaTeX公式且长度足够，说明OCR已成功识别公式文字
+          // 这种情况下不需要显示图片（图片很可能是冗余的公式文字）
+          if (hasLatexFormula && contentLength > 50) {
+            log.info(`跳过图片切割（题干已包含完整公式） 题目${i + 1}`, {
+              contentLength,
+              hasLatexFormula: true
+            });
+            (questions[i] as any).images = [];
+            continue;
+          }
+
           const cutImages: Array<{ bbox: number[]; label: string; url: string }> = [];
 
           for (let figIndex = 0; figIndex < q.aliyunData.info.figure.length; figIndex++) {
