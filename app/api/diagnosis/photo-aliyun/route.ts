@@ -358,9 +358,10 @@ export async function POST(request: NextRequest) {
             const optionText = typeof opt === 'string' ? opt : opt.text || '';
 
             // 判断选项是否需要图片
-            // 只有特别短的纯文本选项才不显示图片
-            const isVeryShortText = optionText.length < 10; // 极短文本通常不需要图片
-            const needsImage = !isVeryShortText;
+            // 如果选项文本已包含完整LaTeX公式，就不需要显示图片
+            const hasLatexFormula = /\\[a-zA-Z]+{.*}|\\frac|\\sqrt|\\sum|\\int|_[a-zA-Z]|\\^[a-zA-Z]|\$.*\$|[a-zA-Z]_[{]|[a-zA-Z]\\^[{]/.test(optionText);
+            const isVeryShortText = optionText.length < 10;
+            const needsImage = !hasLatexFormula && !isVeryShortText;
 
             // 调试日志
             if (q.id === '1' || q.id === '7') {
@@ -369,6 +370,7 @@ export async function POST(request: NextRequest) {
                 optionIndex: idx,
                 optionText: optionText.substring(0, 50),
                 textLength: optionText.length,
+                hasLatexFormula,
                 isVeryShortText,
                 needsImage,
                 hasExistingImages: typeof opt !== 'string' && !!(opt as any).images?.length
