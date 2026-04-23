@@ -227,6 +227,36 @@ export async function POST(request: NextRequest) {
               continue;
             }
 
+            // 计算长宽比
+            const aspectRatio = width / height;
+
+            // 过滤可能是公式文字的区域：
+            // 1. 竖向细长区域（长宽比 < 0.3）可能是单行公式
+            // 2. 横向很宽但很矮的区域（长宽比 > 10）可能是横排公式
+            if (aspectRatio < 0.3 || aspectRatio > 10) {
+              log.info(`过滤疑似公式文字区域 题目${i + 1}-图形${figIndex + 1}`, {
+                area,
+                width,
+                height,
+                aspectRatio: aspectRatio.toFixed(2)
+              });
+              continue;
+            }
+
+            // 过滤面积适中但尺寸很小的区域（可能是单个公式符号）
+            if (area < 10000) {
+              const minDimension = Math.min(width, height);
+              if (minDimension < 50) {
+                log.info(`过滤小尺寸区域 题目${i + 1}-图形${figIndex + 1}`, {
+                  area,
+                  width,
+                  height,
+                  minDimension
+                });
+                continue;
+              }
+            }
+
             // 使用sharp切割图片
             try {
               // 确保切割区域在图片范围内
