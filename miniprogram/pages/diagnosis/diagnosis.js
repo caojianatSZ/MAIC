@@ -1067,11 +1067,21 @@ Page({
     // 调试日志：查看图片数据
     console.log('=== 图片数据调试 ===')
     cleanedQuestions.forEach((q, idx) => {
+      console.log(`--- 题目${idx + 1} ---`)
+      console.log('是否有images数组:', !!q.images)
+      console.log('images数组长度:', q.images?.length || 0)
+
       if (q.images && q.images.length > 0) {
-        console.log(`题目${idx + 1}有${q.images.length}张图片:`, q.images.map(img => ({
-          url: img.url ? img.url.substring(0, 60) + '...' : '无URL',
-          label: img.label
-        })))
+        q.images.forEach((img, imgIdx) => {
+          console.log(`  图片${imgIdx + 1}:`, {
+            hasUrl: !!img.url,
+            urlLength: img.url?.length || 0,
+            url: img.url || '❌ 空URL',
+            label: img.label || '无标签'
+          })
+        })
+      } else {
+        console.log('  ❌ 没有图片数据')
       }
     })
 
@@ -1418,6 +1428,32 @@ Page({
     } else {
       wx.navigateBack()
     }
+  },
+
+  /**
+   * 图片加载成功
+   */
+  onImageLoad(e) {
+    console.log('✅ 图片加载成功:', {
+      url: e.currentTarget.dataset.url,
+      width: e.detail.width,
+      height: e.detail.height
+    })
+  },
+
+  /**
+   * 图片加载失败
+   */
+  onImageError(e) {
+    console.error('❌ 图片加载失败:', {
+      url: e.currentTarget.dataset.url,
+      error: e.detail
+    })
+    wx.showToast({
+      title: '图片加载失败',
+      icon: 'none',
+      duration: 2000
+    })
   },
 
   /**

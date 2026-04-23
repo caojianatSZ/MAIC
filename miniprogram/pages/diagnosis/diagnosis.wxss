@@ -1231,3 +1231,8 @@
   display: block;
   margin: 0 auto;
 }
+
+/* 图片加载状态 */
+.question-image[alt="加载中"] {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
