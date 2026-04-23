@@ -405,7 +405,12 @@ export function convertAliyunQuestionsToOurFormat(
       hasMergedImage: !!merged_image,
       mergedImage: merged_image?.substring(0, 50) + '...',
       hasFigures: Array.isArray(info?.figure),
-      figuresCount: Array.isArray(info?.figure) ? info.figure.length : 0
+      figuresCount: Array.isArray(info?.figure) ? info.figure.length : 0,
+      // 添加figure的pos_list数据
+      figurePosList: Array.isArray(info?.figure) ? info.figure.map((f, i) => ({
+        index: i,
+        pos_list: f?.pos_list?.[0]
+      })) : []
     });
 
     // 确定题目类型
@@ -461,17 +466,38 @@ export function convertAliyunQuestionsToOurFormat(
         // 面积阈值：小于2000像素平方的可能是文字或噪声，不显示
         const MIN_FIGURE_AREA = 2000;
         if (area < MIN_FIGURE_AREA) {
-          log.info(`过滤小面积图形${figIndex + 1}`, { area, width, height });
+          log.info(`过滤小面积图形${figIndex + 1}`, { area, width, height, bbox });
           return null;
         }
 
-        // 优先使用sub_images中的URL（已切割的子图）
+        // 使用pos_list坐标从原图精确切割
+        // 不使用阿里云预切割的sub_images，因为它们可能包含额外内容
+        if (originalImageUrl) {
+          // 使用OSS图片处理功能精确切割
+          const croppedUrl = generateCroppedImageUrl(originalImageUrl, bbox as [number, number, number, number]);
+
+          log.info(`使用pos_list精确切割图形${figIndex + 1}`, {
+            bbox,
+            width,
+            height,
+            area,
+            croppedUrl: croppedUrl.substring(0, 100) + '...'
+          });
+
+          return {
+            bbox: bbox,
+            label: `插图${figIndex + 1}`,
+            url: croppedUrl.replace(/^http:\/\//, 'https://')  // 确保HTTPS
+          };
+        }
+
+        // 降级：使用sub_images
         if (sub_images && Array.isArray(sub_images) && sub_images[figIndex]) {
           const httpsUrl = sub_images[figIndex].replace(/^http:\/\//, 'https://');
 
           // 调试日志
           if (figIndex === 0) {
-            log.info('插图URL转换', {
+            log.info('使用阿里云预切割图片', {
               原始URL: sub_images[figIndex].substring(0, 80) + '...',
               转换后URL: httpsUrl.substring(0, 80) + '...'
             });
@@ -481,24 +507,6 @@ export function convertAliyunQuestionsToOurFormat(
             bbox: bbox,
             label: `插图${figIndex + 1}`,
             url: httpsUrl  // 替换为HTTPS
-          };
-        }
-
-        // 降级：使用merged_image
-        if (merged_image) {
-          return {
-            bbox: bbox,
-            label: `插图${figIndex + 1}`,
-            url: merged_image.replace(/^http:\/\//, 'https://')  // 替换为HTTPS
-          };
-        }
-
-        // 最后降级：使用原始图片URL
-        if (originalImageUrl) {
-          return {
-            bbox: bbox,
-            label: `插图${figIndex + 1}`,
-            url: originalImageUrl.replace(/^http:\/\//, 'https://')  // 确保HTTPS
           };
         }
 
