@@ -340,7 +340,6 @@ export async function POST(request: NextRequest) {
         // ==================== Step 5.5: 服务器端选项图片裁剪 ====================
         log.info('Step 5.5: 服务器端选项图片裁剪', { requestId });
 
-        const metadata = await sharp(originalImageBuffer).metadata();
         const imgWidth = metadata.width || 1920;
         const imgHeight = metadata.height || 1080;
 
