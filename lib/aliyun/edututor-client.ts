@@ -429,6 +429,15 @@ export function convertAliyunQuestionsToOurFormat(
     // 提取题干文本
     const content = info.stem?.text || '';
 
+    // 选项处理前的调试日志
+    const hasOptions = Array.isArray(info.option) && info.option.length > 0;
+    log.info(`题目${index + 1}选项处理`, {
+      hasOptions,
+      optionsCount: info.option?.length || 0,
+      hasOriginalImageUrl: !!originalImageUrl,
+      originalImageUrl: originalImageUrl?.substring(0, 80) + '...'
+    });
+
     // 提取选项（包含坐标信息和裁剪图片）
     const options = (Array.isArray(info.option) ? info.option : []).map((opt) => {
       const bbox = posListToBbox2d(opt?.pos_list?.[0]);
