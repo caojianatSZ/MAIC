@@ -424,10 +424,11 @@ export function convertAliyunQuestionsToOurFormat(
     const options = (Array.isArray(info.option) ? info.option : []).map((opt) => {
       const bbox = posListToBbox2d(opt?.pos_list?.[0]);
 
-      // 必须使用原始图片URL生成裁剪URL
-      // 阿里云OSS临时URL会签名失效，导致403错误
-      if (!originalImageUrl) {
-        console.warn('缺少原始图片URL，无法生成选项裁剪图片');
+      // 优先使用阿里云的merged_image URL来生成裁剪URL
+      // 因为OSS裁剪参数只对OSS图片有效
+      const ossImageUrl = merged_image || originalImageUrl;
+      if (!ossImageUrl) {
+        console.warn('缺少图片URL，无法生成选项裁剪图片');
         return {
           text: opt?.text || '',
           bbox_2d: bbox,
@@ -442,7 +443,7 @@ export function convertAliyunQuestionsToOurFormat(
         (bbox || [0, 0, 0, 0])[2] + 30,
         (bbox || [0, 0, 0, 0])[3] + 30
       ];
-      const croppedUrl = generateCroppedImageUrl(originalImageUrl, paddedBbox as [number, number, number, number]);
+      const croppedUrl = generateCroppedImageUrl(ossImageUrl, paddedBbox as [number, number, number, number]);
 
       return {
         text: opt?.text || '',
