@@ -393,6 +393,15 @@ export function convertAliyunQuestionsToOurFormat(
   bbox_2d?: number[];
   aliyunData?: Question;
 }> {
+  // 函数入口调试日志
+  if (aliyunQuestions.length > 0) {
+    log.info('convertAliyunQuestionsToOurFormat入口', {
+      questionsCount: aliyunQuestions.length,
+      hasOriginalImageUrl: !!originalImageUrl,
+      originalImageUrl: originalImageUrl?.substring(0, 100) + '...'
+    });
+  }
+
   return aliyunQuestions.map((question, index) => {
     const qId = String(index + 1);
     const { info, sub_images, merged_image, pos_list } = question;
