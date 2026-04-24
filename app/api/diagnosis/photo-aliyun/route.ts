@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
     try {
       enrichedQuestions = questions.map(q => {
         if (q.aliyunData) {
-          const enriched = enrichQuestionWithOptions(q.aliyunData);
+          const enriched = enrichQuestionWithOptions(q.aliyunData, tempImageUrl);
 
           // 将optionImages合并到options数组中
           const optionsWithImages = (q.options || []).map((opt, idx) => {

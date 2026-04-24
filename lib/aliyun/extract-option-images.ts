@@ -126,7 +126,8 @@ function generateCroppedImageUrl(
  * 将选项图形添加到题目数据中
  */
 export function enrichQuestionWithOptions(
-  question: Question
+  question: Question,
+  originalImageUrl?: string  // 添加原始图片URL参数
 ): Question & {
   optionImages?: Array<{
     optionLetter: string;
@@ -162,9 +163,16 @@ export function enrichQuestionWithOptions(
       maxY + padding
     ];
 
+    // 优先使用originalImageUrl，避免使用merged_image的签名URL
+    // merged_image包含签名参数，添加裁剪参数后签名会失效导致403
+    const imageUrl = generateCroppedImageUrl(
+      (originalImageUrl || question.merged_image) as string,
+      bbox as [number, number, number, number]
+    ).replace(/^http:\/\//, 'https://');  // 确保HTTPS
+
     return {
       optionLetter: option.text.trim(),
-      imageUrl: generateCroppedImageUrl(question.merged_image, bbox as [number, number, number, number]),
+      imageUrl,
       bbox
     };
   });
