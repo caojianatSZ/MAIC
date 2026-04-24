@@ -336,18 +336,10 @@ export async function POST(request: NextRequest) {
           requestId,
           questionsProcessed: questions.length
         });
-      } catch (error) {
-        log.error('图片切割失败', {
-          requestId,
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-    }
 
-    // ==================== Step 5.5: 服务器端选项图片裁剪 ====================
-    log.info('Step 5.5: 服务器端选项图片裁剪', { requestId });
-    if (originalImageBuffer) {
-      try {
+        // ==================== Step 5.5: 服务器端选项图片裁剪 ====================
+        log.info('Step 5.5: 服务器端选项图片裁剪', { requestId });
+
         const metadata = await sharp(originalImageBuffer).metadata();
         const imgWidth = metadata.width || 1920;
         const imgHeight = metadata.height || 1080;
@@ -433,7 +425,7 @@ export async function POST(request: NextRequest) {
           totalOptionImages
         });
       } catch (error) {
-        log.error('选项图片切割失败', {
+        log.error('图片切割失败', {
           requestId,
           error: error instanceof Error ? error.message : String(error)
         });
