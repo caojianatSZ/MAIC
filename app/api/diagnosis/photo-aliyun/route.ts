@@ -369,8 +369,15 @@ export async function POST(request: NextRequest) {
             const hasSimpleSubSuperscript = /[a-zA-Z][\_\^][a-zA-Z0-9]/.test(optionText);
 
             const hasLatexFormula = hasMathDelimiters || hasLatexCommands || hasSubSuperscript || hasSimpleSubSuperscript;
+
+            // 特殊情况：如果选项文本只是字母（如A、B、C、D），可能包含图形，需要显示图片
+            const isOnlyLetters = /^[A-Z]$/.test(optionText.trim());
             const isVeryShortText = optionText.length < 10;
-            const needsImage = !hasLatexFormula && !isVeryShortText;
+
+            // 只有以下情况不需要图片：
+            // 1. 包含LaTeX公式（公式已经用文字表达了）
+            // 2. 文本较长（>=10字符）且不是纯字母
+            const needsImage = !hasLatexFormula && (isOnlyLetters || !isVeryShortText);
 
             // 调试日志 - 显示所有选项
             log.info(`选项图片判断`, {
