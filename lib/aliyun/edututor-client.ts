@@ -424,9 +424,9 @@ export function convertAliyunQuestionsToOurFormat(
     const options = (Array.isArray(info.option) ? info.option : []).map((opt) => {
       const bbox = posListToBbox2d(opt?.pos_list?.[0]);
 
-      // 优先使用阿里云的merged_image URL来生成裁剪URL
-      // 因为OSS裁剪参数只对OSS图片有效
-      const ossImageUrl = merged_image || originalImageUrl;
+      // 优先使用originalImageUrl，避免使用merged_image的签名URL
+      // merged_image包含签名参数，添加裁剪参数后签名会失效导致403
+      const ossImageUrl = originalImageUrl || merged_image;
       if (!ossImageUrl) {
         console.warn('缺少图片URL，无法生成选项裁剪图片');
         return {
