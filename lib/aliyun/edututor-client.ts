@@ -427,6 +427,15 @@ export function convertAliyunQuestionsToOurFormat(
       // 优先使用originalImageUrl，避免使用merged_image的签名URL
       // merged_image包含签名参数，添加裁剪参数后签名会失效导致403
       const ossImageUrl = originalImageUrl || merged_image;
+
+      // 调试日志
+      log.info(`选项图片URL来源`, {
+        hasOriginalImageUrl: !!originalImageUrl,
+        originalImageUrl: originalImageUrl?.substring(0, 80) + '...',
+        hasMergedImage: !!merged_image,
+        mergedImagePreview: merged_image?.substring(0, 80) + '...',
+        usingSource: !!originalImageUrl ? 'originalImageUrl' : 'merged_image'
+      });
       if (!ossImageUrl) {
         console.warn('缺少图片URL，无法生成选项裁剪图片');
         return {
