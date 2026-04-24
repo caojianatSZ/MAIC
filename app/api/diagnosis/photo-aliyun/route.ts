@@ -344,6 +344,102 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ==================== Step 5.5: 服务器端选项图片裁剪 ====================
+    log.info('Step 5.5: 服务器端选项图片裁剪', { requestId });
+    if (originalImageBuffer) {
+      try {
+        const metadata = await sharp(originalImageBuffer).metadata();
+        const imgWidth = metadata.width || 1920;
+        const imgHeight = metadata.height || 1080;
+
+        let totalOptionImages = 0;
+
+        for (let i = 0; i < questions.length; i++) {
+          const q = questions[i];
+          if (!q.aliyunData?.info?.option || q.aliyunData.info.option.length === 0) {
+            continue;
+          }
+
+          const optionImages: Array<{ bbox: number[]; label: string; url: string }> = [];
+
+          for (let optIndex = 0; optIndex < q.aliyunData.info.option.length; optIndex++) {
+            const opt = q.aliyunData.info.option[optIndex];
+            const posList = opt?.pos_list?.[0];
+
+            if (!posList || posList.length !== 8) {
+              continue;
+            }
+
+            // 计算边界框
+            const [x1, y1, x2, y2, x3, y3, x4, y4] = posList;
+            const minX = Math.min(x1, x2, x3, x4);
+            const maxX = Math.max(x1, x2, x3, x4);
+            const minY = Math.min(y1, y2, y3, y4);
+            const maxY = Math.max(y1, y2, y3, y4);
+
+            const width = maxX - minX;
+            const height = maxY - minY;
+
+            // 扩展边界框，确保包含完整的选项图形
+            const padding = 30;
+            const cropX = Math.max(0, minX - padding);
+            const cropY = Math.max(0, minY - padding);
+            const cropW = Math.min(width + padding * 2, imgWidth - cropX);
+            const cropH = Math.min(height + padding * 2, imgHeight - cropY);
+
+            try {
+              const croppedBuffer = await sharp(originalImageBuffer)
+                .extract({ left: cropX, top: cropY, width: cropW, height: cropH })
+                .jpeg({ quality: 80 })
+                .toBuffer();
+
+              // 保存切割后的图片
+              const croppedFilename = `${requestId}_q${i + 1}_opt${optIndex + 1}.jpg`;
+              const croppedPath = join(process.cwd(), 'public', 'temp', 'images', croppedFilename);
+              await mkdir(join(process.cwd(), 'public', 'temp', 'images'), { recursive: true });
+              await writeFile(croppedPath, croppedBuffer);
+
+              const croppedUrl = `${baseUrl}/temp/images/${croppedFilename}`;
+
+              optionImages.push({
+                bbox: [minX, minY, maxX, maxY],
+                label: `选项${opt.text?.trim() || String.fromCharCode(65 + optIndex)}`,
+                url: croppedUrl
+              });
+
+              totalOptionImages++;
+
+              log.info(`选项图片切割成功 题目${i + 1}-选项${optIndex + 1}`, {
+                bbox: [minX, minY, maxX, maxY],
+                cropSize: [cropW, cropH],
+                outputSize: croppedBuffer.length,
+                url: croppedUrl
+              });
+            } catch (cropError) {
+              log.warn(`选项图片切割失败 题目${i + 1}-选项${optIndex + 1}`, {
+                error: cropError instanceof Error ? cropError.message : String(cropError)
+              });
+            }
+          }
+
+          // 将裁剪后的选项图片存储到题目数据中
+          if (optionImages.length > 0) {
+            (questions[i] as any).optionCroppedImages = optionImages;
+          }
+        }
+
+        log.info('选项图片切割完成', {
+          requestId,
+          totalOptionImages
+        });
+      } catch (error) {
+        log.error('选项图片切割失败', {
+          requestId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
     // ==================== Step 6: 提取选项图形 ====================
     log.info('Step 6: 提取选项图形', { requestId });
     let enrichedQuestions;
@@ -396,21 +492,25 @@ export async function POST(request: NextRequest) {
             });
 
             // 只有需要图片的选项才添加images
-            if (opt && needsImage && (opt.croppedImage || optionImage?.imageUrl)) {
-              const imageUrl = opt.croppedImage || optionImage?.imageUrl || '';
-              const bbox = opt.bbox_2d || optionImage?.bbox || [];
+            if (opt && needsImage) {
+              // 优先使用服务器端裁剪的选项图片
+              const serverCroppedImage = (q as any).optionCroppedImages?.[idx];
+              const imageUrl = serverCroppedImage?.url || opt.croppedImage || optionImage?.imageUrl || '';
+              const bbox = serverCroppedImage?.bbox || opt.bbox_2d || optionImage?.bbox || [];
 
               // 将croppedImage转换为小程序期望的images格式
-              return {
-                ...opt,
-                images: [
-                  {
-                    bbox: bbox || [],
-                    label: `选项${opt.text?.trim() || ''}`,
-                    url: imageUrl
-                  }
-                ]
-              };
+              if (imageUrl) {
+                return {
+                  ...opt,
+                  images: [
+                    {
+                      bbox: bbox || [],
+                      label: `选项${opt.text?.trim() || ''}`,
+                      url: imageUrl
+                    }
+                  ]
+                };
+              }
             }
 
             // 不需要图片的选项，明确删除images字段
