@@ -401,7 +401,6 @@ export function convertAliyunQuestionsToOurFormat(
     log.info(`题目${index + 1}图片数据`, {
       hasSubImages: !!sub_images,
       subImagesCount: Array.isArray(sub_images) ? sub_images.length : 0,
-      subImages: sub_images,
       hasMergedImage: !!merged_image,
       mergedImage: merged_image?.substring(0, 50) + '...',
       hasFigures: Array.isArray(info?.figure),
@@ -409,7 +408,7 @@ export function convertAliyunQuestionsToOurFormat(
       // 添加figure的pos_list数据
       figurePosList: Array.isArray(info?.figure) ? info.figure.map((f, i) => ({
         index: i,
-        pos_list: f?.pos_list?.[0]
+        pos_list: Array.isArray(f?.pos_list) && f.pos_list[0] ? f.pos_list[0] : undefined
       })) : []
     });
 
@@ -556,8 +555,8 @@ export function convertAliyunQuestionsToOurFormat(
  * pos_list: [[x1,y1,x2,y2,x3,y3,x4,y4]] (4个点)
  * bbox_2d: [x1, y1, x2, y2] (左上角和右下角)
  */
-function posListToBbox2d(posList: number[]): number[] {
-  if (posList.length !== 8) {
+function posListToBbox2d(posList: number[] | undefined): number[] {
+  if (!posList || !Array.isArray(posList) || posList.length !== 8) {
     return [0, 0, 0, 0];
   }
 
