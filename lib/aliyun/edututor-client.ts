@@ -448,7 +448,7 @@ export function convertAliyunQuestionsToOurFormat(
       return {
         text: opt?.text || '',
         bbox_2d: bbox,
-        croppedImage: croppedUrl  // 添加裁剪图片URL
+        croppedImage: croppedUrl.replace(/^http:\/\//, 'https://')  // 添加HTTPS转换
       };
     });
 
