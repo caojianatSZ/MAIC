@@ -367,19 +367,14 @@
 
         <!-- 选项 -->
         <view class="question-options" wx:if="{{item.type === 'choice' && item.options}}">
-          <view class="option-item" wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="idx" wx:key="*this">
-            <!-- 调试：显示选项类型 -->
-            <!-- <text>调试: opt类型={{typeof opt}}, hasImages={{!!opt.images}}, imagesLength={{opt.images ? opt.images.length : 0}}</text> -->
+          <view class="option-item" wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="idx" wx:key="idx">
+            <!-- 选项文本（确保使用opt.text获取文本，避免对象被字符串化） -->
+            <rich-text class="option-text" nodes="{{opt.text}}"></rich-text>
 
-            <!-- 选项文本 -->
-            <rich-text class="option-text" nodes="{{opt.text || opt}}"></rich-text>
-
-            <!-- 选项图片（后端已过滤，有就显示） -->
-            <view class="option-images" wx:if="{{opt.images && opt.images.length > 0}}">
-              <block wx:for="{{opt.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="*this">
+            <!-- 选项图片（检查images数组是否存在且非空） -->
+            <view class="option-images" wx:if="{{opt.images}}">
+              <block wx:for="{{opt.images}}" wx:for-item="img" wx:for-index="imgIdx" wx:key="imgIdx">
                 <view class="option-image-wrapper" wx:if="{{img.url}}">
-                  <!-- 调试：显示图片URL -->
-                  <!-- <text style="font-size: 20rpx; color: red;">调试图片URL: {{img.url}}</text> -->
                   <image
                     class="option-image"
                     src="{{img.url}}"
@@ -387,6 +382,7 @@
                     style="width: 500rpx; height: auto; border-radius: 8rpx; margin-top: 8rpx; box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.06);"
                     bindtap="previewImage"
                     bindload="onOptionImageLoad"
+                    binderror="onOptionImageError"
                     data-url="{{img.url}}"
                     data-index="{{item.id}}"
                     data-option-index="{{idx}}"

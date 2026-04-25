@@ -1561,5 +1561,18 @@ Page({
       optionIndex: optionIndex,
       url: url?.substring(0, 80)
     })
+  },
+
+  /**
+   * 选项图片加载失败事件
+   */
+  onOptionImageError(e) {
+    const { url, index, optionIndex } = e.currentTarget.dataset
+    console.error('❌ 选项图片加载失败:', {
+      questionId: index,
+      optionIndex: optionIndex,
+      url: url?.substring(0, 80),
+      detail: e.detail
+    })
   }
 })
