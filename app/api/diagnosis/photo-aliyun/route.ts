@@ -21,12 +21,11 @@ import {
   convertAliyunQuestionsToOurFormat
 } from '@/lib/aliyun/edututor-client';
 import { enrichQuestionWithOptions } from '@/lib/aliyun/extract-option-images';
-import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { quickPreprocess, needsPreprocessing } from '@/lib/image/preprocessing';
 import { validateQuestionContinuity } from '@/lib/validation/continuity';
-import { adaptiveRecognize } from '@/lib/recognition/adaptive-retry';
 import sharp from 'sharp';
 
 const log = createLogger('PhotoAliyun');
@@ -441,7 +440,6 @@ export async function POST(request: NextRequest) {
 
           // 将optionImages合并到options数组中
           const optionsWithImages = (q.options || []).map((opt, idx) => {
-            const optionImage = enriched.optionImages?.[idx];
             const optionText = typeof opt === 'string' ? opt : opt.text || '';
 
             // 判断选项是否需要图片
