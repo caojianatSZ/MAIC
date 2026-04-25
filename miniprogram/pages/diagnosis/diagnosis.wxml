@@ -378,14 +378,14 @@
                   <image
                     class="option-image"
                     src="{{img.url}}"
-                    mode="aspectFit"
-                    style="width: 500rpx; height: auto; border-radius: 8rpx; margin-top: 8rpx; box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.06);"
+                    mode="widthFix"
                     bindtap="previewImage"
                     bindload="onOptionImageLoad"
                     binderror="onOptionImageError"
                     data-url="{{img.url}}"
                     data-index="{{item.id}}"
                     data-option-index="{{idx}}"
+                    style="width: 500rpx; display: block;"
                   />
                   <text class="image-label">{{img.label || '选项图'}}</text>
                 </view>
