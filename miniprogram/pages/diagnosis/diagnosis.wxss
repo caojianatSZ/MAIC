@@ -910,9 +910,10 @@
 
 .option-image {
   display: block;
-  width: 100%;
-  height: auto;
+  width: 500rpx;
+  min-height: 200rpx;
   border-radius: 8rpx;
+  background-color: #f5f5f5;
 }
 
 .option-image-canvas {
