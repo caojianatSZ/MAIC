@@ -1052,6 +1052,19 @@ Page({
       } else {
         console.log('  ❌ 没有图片数据')
       }
+
+      // 调试：检查选项图片
+      if (q.options && q.options.length > 0) {
+        q.options.forEach((opt, optIdx) => {
+          const optText = typeof opt === 'string' ? opt : opt.text
+          const optImages = typeof opt === 'string' ? null : opt.images
+          console.log(`  选项${optIdx}: "${optText.substring(0, 20)}"`, {
+            hasImages: !!optImages,
+            imagesLength: optImages?.length || 0,
+            firstImageUrl: optImages?.[0]?.url?.substring(0, 60) || 'none'
+          })
+        })
+      }
     })
 
     console.log('图片坐标信息:', {
