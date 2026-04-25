@@ -1549,5 +1549,17 @@ Page({
         urls: [url]
       })
     }
+  },
+
+  /**
+   * 选项图片加载成功事件
+   */
+  onOptionImageLoad(e) {
+    const { url, index, optionIndex } = e.currentTarget.dataset
+    console.log('✅ 选项图片加载成功:', {
+      questionId: index,
+      optionIndex: optionIndex,
+      url: url?.substring(0, 80)
+    })
   }
 })
