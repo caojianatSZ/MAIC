@@ -620,6 +620,22 @@ export async function POST(request: NextRequest) {
     });
 
     // ==================== Step 7: 返回结果 ====================
+    // 调试：检查返回给小程序的选项数据
+    const q6 = enrichedQuestions.find(q => q.id === '6');
+    if (q6 && q6.options) {
+      log.info('返回给小程序的题6选项数据', {
+        questionId: '6',
+        optionsCount: q6.options.length,
+        options: q6.options.map((opt, idx) => ({
+          index: idx,
+          text: typeof opt === 'string' ? opt : opt.text,
+          hasImages: !!(opt as any).images,
+          imagesLength: (opt as any).images?.length || 0,
+          images: (opt as any).images?.[0]?.url?.substring(0, 80) || 'none'
+        }))
+      });
+    }
+
     const result = {
       status: 'success',
       mode: 'aliyun-edututor',
