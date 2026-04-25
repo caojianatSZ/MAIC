@@ -483,20 +483,38 @@ export async function POST(request: NextRequest) {
             });
 
             // 只有需要图片的选项才添加images
-            if (opt && needsImage) {
+            if (needsImage) {
               // 优先使用服务器端裁剪的选项图片
               const serverCroppedImage = (q as any).optionCroppedImages?.[idx];
-              const imageUrl = serverCroppedImage?.url || opt.croppedImage || optionImage?.imageUrl || '';
-              const bbox = serverCroppedImage?.bbox || opt.bbox_2d || optionImage?.bbox || [];
+              let imageUrl = '';
+              let bbox = opt.bbox_2d || [];
+
+              if (serverCroppedImage?.url) {
+                // 使用服务器端裁剪的图片（本地URL，无签名问题）
+                imageUrl = serverCroppedImage.url;
+                bbox = serverCroppedImage.bbox || bbox;
+                log.info(`使用服务器端裁剪的选项图片`, {
+                  questionId: q.id,
+                  optionIndex: idx,
+                  url: imageUrl.substring(0, 80)
+                });
+              } else {
+                // 降级：不使用阿里云OSS URL（会有签名问题）
+                log.info(`没有服务器端裁剪图片，跳过选项图片`, {
+                  questionId: q.id,
+                  optionIndex: idx
+                });
+              }
 
               // 将croppedImage转换为小程序期望的images格式
               if (imageUrl) {
                 return {
-                  ...opt,
+                  text: typeof opt === 'string' ? opt : opt.text,
+                  bbox_2d: opt.bbox_2d,
                   images: [
                     {
                       bbox: bbox || [],
-                      label: `选项${opt.text?.trim() || ''}`,
+                      label: `选项${typeof opt === 'string' ? opt : opt.text || ''}`,
                       url: imageUrl
                     }
                   ]
@@ -504,9 +522,11 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // 不需要图片的选项，明确删除images字段
-            const { images, ...optionWithoutImages } = opt as any;
-            return optionWithoutImages;
+            // 不需要图片的选项，返回不带images的干净选项
+            return {
+              text: typeof opt === 'string' ? opt : opt.text,
+              bbox_2d: opt.bbox_2d
+            };
           });
 
           return {
