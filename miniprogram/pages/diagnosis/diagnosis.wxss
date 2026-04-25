@@ -909,11 +909,7 @@
 }
 
 .option-image {
-  display: block;
-  width: 500rpx;
-  min-height: 200rpx;
-  border-radius: 8rpx;
-  background-color: #f5f5f5;
+  /* 使用内联样式，避免影响其他图片 */
 }
 
 .option-image-canvas {

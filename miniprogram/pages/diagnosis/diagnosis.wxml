@@ -385,7 +385,7 @@
                     data-url="{{img.url}}"
                     data-index="{{item.id}}"
                     data-option-index="{{idx}}"
-                    style="width: 500rpx; display: block;"
+                    style="width: 500rpx; min-height: 200rpx; display: block; border-radius: 8rpx;"
                   />
                   <text class="image-label">{{img.label || '选项图'}}</text>
                 </view>
