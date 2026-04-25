@@ -908,6 +908,13 @@
   text-align: center;
 }
 
+.option-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8rpx;
+}
+
 .option-image-canvas {
   background: #FFFFFF;
   border-radius: 8rpx;
