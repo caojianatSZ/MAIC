@@ -199,6 +199,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET 端点 - 用于测试 webhook 配置
+ * Webhook 自动部署测试 - 2026-04-26
  */
 export async function GET(request: NextRequest) {
   return NextResponse.json({
