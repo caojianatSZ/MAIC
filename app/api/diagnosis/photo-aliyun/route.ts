@@ -199,6 +199,13 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
+          // 语义判断：检查题目是否需要显示图形
+          const needsDiagram = checkIfQuestionNeedsDiagram(q);
+          log.info(`题目${i + 1}语义判断`, {
+            needsDiagram,
+            contentPreview: (q.content || '').substring(0, 50)
+          });
+
           const cutImages: Array<{ bbox: number[]; label: string; url: string }> = [];
 
           for (let figIndex = 0; figIndex < q.aliyunData.info.figure.length; figIndex++) {
@@ -220,8 +227,14 @@ export async function POST(request: NextRequest) {
             const height = maxY - minY;
             const area = width * height;
 
-            // 过滤小面积 - 提高阈值以过滤更多无效区域
-            if (area < 15000) {
+            // 如果语义判断不需要图形，跳过（除非图形很大，可能是真正的装置图）
+            if (!needsDiagram && area < 30000) {
+              log.info(`语义过滤：题目不需要图形，跳过小面积图形 题目${i + 1}-图形${figIndex + 1}`, { area });
+              continue;
+            }
+
+            // 过滤小面积 - 基础过滤
+            if (area < 8000) {
               log.info(`过滤小面积图形 题目${i + 1}-图形${figIndex + 1}`, { area, width, height });
               continue;
             }
@@ -229,10 +242,8 @@ export async function POST(request: NextRequest) {
             // 计算长宽比
             const aspectRatio = width / height;
 
-            // 过滤可能是公式文字的区域：
-            // 1. 竖向细长区域（长宽比 < 0.4）可能是单行公式
-            // 2. 横向很宽但很矮的区域（长宽比 > 5）可能是横排公式
-            if (aspectRatio < 0.4 || aspectRatio > 5) {
+            // 过滤明显的公式文字区域（细长条）
+            if (aspectRatio > 6 || aspectRatio < 0.15) {
               log.info(`过滤疑似公式文字区域 题目${i + 1}-图形${figIndex + 1}`, {
                 area,
                 width,
@@ -242,9 +253,9 @@ export async function POST(request: NextRequest) {
               continue;
             }
 
-            // 过滤尺寸很小的区域（可能是单个公式符号）
+            // 过滤尺寸很小的区域
             const minDimension = Math.min(width, height);
-            if (minDimension < 100) {
+            if (minDimension < 60) {
               log.info(`过滤小尺寸区域 题目${i + 1}-图形${figIndex + 1}`, {
                 area,
                 width,
@@ -721,4 +732,78 @@ async function cleanupTempImageFile(tempImageUrl: string): Promise<void> {
   } catch (error) {
     log.warn('删除临时文件失败', { error, tempImageUrl });
   }
+}
+
+/**
+ * 语义分析：判断题目是否需要显示图形
+ *
+ * 通过分析题干和选项的文本内容，判断是否需要图形
+ *
+ * @param question - 题目对象
+ * @returns true 表示需要显示图形，false 表示不需要
+ */
+function checkIfQuestionNeedsDiagram(question: any): boolean {
+  const content = (question.content || '').toLowerCase();
+  const optionsText = (question.options || [])
+    .map((opt: any) => opt.text || '')
+    .join(' ')
+    .toLowerCase();
+
+  const fullText = content + ' ' + optionsText;
+
+  // 需要图形的关键词（物理/化学装置图、电路图、几何图形等）
+  const diagramKeywords = [
+    // 物理装置
+    '装置', '实验装置', '实验器材',
+    // 容器
+    '容器', '烧杯', '试管', '量筒', '漏斗', '分液漏斗',
+    // 物理工具
+    '杠杆', '滑轮', '斜面', '弹簧',
+    // 电路
+    '电路', '电路图', '电路板', '开关', '灯泡', '电阻',
+    // 光学
+    '透镜', '凸透镜', '凹透镜', '平面镜', '反射', '折射',
+    // 力学
+    '受力', '受力图', '力的分解', '力的合成',
+    // 几何图形
+    '三角形', '四边形', '圆', '圆形', '正方形', '长方形', '矩形',
+    '梯形', '菱形', '多边形', '扇形',
+    // 立体几何
+    '正方体', '长方体', '圆柱', '圆锥', '球体', '棱柱', '棱锥',
+    // 函数图像
+    '函数图像', '图像', '坐标', '坐标系', '抛物线', '双曲线',
+    // 化学实验
+    '集气瓶', '酒精灯', '导管', '水槽', 'U型管', '连通器',
+    // 明确指向图形
+    '如图', '下图', '上图', '左图', '右图', '图中', '图示',
+    '示意图', '结构图', '流程图', '路线图',
+    // 图形类型
+    '图形', '图表', '图片'
+  ];
+
+  // 纯计算题的关键词（不需要图形）
+  const calculationKeywords = [
+    '计算', '求值', '化简', '等于', '结果是',
+    '解方程', '因式分解', '求根', '求导'
+  ];
+
+  // 检查是否包含需要图形的关键词
+  const hasDiagramKeyword = diagramKeywords.some(keyword => fullText.includes(keyword));
+
+  // 检查是否是纯计算题
+  const isCalculationOnly = calculationKeywords.some(keyword => fullText.includes(keyword)) &&
+                            !hasDiagramKeyword;
+
+  // 如果是纯计算题且没有图形关键词，则不需要图形
+  if (isCalculationOnly) {
+    return false;
+  }
+
+  // 如果有图形关键词，则需要图形
+  if (hasDiagramKeyword) {
+    return true;
+  }
+
+  // 默认情况：如果没有明确线索，倾向于显示图形（保守策略）
+  return true;
 }
