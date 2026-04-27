@@ -163,6 +163,24 @@ export class AchievementEngine {
       case 'lessons_learned':
         return await this.calculateLessonsProgress(achievement, event)
 
+      case 'wrong_question_count':
+        return await this.calculateWrongQuestionCountProgress(achievement, event)
+
+      case 'wrong_question_review_count':
+        return await this.calculateWrongQuestionReviewProgress(achievement, event)
+
+      case 'wrong_question_mastered_count':
+        return await this.calculateWrongQuestionMasteredProgress(achievement, event)
+
+      case 'knowledge_point_mastered_count':
+        return await this.calculateKnowledgePointMasteredProgress(achievement, event)
+
+      case 'practice_questions_count':
+        return await this.calculatePracticeQuestionsProgress(achievement, event)
+
+      case 'weak_point_conquered_count':
+        return await this.calculateWeakPointConqueredProgress(achievement, event)
+
       default:
         return 0
     }
@@ -257,6 +275,131 @@ export class AchievementEngine {
     })
 
     return Math.min(Math.round((totalCount / min_lessons) * 100), 100)
+  }
+
+  /**
+   * 计算错题数量进度
+   */
+  private async calculateWrongQuestionCountProgress(
+    achievement: any,
+    event: AchievementEvent
+  ): Promise<number> {
+    const { min_count = 5, subject } = achievement.condition
+    const { userId } = event
+
+    const where: any = { userId }
+    if (subject) {
+      where.subject = subject
+    }
+
+    const totalCount = await prisma.wrongQuestion.count({ where })
+
+    return Math.min(Math.round((totalCount / min_count) * 100), 100)
+  }
+
+  /**
+   * 计算错题复习次数进度
+   */
+  private async calculateWrongQuestionReviewProgress(
+    achievement: any,
+    event: AchievementEvent
+  ): Promise<number> {
+    const { min_count = 10 } = achievement.condition
+    const { userId } = event
+
+    // 累计所有错题的复习次数
+    const wrongQuestions = await prisma.wrongQuestion.findMany({
+      where: { userId },
+      select: { reviewCount: true }
+    })
+
+    const totalReviews = wrongQuestions.reduce((sum, q) => sum + (q.reviewCount || 0), 0)
+
+    return Math.min(Math.round((totalReviews / min_count) * 100), 100)
+  }
+
+  /**
+   * 计算已掌握错题数量进度
+   */
+  private async calculateWrongQuestionMasteredProgress(
+    achievement: any,
+    event: AchievementEvent
+  ): Promise<number> {
+    const { min_count = 5, subject } = achievement.condition
+    const { userId } = event
+
+    const where: any = { userId, mastered: true }
+    if (subject) {
+      where.subject = subject
+    }
+
+    const masteredCount = await prisma.wrongQuestion.count({ where })
+
+    return Math.min(Math.round((masteredCount / min_count) * 100), 100)
+  }
+
+  /**
+   * 计算已掌握知识点数量进度
+   */
+  private async calculateKnowledgePointMasteredProgress(
+    achievement: any,
+    event: AchievementEvent
+  ): Promise<number> {
+    const { min_count = 3 } = achievement.condition
+    const { userId } = event
+
+    const masteredCount = await prisma.knowledgeMastery.count({
+      where: {
+        userId,
+        masteryLevel: 'mastered'
+      }
+    })
+
+    return Math.min(Math.round((masteredCount / min_count) * 100), 100)
+  }
+
+  /**
+   * 计算练习题完成进度
+   */
+  private async calculatePracticeQuestionsProgress(
+    achievement: any,
+    event: AchievementEvent
+  ): Promise<number> {
+    const { min_count = 10 } = achievement.condition
+    const { userId } = event
+
+    // 统计练习类型的记录
+    const totalCount = await prisma.studyRecord.count({
+      where: {
+        userId,
+        type: 'practice'
+      }
+    })
+
+    return Math.min(Math.round((totalCount / min_count) * 100), 100)
+  }
+
+  /**
+   * 计算弱项攻克进度
+   */
+  private async calculateWeakPointConqueredProgress(
+    achievement: any,
+    event: AchievementEvent
+  ): Promise<number> {
+    const { min_count = 1 } = achievement.condition
+    const { userId } = event
+
+    // 统计从 weak 变为 mastered 的知识点数量
+    // 这里简化处理：统计当前掌握的知识点中，曾经有错误记录的
+    const conqueredCount = await prisma.knowledgeMastery.count({
+      where: {
+        userId,
+        masteryLevel: 'mastered',
+        wrongCount: { gt: 0 }  // 曾经有过错误记录
+      }
+    })
+
+    return Math.min(Math.round((conqueredCount / min_count) * 100), 100)
   }
 
   /**

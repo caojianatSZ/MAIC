@@ -46,6 +46,7 @@ model User {
   studyRecords StudyRecord[]
   paperCorrectionRecords PaperCorrectionRecord[]
   wrongQuestions WrongQuestion[]
+  knowledgeMasteries KnowledgeMastery[]
 
   @@map("users")
 }
@@ -524,21 +525,82 @@ model PaperCorrectionRecord {
 }
 
 // 错题本
+// 知识点掌握统计表
+model KnowledgeMastery {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // eduKG 知识点
+  knowledgeUri    String   @unique @map("knowledge_uri")     // eduKG 实体 URI
+  knowledgeName   String   @map("knowledge_name")            // 知识点名称
+  subject         String                                      // 科目
+  grade           String?                                     // 年级
+
+  // 分类信息
+  classList       Json?    @map("class_list")                // [{id, label}]
+  abstractMessage String?  @map("abstract_message")          // 知识点简介
+
+  // 统计
+  totalAttempts   Int      @default(0) @map("total_attempts")
+  correctCount    Int      @default(0) @map("correct_count")
+  wrongCount      Int      @default(0) @map("wrong_count")
+  masteryLevel    String   @default("weak") @map("mastery_level")  // weak | partial | mastered
+  masteryScore    Int      @default(0) @map("mastery_score")  // 0-100
+
+  // 时间追踪
+  firstAttemptAt  DateTime @default(now()) @map("first_attempt_at")
+  lastAttemptAt   DateTime @default(now()) @map("last_attempt_at")
+  masteredAt      DateTime? @map("mastered_at")
+
+  // 关联错题（用于快速查询）
+  relatedWrongQuestionCount Int @default(0) @map("related_wrong_question_count")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, masteryLevel])
+  @@index([userId, subject])
+  @@map("knowledge_mastery")
+}
+
 model WrongQuestion {
   id               String   @id @default(cuid())
   userId           String   @map("user_id")
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  questionId       String   @map("question_id")  // 外部题库ID（如EduKG知识点ID）
+  questionId       String   @map("question_id")  // 外部题库ID
   subject          String
   questionContent  String   @map("question_content")
   studentAnswer    String?  @map("student_answer")
   correctAnswer    String?  @map("correct_answer")
   analysis         String?
   knowledgePoints  Json?    @map("knowledge_points")
+
+  // eduKG 知识点相关
+  eduKGKnowledgePoints Json?   @map("edukg_knowledge_points")  // [{uri, name, classList, abstract}]
+  primaryKnowledgeUri String?  @map("primary_knowledge_uri")   // 主知识点URI
+
+  // 标准答案相关（来自 AnswerSSE）
+  standardAnswer   String?  @map("standard_answer")      // 最终答案
+  examPoints       String?  @map("exam_points")          // 考点分析
+  methodGuide      String?  @map("method_guide")         // 方法点拨
+  detailedAnalysis String?  @map("detailed_analysis")    // 详细解析
+
   wrongCount       Int      @default(1) @map("wrong_count")
   mastered         Boolean  @default(false)
-  needsReview      Boolean  @default(false) @map("needs_review")  // 是否需要人工复核
-  confidence       Float?   // 识别置信度
+  needsReview      Boolean  @default(false) @map("needs_review")
+  confidence       Float?
+
+  // 掌握追踪
+  masteryLevel     String   @default("weak") @map("mastery_level")  // weak | partial | mastered
+  reviewCount      Int      @default(0) @map("review_count")
+  lastReviewedAt   DateTime? @map("last_reviewed_at")
+  masteredAt       DateTime? @map("mastered_at")
+
+  // 巩固练习
+  practiceQuestionIds Json?   @map("practice_question_ids")  // 推荐的练习题ID列表
+  practiceStats       Json?   @map("practice_stats")          // 练习统计
+
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -546,6 +608,8 @@ model WrongQuestion {
   @@index([userId])
   @@index([userId, subject])
   @@index([userId, mastered])
-  @@index([userId, needsReview])  // 用于查询待复核错题
+  @@index([userId, needsReview])
+  @@index([userId, primaryKnowledgeUri])  // 按知识点查询
+  @@index([userId, masteryLevel])  // 按掌握等级查询
   @@map("wrong_questions")
 }

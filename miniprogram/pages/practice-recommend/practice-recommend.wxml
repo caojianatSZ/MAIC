@@ -1,0 +1,237 @@
+<!--pages/practice-recommend/practice-recommend.wxml-->
+<!-- 练习题推荐页面 - 基于弱项知识点推荐练习 -->
+
+<view class="container">
+  <!-- 页面头部 -->
+  <view class="page-header">
+    <text class="page-title">智能练习</text>
+    <text class="page-subtitle">根据薄弱知识点精准推荐</text>
+  </view>
+
+  <!-- 推荐模式 Tab -->
+  <view class="mode-tabs">
+    <view
+      class="mode-tab {{currentMode === 'weak' ? 'active' : ''}}"
+      bindtap="onModeChange"
+      data-mode="weak"
+    >
+      <text class="mode-icon">🎯</text>
+      <text class="mode-text">弱项突破</text>
+    </view>
+    <view
+      class="mode-tab {{currentMode === 'knowledge' ? 'active' : ''}}"
+      bindtap="onModeChange"
+      data-mode="knowledge"
+    >
+      <text class="mode-icon">📚</text>
+      <text class="mode-text">指定知识点</text>
+    </view>
+  </view>
+
+  <!-- 弱项突破模式 -->
+  <view class="content-area" wx:if="{{currentMode === 'weak'}}">
+    <!-- 弱项概览 -->
+    <view class="weak-overview" wx:if="{{weakPoints.length > 0}}">
+      <view class="overview-header">
+        <text class="overview-title">您的薄弱知识点</text>
+        <text class="overview-count">共 {{weakPoints.length}} 个</text>
+      </view>
+      <scroll-view scroll-x="{{true}}" class="weak-points-scroll">
+        <view class="weak-points-list">
+          <view
+            class="weak-point-chip {{selectedWeakIndex === index ? 'active' : ''}}"
+            wx:for="{{weakPoints}}"
+            wx:key="uri"
+            bindtap="onWeakPointSelect"
+            data-index="{{index}}"
+          >
+            <text class="chip-text">{{item.name}}</text>
+            <text class="chip-subject">{{item.subjectName}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{!loading && weakPoints.length === 0}}">
+      <text class="empty-icon">🎉</text>
+      <text class="empty-title">暂无薄弱知识点</text>
+      <text class="empty-desc">您掌握得很好，继续保持！</text>
+      <view class="empty-action" bindtap="onBrowseAll">
+        <text class="action-text">浏览所有知识点</text>
+      </view>
+    </view>
+
+    <!-- 练习题列表 -->
+    <view class="practice-list" wx:if="{{selectedWeakIndex >= 0 && practiceQuestions.length > 0}}">
+      <view class="list-header">
+        <text class="list-title">{{currentKnowledgeName}} - 推荐练习</text>
+        <text class="list-count">共 {{practiceQuestions.length}} 题</text>
+      </view>
+
+      <view
+        class="question-card"
+        wx:for="{{practiceQuestions}}"
+        wx:key="id"
+        bindtap="onQuestionTap"
+        data-question="{{item}}"
+      >
+        <view class="card-header">
+          <text class="question-number">第 {{index + 1}} 题</text>
+          <view class="difficulty-badge level-{{item.difficulty || 1}}">
+            <text class="difficulty-text">{{difficultyTexts[item.difficulty] || '简单'}}</text>
+          </view>
+        </view>
+        <text class="question-text">{{item.question}}</text>
+
+        <!-- 选项 -->
+        <view class="options-list" wx:if="{{item.options && item.options.length > 0}}">
+          <view
+            class="option-item"
+            wx:for="{{item.options}}"
+            wx:key="*this"
+            wx:for-item="option"
+            wx:for-index="optIndex"
+          >
+            <text class="option-label">{{['A', 'B', 'C', 'D', 'E', 'F'][optIndex]}}.</text>
+            <text class="option-text">{{option}}</text>
+          </view>
+        </view>
+
+        <view class="card-footer">
+          <view class="answer-hint">
+            <text class="hint-icon">💡</text>
+            <text class="hint-text">点击查看答案和解析</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 加载中 -->
+    <view class="loading-container" wx:if="{{loading}}">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">正在生成推荐练习...</text>
+    </view>
+
+    <!-- 无练习题提示 -->
+    <view class="no-questions" wx:if="{{!loading && selectedWeakIndex >= 0 && practiceQuestions.length === 0}}">
+      <text class="no-questions-icon">📝</text>
+      <text class="no-questions-text">暂无相关练习题</text>
+      <text class="no-questions-hint">我们会继续完善题库</text>
+    </view>
+  </view>
+
+  <!-- 指定知识点模式 -->
+  <view class="content-area" wx:if="{{currentMode === 'knowledge'}}">
+    <!-- 知识点选择 -->
+    <view class="knowledge-selector">
+      <view class="selector-header">
+        <text class="selector-title">选择知识点</text>
+      </view>
+      <view class="subject-tabs">
+        <view
+          class="subject-tab {{subjectFilter === item.key ? 'active' : ''}}"
+          wx:for="{{subjectList}}"
+          wx:key="key"
+          bindtap="onSubjectFilterChange"
+          data-subject="{{item.key}}"
+        >
+          <text class="subject-text">{{item.name}}</text>
+        </view>
+      </view>
+      <scroll-view scroll-y="{{true}}" class="knowledge-list" wx:if="{{knowledgeList.length > 0}}">
+        <view
+          class="knowledge-item"
+          wx:for="{{knowledgeList}}"
+          wx:key="uri"
+          bindtap="onKnowledgeSelect"
+          data-knowledge="{{item}}"
+        >
+          <text class="knowledge-name">{{item.name}}</text>
+          <text class="knowledge-meta">{{item.subjectName}} · {{item.masteryLevelText}}</text>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{knowledgeList.length === 0 && !loading}}">
+      <text class="empty-icon">📚</text>
+      <text class="empty-title">暂无知识点数据</text>
+      <text class="empty-desc">先完成一些题目，系统会自动记录</text>
+    </view>
+  </view>
+
+  <!-- 答题弹窗 -->
+  <view class="answer-modal" wx:if="{{showAnswerModal}}">
+    <view class="modal-mask" bindtap="onCloseAnswerModal"></view>
+    <view class="modal-content">
+      <view class="modal-header">
+        <text class="modal-title">答案与解析</text>
+        <view class="modal-close" bindtap="onCloseAnswerModal">
+          <text>✕</text>
+        </view>
+      </view>
+      <scroll-view scroll-y="{{true}}" class="modal-body">
+        <!-- 题目 -->
+        <view class="modal-question">
+          <text class="modal-question-text">{{currentQuestion.question}}</text>
+        </view>
+
+        <!-- 正确答案 -->
+        <view class="answer-section">
+          <view class="answer-label">
+            <text class="label-icon">✓</text>
+            <text class="label-text">正确答案</text>
+          </view>
+          <text class="answer-value">{{currentQuestion.answer || '暂无'}}</text>
+        </view>
+
+        <!-- 解析 -->
+        <view class="analysis-section" wx:if="{{currentQuestion.analysis}}">
+          <view class="analysis-label">
+            <text class="label-icon">💡</text>
+            <text class="label-text">解析</text>
+          </view>
+          <text class="analysis-value">{{currentQuestion.analysis}}</text>
+        </view>
+
+        <!-- 标准答案解析（来自 AnswerSSE） -->
+        <view class="solution-section" wx:if="{{solutionData}}">
+          <view class="solution-header" bindtap="onToggleSolutionSection" data-section="examPoints">
+            <text class="solution-title">考点分析</text>
+            <text class="solution-toggle">{{solutionSections.examPoints ? '▼' : '▶'}}</text>
+          </view>
+          <view class="solution-content" wx:if="{{solutionSections.examPoints}}">
+            <text class="solution-text">{{solutionData.examPoints}}</text>
+          </view>
+
+          <view class="solution-header" bindtap="onToggleSolutionSection" data-section="methodGuide">
+            <text class="solution-title">方法点拨</text>
+            <text class="solution-toggle">{{solutionSections.methodGuide ? '▼' : '▶'}}</text>
+          </view>
+          <view class="solution-content" wx:if="{{solutionSections.methodGuide}}">
+            <text class="solution-text">{{solutionData.methodGuide}}</text>
+          </view>
+
+          <view class="solution-header" bindtap="onToggleSolutionSection" data-section="detailedAnalysis">
+            <text class="solution-title">详细解析</text>
+            <text class="solution-toggle">{{solutionSections.detailedAnalysis ? '▼' : '▶'}}</text>
+          </view>
+          <view class="solution-content" wx:if="{{solutionSections.detailedAnalysis}}">
+            <text class="solution-text">{{solutionData.detailedAnalysis}}</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- 底部操作 -->
+      <view class="modal-footer">
+        <view class="footer-btn secondary" bindtap="onCloseAnswerModal">
+          <text>关闭</text>
+        </view>
+        <view class="footer-btn primary" bindtap="onMarkMastered">
+          <text>已掌握</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

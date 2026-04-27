@@ -1002,7 +1002,9 @@ Page({
         // V2 字段：置信度和复核标记
         confidence: q.confidence || 0,
         needsReview: q.needsReview || false,
-        warnings: q.warnings || []
+        warnings: q.warnings || [],
+        // 保留知识点信息（用于生成诊断）
+        knowledgePoints: q.knowledgePoints || []
       }
     })
 
@@ -1318,7 +1320,12 @@ Page({
     const knowledgePointsMap = new Map()
 
     questions.forEach(q => {
-      q.knowledgePoints.forEach(kp => {
+      // 确保knowledgePoints存在且为数组
+      const knowledgePoints = q.knowledgePoints || []
+      if (knowledgePoints.length === 0) {
+        console.warn('题目没有知识点信息:', q.id, q.content?.substring(0, 50))
+      }
+      knowledgePoints.forEach(kp => {
         if (!knowledgePointsMap.has(kp.id)) {
           knowledgePointsMap.set(kp.id, {
             knowledgePointId: kp.id,

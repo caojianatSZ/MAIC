@@ -128,6 +128,9 @@
       </view>
     </view>
 
+    <!-- 知识点掌握度组件 -->
+    <knowledge-mastery userId="{{currentChild.id}}"></knowledge-mastery>
+
     <!-- 孩子成就 - 家长可分享 -->
     <view class="card">
       <view class="card-header">
@@ -184,8 +187,8 @@
         <view class="menu-item" bindtap="onViewWrongQuestions">
           <view class="menu-icon">❌</view>
           <view class="menu-content">
-            <text class="menu-title">错题本</text>
-            <text class="menu-desc">需要重点练习的题目</text>
+            <text class="menu-title">错题汇总</text>
+            <text class="menu-desc">按知识点汇总的错题</text>
           </view>
           <view class="menu-badge" wx:if="{{stats.wrongCount > 0}}">
             <text class="badge-count">{{stats.wrongCount}}</text>

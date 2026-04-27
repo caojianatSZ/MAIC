@@ -27,6 +27,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { quickPreprocess, needsPreprocessing } from '@/lib/image/preprocessing';
 import { validateQuestionContinuity } from '@/lib/validation/continuity';
 import sharp from 'sharp';
+import { edukgAdapter } from '@/lib/edukg/adapter';
 
 const log = createLogger('PhotoAliyun');
 
@@ -613,7 +614,59 @@ export async function POST(request: NextRequest) {
       tempImageUrl
     });
 
-    // ==================== Step 7: 返回结果 ====================
+    // ==================== Step 7: 知识点识别 ====================
+    log.info('Step 7: 知识点识别', { requestId });
+
+    const questionsWithKnowledgePoints = await Promise.all(
+      enrichedQuestions.map(async (q) => {
+        try {
+          // 组合题目内容和选项，用于知识点识别
+          const questionText = [
+            q.content || '',
+            ...(q.options || []).map((opt: any) => typeof opt === 'string' ? opt : opt.text || '')
+          ].join(' ').substring(0, 500); // 限制长度避免过长
+
+          // 调用 EduKG 知识链接接口识别知识点
+          const knowledgePointData = await edukgAdapter.extractKnowledgePointsFromText(questionText);
+
+          // 转换为前端需要的格式
+          const knowledgePoints = knowledgePointData.map(kp => ({
+            id: kp.uri,
+            name: kp.name,
+            subject: extractSubjectFromClassList(kp.classList),
+            uri: kp.uri
+          }));
+
+          log.info(`题目${q.id}知识点识别`, {
+            questionId: q.id,
+            knowledgePointsCount: knowledgePoints.length,
+            knowledgePoints: knowledgePoints.map(kp => kp.name)
+          });
+
+          return {
+            ...q,
+            knowledgePoints
+          };
+        } catch (error) {
+          log.warn(`题目${q.id}知识点识别失败`, {
+            error: error instanceof Error ? error.message : String(error)
+          });
+          // 识别失败，返回空数组
+          return {
+            ...q,
+            knowledgePoints: []
+          };
+        }
+      })
+    );
+
+    log.info('知识点识别完成', {
+      requestId,
+      totalQuestions: questionsWithKnowledgePoints.length,
+      questionsWithKnowledgePoints: questionsWithKnowledgePoints.filter(q => q.knowledgePoints && q.knowledgePoints.length > 0).length
+    });
+
+    // ==================== Step 8: 返回结果 ====================
     // 调试：检查返回给小程序的选项数据
     const q6 = enrichedQuestions.find(q => q.id === '6');
     if (q6 && q6.options) {
@@ -634,10 +687,10 @@ export async function POST(request: NextRequest) {
       status: 'success',
       mode: 'aliyun-edututor',
       markdown: (questions || []).map(q => q.content || '').join('\n\n'),
-      questions: enrichedQuestions,
+      questions: questionsWithKnowledgePoints,
       originalImage: image,
       summary: {
-        total_questions: enrichedQuestions.length,
+        total_questions: questionsWithKnowledgePoints.length,
         markdown_length: (questions || []).map(q => q.content || '').join('\n\n').length,
         questions_with_images: (questions || []).filter(q => q.images && q.images.length > 0).length,
         questions_with_options: (questions || []).filter(q => q.options && q.options.length > 0).length,
@@ -806,4 +859,39 @@ function checkIfQuestionNeedsDiagram(question: any): boolean {
 
   // 默认情况：如果没有明确线索，倾向于显示图形（保守策略）
   return true;
+}
+
+/**
+ * 从 EduKG 的 classList 中提取科目信息
+ * @param classList EduKG 返回的分类列表
+ * @returns 科目代码 (math, physics, chemistry, english, chinese)
+ */
+function extractSubjectFromClassList(classList?: Array<{ id: string; label: string }>): string {
+  if (!classList || classList.length === 0) {
+    return 'math'; // 默认数学
+  }
+
+  // 查找科目相关的分类
+  for (const item of classList) {
+    const label = item.label?.toLowerCase() || '';
+    const id = item.id?.toLowerCase() || '';
+
+    if (label.includes('数学') || id.includes('math') || id.includes('数学')) {
+      return 'math';
+    }
+    if (label.includes('物理') || id.includes('physics') || id.includes('物理')) {
+      return 'physics';
+    }
+    if (label.includes('化学') || id.includes('chemistry') || id.includes('化学')) {
+      return 'chemistry';
+    }
+    if (label.includes('英语') || id.includes('english') || id.includes('英语')) {
+      return 'english';
+    }
+    if (label.includes('语文') || id.includes('chinese') || id.includes('语文')) {
+      return 'chinese';
+    }
+  }
+
+  return 'math'; // 默认数学
 }

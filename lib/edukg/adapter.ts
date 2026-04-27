@@ -794,6 +794,76 @@ export class EduKGAdapter {
   }
 
   /**
+   * 知识链接接口 - 识别文本中的知识点
+   * @param text 输入文本（题目内容）
+   * @returns 识别到的知识点列表
+   *
+   * API 文档：POST /openapi/graph/instanceLinking
+   * 输入：searchText（文本）
+   * 输出：实体列表，包含 uri, name, classList, where（位置）
+   */
+  async extractKnowledgePointsFromText(text: string): Promise<{
+    uri: string;
+    name: string;
+    classList: Array<{ id: string; label: string }>;
+    abstractMessage?: string;
+    where?: number[][];
+  }[]> {
+    try {
+      console.log('[EduKG] 知识链接接口 - 识别文本中的知识点');
+
+      const sessionId = await this.getSessionId();
+      if (sessionId === 'mock_id') {
+        console.log('[EduKG] Mock 模式，返回空');
+        return [];
+      }
+
+      // 构建请求参数
+      const params = new URLSearchParams();
+      params.append('searchText', text);
+      params.append('id', sessionId);
+
+      // 知识链接接口
+      const linkingUrl = 'https://edukg.cn/openapi/graph/instanceLinking';
+
+      const timeout = this.config.timeout || 10000;
+
+      console.log(`[EduKG] 调用知识链接接口，文本长度: ${text.length}`);
+
+      const response = await fetchWithIgnoreSSL(linkingUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        },
+        body: params.toString(),
+        signal: AbortSignal.timeout(timeout),
+        ignoreSSL: this.config.ignoreSSL,
+      });
+
+      if (!response.ok) {
+        throw new Error(`知识链接接口失败: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('[EduKG] 知识链接响应:', JSON.stringify(data, null, 2));
+
+      // 检查响应状态
+      if (data.code !== '0' && data.code !== 0) {
+        throw new Error(`知识链接失败: ${data.msg || data.message || '未知错误'}`);
+      }
+
+      // 解析知识点列表
+      const knowledgePoints = data.data || [];
+      console.log(`[EduKG] 识别到 ${knowledgePoints.length} 个知识点`);
+
+      return knowledgePoints;
+    } catch (error) {
+      console.error('[EduKG] 知识链接接口调用失败:', error);
+      return [];
+    }
+  }
+
+  /**
    * 获取实体详情（包括关系和属性）
    * @param uri 实体URI
    */

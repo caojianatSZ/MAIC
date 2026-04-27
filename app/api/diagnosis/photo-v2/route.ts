@@ -36,6 +36,7 @@ import type { QuestionForJudgment } from '@/lib/glm/types';
 import { detectMode, type CorrectionMode } from '@/lib/diagnosis/mode-detector';
 import { validateJudgmentResult, calculateReviewNeed } from '@/lib/validation/anti-hallucination';
 import { edukgAdapter } from '@/lib/edukg/adapter';
+import { extractKnowledgePoints } from '@/lib/knowledge/extractor';
 import { PrismaClient } from '@prisma/client';
 import { saveWrongQuestion } from '@/lib/wrong-questions/service';
 import { createTask, updateProgress, completeTask, failTask, getProgress } from '@/lib/diagnosis/progress';
@@ -587,17 +588,43 @@ ${questionsMarkdown}
     });
 
     // ==================== Step 7: 知识点匹配 ====================
-    updateProgress(taskId, 7, '正在匹配知识点...');
-    log.info('Step 7: 知识点匹配中...');
+    updateProgress(taskId, 7, '正在识别知识点...');
+    log.info('Step 7: 知识点识别中（eduKG instanceLinking）...');
 
-    for (const question of validatedQuestions) {
-      const keywords = await extractKeywords(question.content, subject);
-      const knowledgePoints = await matchKnowledgePoints(keywords, subject, question.judgment.isCorrect);
+    // 使用 eduKG 知识链接接口识别知识点
+    const knowledgePointExtractionPromises = validatedQuestions.map(async (question) => {
+      try {
+        const extractionResult = await extractKnowledgePoints(question.content, subject);
 
-      question.knowledgePoints = knowledgePoints;
-    }
+        // 转换为标准格式
+        const knowledgePoints = extractionResult.knowledgePoints.map(kp => ({
+          id: kp.uri,
+          name: kp.name,
+          masteryLevel: (question.judgment.isCorrect ? 'mastered' : 'weak') as 'mastered' | 'partial' | 'weak'
+        }));
 
-    log.info('知识点匹配完成');
+        // 如果有 eduKG 知识点，额外保存到扩展字段（用于后续错题巩固）
+        if (extractionResult.primaryKnowledgePoint) {
+          (question as any).eduKGKnowledgePoints = extractionResult.knowledgePoints;
+          (question as any).primaryKnowledgeUri = extractionResult.primaryKnowledgePoint.uri;
+        }
+
+        question.knowledgePoints = knowledgePoints;
+
+        log.info(`题目 ${question.id} 知识点识别完成`, {
+          count: knowledgePoints.length,
+          knowledgePoints: knowledgePoints.map(kp => kp.name),
+          primaryKnowledgeUri: (question as any).primaryKnowledgeUri
+        });
+      } catch (error) {
+        log.warn(`题目 ${question.id} 知识点识别失败`, error);
+        question.knowledgePoints = [];
+      }
+    });
+
+    await Promise.all(knowledgePointExtractionPromises);
+
+    log.info('知识点识别完成');
 
     // ==================== Step 8: 生成总结 ====================
     updateProgress(taskId, 8, '正在生成报告...');

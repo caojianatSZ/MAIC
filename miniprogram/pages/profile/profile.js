@@ -511,11 +511,11 @@ Page({
   },
 
   /**
-   * 查看错题本
+   * 查看错题本（知识点汇总）
    */
   onViewWrongQuestions() {
     wx.navigateTo({
-      url: '/pages/wrong-questions/wrong-questions?childId=' + (this.data.currentChild.id || '')
+      url: '/pages/wrong-consolidated/wrong-consolidated?childId=' + (this.data.currentChild.id || '')
     })
   },
 

@@ -1,0 +1,103 @@
+<!--components/knowledge-mastery/knowledge-mastery.wxml-->
+<!-- 知识点掌握度组件 -->
+
+<view class="mastery-container">
+  <!-- 组件标题 -->
+  <view class="mastery-header" bindtap="onExpandToggle">
+    <view class="header-left">
+      <text class="header-icon">📊</text>
+      <text class="header-title">知识点掌握度</text>
+    </view>
+    <view class="header-right">
+      <text class="header-count">{{totalPoints}} 个</text>
+      <text class="expand-icon {{expanded ? 'expanded' : ''}}">▼</text>
+    </view>
+  </view>
+
+  <!-- 掌握度概览（展开时显示） -->
+  <view class="mastery-content {{expanded ? 'expanded' : ''}}" wx:if="{{expanded}}">
+    <!-- 统计卡片 -->
+    <view class="stats-row">
+      <view class="stat-card weak">
+        <text class="stat-value">{{weakCount}}</text>
+        <text class="stat-label">薄弱</text>
+      </view>
+      <view class="stat-card partial">
+        <text class="stat-value">{{partialCount}}</text>
+        <text class="stat-label">部分掌握</text>
+      </view>
+      <view class="stat-card mastered">
+        <text class="stat-value">{{masteredCount}}</text>
+        <text class="stat-label">已掌握</text>
+      </view>
+    </view>
+
+    <!-- 按科目分组 -->
+    <view class="subject-sections" wx:if="{{subjectData.length > 0}}">
+      <view
+        class="subject-section"
+        wx:for="{{subjectData}}"
+        wx:key="subject"
+      >
+        <view class="subject-header" bindtap="onSubjectToggle" data-subject="{{item.subject}}">
+          <view class="subject-info">
+            <text class="subject-name">{{item.name}}</text>
+            <text class="subject-stats">{{item.mastered}}/{{item.total}} 已掌握</text>
+          </view>
+          <text class="subject-toggle {{item.expanded ? 'expanded' : ''}}">▼</text>
+        </view>
+
+        <!-- 知识点列表 -->
+        <view class="knowledge-list {{item.expanded ? 'expanded' : ''}}" wx:if="{{item.points.length > 0}}">
+          <view
+            class="knowledge-item"
+            wx:for="{{item.points}}"
+            wx:key="uri"
+            wx:for-item="point"
+            bindtap="onKnowledgeTap"
+            data-uri="{{point.uri}}"
+            data-name="{{point.name}}"
+          >
+            <view class="knowledge-info">
+              <text class="knowledge-name">{{point.name}}</text>
+              <text class="knowledge-accuracy">正确率 {{point.accuracy}}%</text>
+            </view>
+            <view class="mastery-indicator level-{{point.level}}">
+              <text class="indicator-text">{{point.levelText}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 空状态 -->
+        <view class="subject-empty" wx:if="{{item.expanded && item.points.length === 0}}">
+          <text class="empty-text">该科目暂无数据</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{subjectData.length === 0}}">
+      <text class="empty-icon">📚</text>
+      <text class="empty-text">暂无知识点数据</text>
+      <text class="empty-hint">完成一些题目后，系统会自动记录掌握情况</text>
+    </view>
+
+    <!-- 底部操作 -->
+    <view class="mastery-actions" wx:if="{{totalPoints > 0}}">
+      <view class="action-btn" bindtap="onViewWrong">
+        <text class="btn-icon">📝</text>
+        <text class="btn-text">查看错题分析</text>
+      </view>
+      <view class="action-btn" bindtap="onStartPractice">
+        <text class="btn-icon">🎯</text>
+        <text class="btn-text">开始针对性练习</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-state" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+</view>

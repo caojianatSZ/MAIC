@@ -1,0 +1,167 @@
+<!--pages/review-detail/review-detail.wxml-->
+<!-- 错题详情页 - 包含标准答案解析 -->
+
+<view class="container">
+  <!-- 题目卡片 -->
+  <view class="question-card">
+    <!-- 题目头部 -->
+    <view class="card-header">
+      <view class="subject-badge subject-{{question.subject}}">
+        <text class="subject-text">{{subjectNames[question.subject] || question.subject}}</text>
+      </view>
+      <view class="meta-info">
+        <text class="meta-text">{{question.createdAt || ''}}</text>
+      </view>
+    </view>
+
+    <!-- 题目内容 -->
+    <view class="question-content">
+      <text class="question-text">{{question.questionContent}}</text>
+    </view>
+
+    <!-- 学生答案 -->
+    <view class="answer-section student">
+      <view class="section-header">
+        <text class="section-icon">📝</text>
+        <text class="section-title">你的答案</text>
+      </view>
+      <text class="answer-value {{question.isCorrect ? 'correct' : 'wrong'}}">
+        {{question.studentAnswer || '未作答'}}
+      </text>
+    </view>
+
+    <!-- 正确答案 -->
+    <view class="answer-section correct">
+      <view class="section-header">
+        <text class="section-icon">✓</text>
+        <text class="section-title">正确答案</text>
+      </view>
+      <text class="answer-value">{{question.correctAnswer || '暂无'}}</text>
+    </view>
+  </view>
+
+  <!-- 标准答案解析组件 -->
+  <view class="solution-container">
+    <view class="solution-header" bindtap="onToggleSolution">
+      <view class="header-left">
+        <text class="header-icon">💡</text>
+        <text class="header-title">标准答案与解析</text>
+      </view>
+      <view class="header-right">
+        <text class="expand-text">{{solutionExpanded ? '收起' : '展开'}}</text>
+        <text class="expand-icon {{solutionExpanded ? 'expanded' : ''}}">▼</text>
+      </view>
+    </view>
+
+    <!-- 解析内容 -->
+    <view class="solution-content {{solutionExpanded ? 'expanded' : ''}}" wx:if="{{solutionData}}">
+      <!-- 考点分析 -->
+      <view class="solution-section" wx:if="{{solutionData.examPoints}}">
+        <view class="solution-section-header" bindtap="onToggleSection" data-section="examPoints">
+          <text class="section-dot exam"></text>
+          <text class="section-title">考点分析</text>
+          <text class="section-toggle {{sections.examPoints ? 'expanded' : ''}}">▼</text>
+        </view>
+        <view class="section-content {{sections.examPoints ? 'expanded' : ''}}">
+          <text class="section-text">{{solutionData.examPoints}}</text>
+        </view>
+      </view>
+
+      <!-- 方法点拨 -->
+      <view class="solution-section" wx:if="{{solutionData.methodGuide}}">
+        <view class="solution-section-header" bindtap="onToggleSection" data-section="methodGuide">
+          <text class="section-dot method"></text>
+          <text class="section-title">方法点拨</text>
+          <text class="section-toggle {{sections.methodGuide ? 'expanded' : ''}}">▼</text>
+        </view>
+        <view class="section-content {{sections.methodGuide ? 'expanded' : ''}}">
+          <text class="section-text">{{solutionData.methodGuide}}</text>
+        </view>
+      </view>
+
+      <!-- 详细解析 -->
+      <view class="solution-section" wx:if="{{solutionData.detailedAnalysis}}">
+        <view class="solution-section-header" bindtap="onToggleSection" data-section="detailedAnalysis">
+          <text class="section-dot analysis"></text>
+          <text class="section-title">详细解析</text>
+          <text class="section-toggle {{sections.detailedAnalysis ? 'expanded' : ''}}">▼</text>
+        </view>
+        <view class="section-content {{sections.detailedAnalysis ? 'expanded' : ''}}">
+          <text class="section-text">{{solutionData.detailedAnalysis}}</text>
+        </view>
+      </view>
+
+      <!-- 最终答案 -->
+      <view class="final-answer" wx:if="{{solutionData.standardAnswer}}">
+        <text class="final-answer-label">最终答案</text>
+        <text class="final-answer-value">{{solutionData.standardAnswer}}</text>
+      </view>
+    </view>
+
+    <!-- 加载中 -->
+    <view class="solution-loading" wx:if="{{solutionLoading && solutionExpanded}}">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">正在加载解析...</text>
+    </view>
+
+    <!-- 无解析提示 -->
+    <view class="solution-empty" wx:if="{{!solutionData && !solutionLoading && solutionExpanded && solutionLoadTried}}">
+      <text class="empty-text">暂无详细解析</text>
+      <text class="empty-hint">AI 正在生成中，请稍后再试</text>
+    </view>
+  </view>
+
+  <!-- 知识点信息 -->
+  <view class="knowledge-card" wx:if="{{knowledgePoints.length > 0}}">
+    <view class="card-title">
+      <text class="title-icon">📚</text>
+      <text class="title-text">相关知识点</text>
+    </view>
+    <view class="knowledge-list">
+      <view
+        class="knowledge-tag {{item.masteryLevel ? 'level-' + item.masteryLevel : ''}}"
+        wx:for="{{knowledgePoints}}"
+        wx:key="id"
+        bindtap="onKnowledgeTap"
+        data-uri="{{item.uri}}"
+      >
+        <text class="tag-text">{{item.name}}</text>
+        <text class="tag-level" wx:if="{{item.masteryLevel}}">{{item.masteryLevelText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-buttons">
+    <view class="action-btn secondary" bindtap="onStartPractice" wx:if="{{knowledgePoints.length > 0}}">
+      <text class="btn-icon">📝</text>
+      <text class="btn-text">针对性练习</text>
+    </view>
+    <view class="action-btn primary" bindtap="onMarkMastered" wx:if="{{!question.mastered}}">
+      <text class="btn-icon">✓</text>
+      <text class="btn-text">标记掌握</text>
+    </view>
+    <view class="action-btn mastered" wx:else>
+      <text class="btn-icon">🎉</text>
+      <text class="btn-text">已掌握</text>
+    </view>
+  </view>
+
+  <!-- 统计信息 -->
+  <view class="stats-card">
+    <view class="stat-item">
+      <text class="stat-value">{{question.wrongCount || 1}}</text>
+      <text class="stat-label">错误次数</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value">{{question.reviewCount || 0}}</text>
+      <text class="stat-label">复习次数</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value">{{question.masteryLevelText || '薄弱'}}</text>
+      <text class="stat-label">掌握程度</text>
+    </view>
+  </view>
+</view>

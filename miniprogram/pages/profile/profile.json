@@ -1,6 +1,7 @@
 {
   "usingComponents": {
-    "achievement": "/components/achievement/achievement"
+    "achievement": "/components/achievement/achievement",
+    "knowledge-mastery": "/components/knowledge-mastery/knowledge-mastery"
   },
   "navigationBarTitleText": "个人中心"
 }

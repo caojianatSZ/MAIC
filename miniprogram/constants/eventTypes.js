@@ -11,7 +11,13 @@ const EVENT_TYPES = {
   // 批改相关事件
   CORRECTION_FINISHED: 'correction_finished',
   PERFECT_SCORE: 'perfect_score',
-  HIGH_SCORE: 'high_score'
+  HIGH_SCORE: 'high_score',
+  // 错题巩固相关事件
+  WRONG_QUESTION_ADDED: 'wrong_question_added',
+  WRONG_QUESTION_REVIEWED: 'wrong_question_reviewed',
+  WRONG_QUESTION_MASTERED: 'wrong_question_mastered',
+  KNOWLEDGE_POINT_MASTERED: 'knowledge_point_mastered',
+  PRACTICE_COMPLETED: 'practice_completed'
 }
 
 /**

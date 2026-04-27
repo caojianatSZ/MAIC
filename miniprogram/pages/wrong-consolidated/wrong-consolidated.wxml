@@ -1,0 +1,151 @@
+<!--pages/wrong-consolidated/wrong-consolidated.wxml-->
+<!-- 错题合并视图 - 按知识点分组显示，供家长查看 -->
+
+<view class="container">
+  <!-- 页面头部 -->
+  <view class="page-header">
+    <text class="page-title">错题分析</text>
+    <text class="page-subtitle">按知识点整理，重点关注薄弱环节</text>
+  </view>
+
+  <!-- 掌握度概览卡片 -->
+  <view class="mastery-overview" wx:if="{{summary}}">
+    <view class="overview-item">
+      <text class="overview-value">{{summary.totalKnowledgePoints || 0}}</text>
+      <text class="overview-label">知识点</text>
+    </view>
+    <view class="overview-divider"></view>
+    <view class="overview-item">
+      <text class="overview-value weak">{{summary.weakCount || 0}}</text>
+      <text class="overview-label">薄弱</text>
+    </view>
+    <view class="overview-divider"></view>
+    <view class="overview-item">
+      <text class="overview-value partial">{{summary.partialCount || 0}}</text>
+      <text class="overview-label">部分掌握</text>
+    </view>
+    <view class="overview-divider"></view>
+    <view class="overview-item">
+      <text class="overview-value mastered">{{summary.masteredCount || 0}}</text>
+      <text class="overview-label">已掌握</text>
+    </view>
+  </view>
+
+  <!-- 科目筛选 -->
+  <view class="subject-filter" wx:if="{{subjectList.length > 0}}">
+    <scroll-view scroll-x="{{true}}" class="filter-scroll">
+      <view class="filter-list">
+        <view
+          class="filter-item {{subjectFilter === item.key ? 'active' : ''}}"
+          wx:for="{{subjectList}}"
+          wx:key="key"
+          bindtap="onSubjectChange"
+          data-subject="{{item.key}}"
+        >
+          <text class="filter-text">{{item.name}}</text>
+          <text class="filter-count" wx:if="{{item.count > 0}}">{{item.count}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-container" wx:if="{{!loading && consolidatedList.length === 0}}">
+    <text class="empty-icon">📊</text>
+    <text class="empty-title">暂无错题数据</text>
+    <text class="empty-desc">通过做题来收集错题，系统会自动按知识点整理</text>
+  </view>
+
+  <!-- 知识点分组错题列表 -->
+  <view class="consolidated-list" wx:if="{{!loading && consolidatedList.length > 0}}">
+    <view
+      class="knowledge-section"
+      wx:for="{{consolidatedList}}"
+      wx:key="uri"
+    >
+      <!-- 知识点头部 -->
+      <view class="knowledge-header" bindtap="onKnowledgeToggle" data-uri="{{item.uri}}">
+        <view class="knowledge-info">
+          <view class="knowledge-name-row">
+            <text class="knowledge-name">{{item.name}}</text>
+            <view class="mastery-level-badge level-{{item.masteryLevel}}">
+              <text class="level-text">{{item.masteryLevelText}}</text>
+            </view>
+          </view>
+          <view class="knowledge-stats">
+            <text class="stat-item">错题 {{item.totalWrongQuestions}} 道</text>
+            <text class="stat-divider">·</text>
+            <text class="stat-item">正确率 {{item.accuracyText}}</text>
+            <text class="stat-divider">·</text>
+            <text class="stat-item">练习 {{item.totalAttempts}} 次</text>
+          </view>
+        </view>
+        <view class="expand-icon {{item.expanded ? 'expanded' : ''}}">
+          <text>›</text>
+        </view>
+      </view>
+
+      <!-- 错题列表（展开时显示） -->
+      <view class="wrong-questions-list" wx:if="{{item.expanded}}">
+        <view
+          class="wrong-question-item"
+          wx:for="{{item.wrongQuestions}}"
+          wx:key="id"
+          wx:for-item="question"
+          bindtap="onQuestionTap"
+          data-id="{{question.id}}"
+        >
+          <view class="question-header">
+            <text class="question-id">#{{question.questionId}}</text>
+            <view class="question-meta">
+              <text class="wrong-count">错误 {{question.wrongCount}} 次</text>
+              <text class="review-count" wx:if="{{question.reviewCount > 0}}">复习 {{question.reviewCount}} 次</text>
+            </view>
+          </view>
+          <text class="question-content">{{question.questionContent}}</text>
+          <view class="question-footer">
+            <text class="add-time">{{question.createdAt}}</text>
+            <view class="action-buttons">
+              <view class="action-btn primary" catchtap="onViewSolution" data-id="{{question.id}}" data-content="{{question.questionContent}}">
+                <text>查看解析</text>
+              </view>
+              <view class="action-btn" catchtap="onStartPractice" data-uri="{{item.uri}}" data-name="{{item.name}}">
+                <text>针对性练习</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 该知识点更多题目提示 -->
+        <view class="more-questions-tip" wx:if="{{item.totalWrongQuestions > item.wrongQuestions.length}}">
+          <text class="tip-text">该知识点还有 {{item.totalWrongQuestions - item.wrongQuestions.length}} 道错题...</text>
+        </view>
+
+        <!-- 知识点底部操作 -->
+        <view class="knowledge-actions">
+          <view class="action-card" catchtap="onStartPractice" data-uri="{{item.uri}}" data-name="{{item.name}}">
+            <text class="action-icon">📝</text>
+            <text class="action-title">针对性练习</text>
+            <text class="action-desc">推荐相关练习题</text>
+          </view>
+          <view class="action-card" catchtap="onViewAnalysis" data-uri="{{item.uri}}" data-name="{{item.name}}">
+            <text class="action-icon">📊</text>
+            <text class="action-title">掌握分析</text>
+            <text class="action-desc">查看学习轨迹</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="footer-tip" wx:if="{{!loading && consolidatedList.length > 0}}">
+    <text class="tip-text">点击知识点可展开/收起错题列表</text>
+  </view>
+</view>

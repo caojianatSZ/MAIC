@@ -1,0 +1,321 @@
+/* components/knowledge-mastery/knowledge-mastery.wxss */
+/* 知识点掌握度组件样式 */
+
+.mastery-container {
+  background: #fff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  margin: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+}
+
+/* 头部 */
+.mastery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx;
+  border-bottom: 1rpx solid #F3F4F6;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.header-icon {
+  font-size: 32rpx;
+}
+
+.header-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.header-count {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.expand-icon {
+  font-size: 24rpx;
+  color: #9CA3AF;
+  transition: transform 0.3s;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+/* 内容区域 */
+.mastery-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.mastery-content.expanded {
+  max-height: 3000rpx;
+}
+
+/* 统计卡片 */
+.stats-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 24rpx;
+  padding-bottom: 16rpx;
+}
+
+.stat-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20rpx;
+  border-radius: 16rpx;
+}
+
+.stat-card.weak {
+  background: #FEF2F2;
+}
+
+.stat-card.partial {
+  background: #FFFBEB;
+}
+
+.stat-card.mastered {
+  background: #ECFDF5;
+}
+
+.stat-value {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #1F2937;
+  margin-bottom: 8rpx;
+}
+
+.stat-card.weak .stat-value {
+  color: #DC2626;
+}
+
+.stat-card.partial .stat-value {
+  color: #D97706;
+}
+
+.stat-card.mastered .stat-value {
+  color: #059669;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+/* 科目分组 */
+.subject-sections {
+  padding: 0 24rpx 24rpx;
+}
+
+.subject-section {
+  margin-bottom: 16rpx;
+}
+
+.subject-section:last-child {
+  margin-bottom: 0;
+}
+
+.subject-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx;
+  background: #F9FAFB;
+  border-radius: 12rpx;
+}
+
+.subject-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.subject-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #1F2937;
+  margin-bottom: 4rpx;
+}
+
+.subject-stats {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.subject-toggle {
+  font-size: 24rpx;
+  color: #9CA3AF;
+  transition: transform 0.3s;
+}
+
+.subject-toggle.expanded {
+  transform: rotate(180deg);
+}
+
+/* 知识点列表 */
+.knowledge-list {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.knowledge-list.expanded {
+  max-height: 1000rpx;
+  margin-top: 12rpx;
+}
+
+.knowledge-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx;
+  background: #fff;
+  border: 1rpx solid #E5E7EB;
+  border-radius: 12rpx;
+  margin-bottom: 8rpx;
+}
+
+.knowledge-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.knowledge-name {
+  font-size: 26rpx;
+  color: #1F2937;
+  margin-bottom: 4rpx;
+}
+
+.knowledge-accuracy {
+  font-size: 22rpx;
+  color: #9CA3AF;
+}
+
+.mastery-indicator {
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+}
+
+.mastery-indicator.level-weak {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+.mastery-indicator.level-partial {
+  background: #FFFBEB;
+  color: #D97706;
+}
+
+.mastery-indicator.level-mastered {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+/* 空状态 */
+.subject-empty {
+  padding: 32rpx;
+  text-align: center;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #9CA3AF;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 24rpx;
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+  opacity: 0.5;
+}
+
+.empty-state .empty-text {
+  font-size: 28rpx;
+  color: #6B7280;
+  margin-bottom: 8rpx;
+}
+
+.empty-hint {
+  font-size: 24rpx;
+  color: #9CA3AF;
+  text-align: center;
+}
+
+/* 底部操作 */
+.mastery-actions {
+  display: flex;
+  gap: 12rpx;
+  padding: 0 24rpx 24rpx;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 20rpx;
+  background: #F9FAFB;
+  border-radius: 12rpx;
+  border: 1rpx solid #E5E7EB;
+}
+
+.btn-icon {
+  font-size: 28rpx;
+}
+
+.btn-text {
+  font-size: 26rpx;
+  color: #374151;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40rpx;
+}
+
+.loading-spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 3rpx solid #E5E7EB;
+  border-top-color: #6366F1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #9CA3AF;
+}

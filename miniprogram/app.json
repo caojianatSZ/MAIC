@@ -15,7 +15,10 @@
     "pages/checkin/checkin",
     "pages/parent-settings/parent-settings",
     "pages/review-list/review-list",
-    "pages/wrong-questions/wrong-questions"
+    "pages/wrong-questions/wrong-questions",
+    "pages/wrong-consolidated/wrong-consolidated",
+    "pages/practice-recommend/practice-recommend",
+    "pages/review-detail/review-detail"
   ],
   "window": {
     "backgroundTextStyle": "light",
