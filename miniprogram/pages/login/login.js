@@ -1,4 +1,6 @@
 // pages/login/login.js
+const { getApiUrl } = require('../../utils/config')
+
 Page({
   /**
    * 页面的初始数据
@@ -61,10 +63,10 @@ Page({
    */
   callLoginAPI(code) {
     const app = getApp()
-    const baseUrl = app.globalData.baseUrl || 'http://localhost:3000'
+    const url = getApiUrl('auth/login')
 
     wx.request({
-      url: `${baseUrl}/api/auth/login`,
+      url: url,
       method: 'POST',
       header: {
         'content-type': 'application/json'
