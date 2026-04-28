@@ -129,10 +129,10 @@ export async function getStudentMasteryStats(
         : 0,
       relatedWrongQuestionCount: record.relatedWrongQuestionCount,
       classList: record.classList as Array<{ id: string; label: string }> | undefined,
-      abstractMessage: record.abstractMessage,
+      abstractMessage: record.abstractMessage ?? undefined,
       lastAttemptAt: record.lastAttemptAt,
       firstAttemptAt: record.firstAttemptAt,
-      masteredAt: record.masteredAt,
+      masteredAt: record.masteredAt ?? undefined,
     }));
 
     log.info('获取掌握度统计成功', { count: stats.length });
@@ -199,10 +199,10 @@ export async function getStudentMasterySummary(
           : 0,
         relatedWrongQuestionCount: record.relatedWrongQuestionCount,
         classList: record.classList as Array<{ id: string; label: string }> | undefined,
-        abstractMessage: record.abstractMessage,
+        abstractMessage: record.abstractMessage ?? undefined,
         lastAttemptAt: record.lastAttemptAt,
         firstAttemptAt: record.firstAttemptAt,
-        masteredAt: record.masteredAt,
+        masteredAt: record.masteredAt ?? undefined,
       }));
 
     // 最近产生的弱项（按最近尝试时间降序）
