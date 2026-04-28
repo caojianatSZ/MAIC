@@ -418,10 +418,12 @@
 
         <!-- 知识点 -->
         <view class="knowledge-tags" wx:if="{{item.knowledgePoints && item.knowledgePoints.length > 0}}">
-          <text class="tag-label">知识点：</text>
-          <text class="knowledge-tag" wx:for="{{item.knowledgePoints}}" wx:for-item="kp" wx:key="id">
-            {{kp.name}}
-          </text>
+          <view class="tag-label">知识点：</view>
+          <view class="knowledge-tags-list">
+            <view class="knowledge-tag" wx:for="{{item.knowledgePoints}}" wx:for-item="kp" wx:key="id">
+              {{kp.name}}
+            </view>
+          </view>
         </view>
       </view>
     </scroll-view>
