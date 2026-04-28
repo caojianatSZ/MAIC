@@ -416,12 +416,19 @@
           </text>
         </view>
 
-        <!-- 知识点 -->
-        <view style="display:flex;flex-wrap:wrap;margin-top:24rpx;padding-top:24rpx;border-top:1rpx solid #E5E7EB;" wx:if="{{item.knowledgePoints && item.knowledgePoints.length > 0}}">
-          <text style="font-size:26rpx;color:#374151;margin-right:8rpx;">知识点：</text>
-          <block wx:for="{{item.knowledgePoints}}" wx:for-item="kp" wx:key="id">
-            <text style="display:inline-block;padding:8rpx 16rpx;margin-right:12rpx;margin-bottom:8rpx;background:#EEF2FF;color:#6366F1;font-size:24rpx;border-radius:8rpx;">{{kp.name}}</text>
-          </block>
+        <!-- 知识点区域 -->
+        <view class="kp-section" wx:if="{{item.knowledgePoints && item.knowledgePoints.length > 0}}">
+          <view class="kp-header">
+            <text class="kp-icon">📚</text>
+            <text class="kp-title">相关知识点</text>
+            <text class="kp-count">({{item.knowledgePoints.length}})</text>
+          </view>
+          <view class="kp-list">
+            <view class="kp-item" wx:for="{{item.knowledgePoints}}" wx:for-item="kp" wx:key="id">
+              <view class="kp-dot"></view>
+              <text class="kp-name">{{kp.name}}</text>
+            </view>
+          </view>
         </view>
       </view>
     </scroll-view>

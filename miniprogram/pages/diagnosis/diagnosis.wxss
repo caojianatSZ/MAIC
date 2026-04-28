@@ -1013,6 +1013,67 @@
   line-height: 1.4 !important;
 }
 
+/* 知识点区域 - 新设计 */
+.kp-section {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  background: #F8FAFC;
+  border-radius: 12rpx;
+}
+
+.kp-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.kp-icon {
+  font-size: 32rpx;
+  margin-right: 8rpx;
+}
+
+.kp-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.kp-count {
+  font-size: 24rpx;
+  color: #9CA3AF;
+  margin-left: 4rpx;
+}
+
+.kp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.kp-item {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 16rpx;
+  background: #FFFFFF;
+  border-radius: 8rpx;
+  border-left: 4rpx solid #6366F1;
+}
+
+.kp-dot {
+  width: 12rpx;
+  height: 12rpx;
+  background: #6366F1;
+  border-radius: 50%;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.kp-name {
+  font-size: 26rpx;
+  color: #374151;
+  line-height: 1.4;
+}
+
 .preview-actions {
   display: flex;
   gap: 24rpx;
