@@ -176,7 +176,7 @@ export async function getStudentMasterySummary(
         bySubject[record.subject] = { total: 0, mastered: 0, partial: 0, weak: 0 };
       }
       bySubject[record.subject].total++;
-      bySubject[record.subject][record.masteryLevel]++;
+      (bySubject[record.subject] as any)[record.masteryLevel]++;
     }
 
     // 弱项知识点（按错误次数降序）
