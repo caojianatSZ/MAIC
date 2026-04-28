@@ -12,7 +12,7 @@ interface EduKGConfig {
   timeout?: number;
   phone?: string;
   password?: string;
-  ignoreSSL?: boolean;  // 是否忽略 SSL 证书错误（仅开发环境）
+  ignoreSSL?: boolean;  // 是否忽略 SSL 证书错误（EduKG 证书已过期，默认启用）
 }
 
 interface EduKGSession {
@@ -22,7 +22,7 @@ interface EduKGSession {
 
 /**
  * 自定义 fetch 函数，支持忽略 SSL 证书错误
- * 注意：仅在开发环境中使用，生产环境不建议禁用 SSL 验证
+ * 注意：仅用于目标服务器证书过期的情况（如 EduKG）
  */
 async function fetchWithIgnoreSSL(
   url: string,
@@ -30,7 +30,7 @@ async function fetchWithIgnoreSSL(
 ): Promise<Response> {
   const { ignoreSSL, ...fetchOptions } = options;
 
-  if (ignoreSSL && process.env.NODE_ENV !== 'production') {
+  if (ignoreSSL) {
     // 临时设置环境变量以禁用 SSL 验证
     const originalReject = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -116,7 +116,8 @@ export class EduKGAdapter {
       timeout: config.timeout || 10000,
       phone: config.phone || process.env.EDUKG_PHONE || '',
       password: config.password || process.env.EDUKG_PASSWORD || '',
-      ignoreSSL: config.ignoreSSL ?? (process.env.NODE_ENV !== 'production'),  // 默认开发环境忽略 SSL
+      // EduKG SSL 证书已过期，默认忽略 SSL 验证
+      ignoreSSL: config.ignoreSSL ?? true,
     };
   }
 
