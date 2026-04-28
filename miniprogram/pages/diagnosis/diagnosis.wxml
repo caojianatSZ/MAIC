@@ -241,6 +241,23 @@
         ></knowledge-graph>
       </view>
 
+      <!-- 知识点列表 -->
+      <view class="kp-result-section" wx:if="{{diagnosisResult.knowledgePoints && diagnosisResult.knowledgePoints.length > 0}}">
+        <view class="section-header">
+          <text class="section-title">📚 涉及知识点</text>
+          <text class="section-count">{{diagnosisResult.knowledgePoints.length}}</text>
+        </view>
+        <view class="kp-result-list">
+          <view class="kp-result-item {{item.masteryLevel === 'weak' ? 'weak' : ''}}" wx:for="{{diagnosisResult.knowledgePoints}}" wx:key="knowledgePointId">
+            <view class="kp-result-dot {{item.masteryLevel}}"></view>
+            <view class="kp-result-info">
+              <text class="kp-result-name">{{item.knowledgePointName}}</text>
+              <text class="kp-result-status">{{item.masteryLevel === 'mastered' ? '已掌握' : '需加强'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
       <!-- 成就展示 -->
       <view class="achievements-section" wx:if="{{unlockedAchievements.length > 0}}">
         <view class="section-header">
@@ -414,21 +431,6 @@
           <text class="answer-status {{item.isCorrect ? 'correct' : 'wrong'}}">
             {{item.isCorrect ? '✓ 正确' : '✗ 错误'}}
           </text>
-        </view>
-
-        <!-- 知识点区域 -->
-        <view class="kp-section" wx:if="{{item.knowledgePoints && item.knowledgePoints.length > 0}}">
-          <view class="kp-header">
-            <text class="kp-icon">📚</text>
-            <text class="kp-title">相关知识点</text>
-            <text class="kp-count">({{item.knowledgePoints.length}})</text>
-          </view>
-          <view class="kp-list">
-            <view class="kp-item" wx:for="{{item.knowledgePoints}}" wx:for-item="kp" wx:key="id">
-              <view class="kp-dot"></view>
-              <text class="kp-name">{{kp.name}}</text>
-            </view>
-          </view>
         </view>
       </view>
     </scroll-view>
