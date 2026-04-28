@@ -118,7 +118,7 @@ export async function getStudentMasteryStats(
       knowledgeUri: record.knowledgeUri,
       knowledgeName: record.knowledgeName,
       subject: record.subject,
-      grade: record.grade,
+      grade: record.grade ?? undefined,
       masteryLevel: record.masteryLevel as MasteryLevel,
       masteryScore: record.masteryScore,
       totalAttempts: record.totalAttempts,
