@@ -21,12 +21,6 @@
       <view class="btn-icon">💬</view>
       <text class="btn-text">微信快捷登录</text>
     </button>
-
-    <!-- 手机号登录 -->
-    <button class="login-btn phone-login" bindtap="phoneLogin">
-      <view class="btn-icon">📱</view>
-      <text class="btn-text">手机号登录</text>
-    </button>
   </view>
 
   <!-- 用户协议 -->
