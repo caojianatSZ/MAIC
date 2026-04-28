@@ -30,6 +30,8 @@ Page({
     photoImage: null,
     photoAnalyzing: false,
     photoQuestions: [],
+    // 拍照诊断 - 用户选择的答案
+    photoSelectedAnswers: {},   // { questionId: optionIndex }
     // 拍照诊断 V2 数据
     ocrConfidence: 0,          // OCR整体置信度
     needsReview: false,         // 是否需要整卷复核
@@ -1308,6 +1310,37 @@ Page({
         duration: 2000
       })
     }
+  },
+
+  /**
+   * 选择拍照题目的选项
+   * @param {Object} e 事件对象
+   */
+  onPhotoOptionSelect(e) {
+    const { questionid, optionindex } = e.currentTarget.dataset
+    const qid = String(questionid)
+    const idx = parseInt(optionindex)
+
+    // 更新选中的答案
+    this.setData({
+      [`photoSelectedAnswers.${qid}`]: idx
+    })
+
+    // 触觉反馈
+    wx.vibrateShort({ type: 'light' })
+  },
+
+  /**
+   * 清除拍照题目的选项选择
+   * @param {Object} e 事件对象
+   */
+  onClearPhotoOption(e) {
+    const { questionid } = e.currentTarget.dataset
+    const qid = String(questionid)
+
+    this.setData({
+      [`photoSelectedAnswers.${qid}`]: -1
+    })
   },
 
   /**

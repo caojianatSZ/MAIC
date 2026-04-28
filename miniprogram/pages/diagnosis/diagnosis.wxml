@@ -367,7 +367,20 @@
 
         <!-- 选项 -->
         <view class="question-options" wx:if="{{item.type === 'choice' && item.options}}">
-          <view class="option-item" wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="idx" wx:key="idx">
+          <view
+            class="option-item {{photoSelectedAnswers[item.id] === idx ? 'selected' : ''}}"
+            wx:for="{{item.options}}"
+            wx:for-item="opt"
+            wx:for-index="idx"
+            wx:key="idx"
+            bindtap="onPhotoOptionSelect"
+            data-questionid="{{item.id}}"
+            data-optionindex="{{idx}}"
+          >
+            <view class="option-label">
+              <text class="label-text">{{optionLabels[idx]}}</text>
+              <text class="check-icon" wx:if="{{photoSelectedAnswers[item.id] === idx}}">✓</text>
+            </view>
             <!-- 选项文本（确保使用opt.text获取文本，避免对象被字符串化） -->
             <rich-text class="option-text" nodes="{{opt.text}}"></rich-text>
 
