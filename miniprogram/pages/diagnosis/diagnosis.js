@@ -22,6 +22,11 @@ Page({
     diagnosisResult: null,
     // 知识图谱数据
     knowledgeNodes: [],
+    // 知识点分组
+    weakKnowledgePoints: [],
+    masteredKnowledgePoints: [],
+    weakCount: 0,
+    masteredCount: 0,
     // 解锁的成就
     unlockedAchievements: [],
     // 学习建议
@@ -247,11 +252,22 @@ Page({
             parents: kp.prerequisites || []
           }))
 
+          // 按掌握度分组知识点
+          const weakKnowledgePoints = result.knowledgePoints.filter(kp => kp.masteryLevel === 'weak' || kp.masteryLevel === 'partial')
+          const masteredKnowledgePoints = result.knowledgePoints.filter(kp => kp.masteryLevel === 'mastered')
+          const weakCount = weakKnowledgePoints.length
+          const masteredCount = masteredKnowledgePoints.length
+
           console.log('转换后的知识图谱节点:', knowledgeNodes)
+          console.log('知识点分组:', { weakCount, masteredCount })
 
           this.setData({
             diagnosisResult: result,
             knowledgeNodes: knowledgeNodes,
+            weakKnowledgePoints,
+            masteredKnowledgePoints,
+            weakCount,
+            masteredCount,
             mode: 'result',
             current: this.data.questions.length
           })
@@ -1401,12 +1417,23 @@ Page({
       parents: kp.prerequisites || []
     }))
 
+    // 按掌握度分组知识点
+    const weakKnowledgePoints = knowledgePoints.filter(kp => kp.masteryLevel === 'weak' || kp.masteryLevel === 'partial')
+    const masteredKnowledgePoints = knowledgePoints.filter(kp => kp.masteryLevel === 'mastered')
+    const weakCount = weakKnowledgePoints.length
+    const masteredCount = masteredKnowledgePoints.length
+
     console.log('拍照诊断结果:', diagnosisResult)
     console.log('知识图谱节点:', knowledgeNodes)
+    console.log('知识点分组:', { weakCount, masteredCount })
 
     this.setData({
       diagnosisResult,
       knowledgeNodes,
+      weakKnowledgePoints,
+      masteredKnowledgePoints,
+      weakCount,
+      masteredCount,
       mode: 'result'
     })
   },

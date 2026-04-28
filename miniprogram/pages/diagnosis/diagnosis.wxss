@@ -298,7 +298,232 @@
   margin-bottom: 32rpx;
 }
 
-/* 知识点结果区域 */
+/* ============ 知识点掌握分析（新设计） ============ */
+.mastery-section {
+  margin-bottom: 32rpx;
+}
+
+/* 头部统计 */
+.mastery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+  padding: 24rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20rpx;
+}
+
+.mastery-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #FFFFFF;
+}
+
+.mastery-summary {
+  display: flex;
+  gap: 24rpx;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12rpx 20rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12rpx;
+  backdrop-filter: blur(10rpx);
+}
+
+.summary-label {
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 4rpx;
+}
+
+.summary-value {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #FFFFFF;
+}
+
+/* 分组标题 */
+.mastery-group {
+  margin-bottom: 32rpx;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.group-header.weak {
+  background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+  border: 2rpx solid #FECACA;
+}
+
+.group-header.mastered {
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+  border: 2rpx solid #A7F3D0;
+}
+
+.group-icon {
+  font-size: 28rpx;
+}
+
+.group-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: bold;
+}
+
+.group-header.weak .group-title {
+  color: #991B1B;
+}
+
+.group-header.mastered .group-title {
+  color: #065F46;
+}
+
+.group-count {
+  font-size: 24rpx;
+  font-weight: bold;
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+.group-header.weak .group-count {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.group-header.mastered .group-count {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+/* 掌握度卡片 */
+.mastery-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.mastery-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+}
+
+.mastery-card:active {
+  transform: scale(0.98);
+}
+
+.mastery-card.weak {
+  border-left: 6rpx solid #EF4444;
+  background: linear-gradient(to right, #FEF2F2, #FFFFFF);
+}
+
+.mastery-card.mastered {
+  border-left: 6rpx solid #10B981;
+  background: linear-gradient(to right, #ECFDF5, #FFFFFF);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.card-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #1F2937;
+  line-height: 1.4;
+}
+
+.card-badge {
+  padding: 6rpx 16rpx;
+  background: #D1FAE5;
+  color: #065F46;
+  font-size: 20rpx;
+  font-weight: bold;
+  border-radius: 8rpx;
+}
+
+/* 进度条 */
+.card-progress {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 16rpx;
+  background: #E5E7EB;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 8rpx;
+  transition: width 0.6s ease-out;
+}
+
+.progress-fill.weak {
+  background: linear-gradient(90deg, #F87171 0%, #EF4444 100%);
+}
+
+.progress-fill.mastered {
+  background: linear-gradient(90deg, #34D399 0%, #10B981 100%);
+}
+
+.progress-score {
+  font-size: 24rpx;
+  font-weight: bold;
+  min-width: 60rpx;
+  text-align: right;
+}
+
+.mastery-card.weak .progress-score {
+  color: #EF4444;
+}
+
+.mastery-card.mastered .progress-score {
+  color: #10B981;
+}
+
+/* 卡片底部 */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #E5E7EB;
+}
+
+.card-hint {
+  font-size: 22rpx;
+  color: #6B7280;
+}
+
+.card-arrow {
+  font-size: 28rpx;
+  color: #6366F1;
+  font-weight: bold;
+}
+
+/* 知识点结果区域（保留兼容） */
 .kp-result-section {
   background: #F8FAFC;
   border-radius: 16rpx;

@@ -228,31 +228,67 @@
         </view>
       </view>
 
-      <!-- 知识图谱组件 -->
-      <view class="graph-section">
-        <view class="section-header">
-          <text class="section-title">📊 知识掌握图谱</text>
+      <!-- 知识点掌握分析 -->
+      <view class="mastery-section" wx:if="{{diagnosisResult.knowledgePoints && diagnosisResult.knowledgePoints.length > 0}}">
+        <view class="mastery-header">
+          <text class="mastery-title">知识点掌握分析</text>
+          <view class="mastery-summary">
+            <view class="summary-item weak">
+              <text class="summary-label">待巩固</text>
+              <text class="summary-value">{{weakCount || 0}}</text>
+            </view>
+            <view class="summary-item mastered">
+              <text class="summary-label">已掌握</text>
+              <text class="summary-value">{{masteredCount || 0}}</text>
+            </view>
+          </view>
         </view>
-        <knowledge-graph
-          title=""
-          subtitle=""
-          nodes="{{knowledgeNodes}}"
-          bind:learn="onLearnNode"
-        ></knowledge-graph>
-      </view>
 
-      <!-- 知识点列表 -->
-      <view class="kp-result-section" wx:if="{{diagnosisResult.knowledgePoints && diagnosisResult.knowledgePoints.length > 0}}">
-        <view class="section-header">
-          <text class="section-title">📚 涉及知识点</text>
-          <text class="section-count">{{diagnosisResult.knowledgePoints.length}}</text>
+        <!-- 弱项知识点（优先展示） -->
+        <view class="mastery-group" wx:if="{{weakKnowledgePoints.length > 0}}">
+          <view class="group-header weak">
+            <text class="group-icon">⚠️</text>
+            <text class="group-title">需要重点巩固</text>
+            <text class="group-count">{{weakKnowledgePoints.length}}</text>
+          </view>
+          <view class="mastery-cards">
+            <view class="mastery-card weak" wx:for="{{weakKnowledgePoints}}" wx:key="knowledgePointId" wx:for-item="kp">
+              <view class="card-header">
+                <text class="card-name">{{kp.knowledgePointName}}</text>
+              </view>
+              <view class="card-progress">
+                <view class="progress-bar">
+                  <view class="progress-fill weak" style="width: {{kp.masteryScore || 20}}%"></view>
+                </view>
+                <text class="progress-score">{{kp.masteryScore || 20}}%</text>
+              </view>
+              <view class="card-footer">
+                <text class="card-hint">建议学习相关课程</text>
+                <text class="card-arrow">→</text>
+              </view>
+            </view>
+          </view>
         </view>
-        <view class="kp-result-list">
-          <view class="kp-result-item {{item.masteryLevel === 'weak' ? 'weak' : ''}}" wx:for="{{diagnosisResult.knowledgePoints}}" wx:key="knowledgePointId">
-            <view class="kp-result-dot {{item.masteryLevel}}"></view>
-            <view class="kp-result-info">
-              <text class="kp-result-name">{{item.knowledgePointName}}</text>
-              <text class="kp-result-status">{{item.masteryLevel === 'mastered' ? '已掌握' : '需加强'}}</text>
+
+        <!-- 已掌握知识点 -->
+        <view class="mastery-group" wx:if="{{masteredKnowledgePoints.length > 0}}">
+          <view class="group-header mastered">
+            <text class="group-icon">✓</text>
+            <text class="group-title">已掌握</text>
+            <text class="group-count">{{masteredKnowledgePoints.length}}</text>
+          </view>
+          <view class="mastery-cards">
+            <view class="mastery-card mastered" wx:for="{{masteredKnowledgePoints}}" wx:key="knowledgePointId" wx:for-item="kp">
+              <view class="card-header">
+                <text class="card-name">{{kp.knowledgePointName}}</text>
+                <text class="card-badge">优秀</text>
+              </view>
+              <view class="card-progress">
+                <view class="progress-bar">
+                  <view class="progress-fill mastered" style="width: {{kp.masteryScore || 100}}%"></view>
+                </view>
+                <text class="progress-score">{{kp.masteryScore || 100}}%</text>
+              </view>
             </view>
           </view>
         </view>
