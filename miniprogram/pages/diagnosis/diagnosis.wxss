@@ -984,33 +984,33 @@
 }
 
 /* 知识点标签区域 */
-.knowledge-tags {
+.diagnosis-knowledge-tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin-top: 24rpx;
-  padding-top: 24rpx;
-  border-top: 1rpx solid #E5E7EB;
-  line-height: 40rpx;
+  margin-top: 24rpx !important;
+  padding-top: 24rpx !important;
+  border-top: 1rpx solid #E5E7EB !important;
+  line-height: 40rpx !important;
 }
 
-.knowledge-tags .tag-label {
-  font-size: 26rpx;
-  color: #374151;
-  font-weight: 500;
-  margin-right: 8rpx;
+.diagnosis-kp-label {
+  font-size: 26rpx !important;
+  color: #374151 !important;
+  font-weight: 500 !important;
+  margin-right: 8rpx !important;
 }
 
-.knowledge-tags .knowledge-tag {
-  display: inline-block;
-  padding: 6rpx 16rpx;
-  margin-right: 12rpx;
-  margin-bottom: 12rpx;
-  background: #EEF2FF;
-  color: #6366F1;
-  font-size: 24rpx;
-  border-radius: 8rpx;
-  line-height: 1.4;
+.diagnosis-kp-tag {
+  display: inline-block !important;
+  padding: 8rpx 16rpx !important;
+  margin-right: 12rpx !important;
+  margin-bottom: 8rpx !important;
+  background: #EEF2FF !important;
+  color: #6366F1 !important;
+  font-size: 24rpx !important;
+  border-radius: 8rpx !important;
+  line-height: 1.4 !important;
 }
 
 .preview-actions {
