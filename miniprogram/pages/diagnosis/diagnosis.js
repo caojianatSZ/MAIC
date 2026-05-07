@@ -1034,7 +1034,12 @@ Page({
       return {
         ...q,
         content: cleanedContent,
-        options: q.options || [],
+        options: (q.options || []).map(function (opt) {
+          if (typeof opt === 'object' && opt.text != null) {
+            return { index: opt.index, text: this.cleanOcrText(opt.text), images: opt.images || [] }
+          }
+          return opt
+        }, this),
         images: q.images || [],
         needImage: needImage,
         confidence: q.confidence || 0,
