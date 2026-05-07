@@ -2,6 +2,7 @@
 const { getUserId } = require('../../utils/user')
 const { getBaseUrl } = require('../../utils/config')
 const { EVENT_TYPES, DEFAULTS, PAGE_MODES } = require('../../constants/eventTypes')
+const { normalizePhotoQuestions } = require('../../utils/question-format')
 
 Page({
   /**
@@ -27,6 +28,8 @@ Page({
     masteredKnowledgePoints: [],
     weakCount: 0,
     masteredCount: 0,
+    collapsedWeak: false,
+    collapsedMastered: false,
     // 解锁的成就
     unlockedAchievements: [],
     // 学习建议
@@ -257,6 +260,9 @@ Page({
           const masteredKnowledgePoints = result.knowledgePoints.filter(kp => kp.masteryLevel === 'mastered')
           const weakCount = weakKnowledgePoints.length
           const masteredCount = masteredKnowledgePoints.length
+          // 初始折叠状态：超过7个知识点则折叠
+          const shouldCollapseWeak = weakKnowledgePoints.length > 7
+          const shouldCollapseMastered = masteredKnowledgePoints.length > 7
 
           console.log('转换后的知识图谱节点:', knowledgeNodes)
           console.log('知识点分组:', { weakCount, masteredCount })
@@ -268,6 +274,8 @@ Page({
             masteredKnowledgePoints,
             weakCount,
             masteredCount,
+            collapsedWeak: shouldCollapseWeak,
+            collapsedMastered: shouldCollapseMastered,
             mode: 'result',
             current: this.data.questions.length
           })
@@ -357,6 +365,24 @@ Page({
 
     wx.navigateTo({
       url: `/pages/learning-path/learning-path?${queryString}`
+    })
+  },
+
+  /**
+   * 展开/收起弱项知识点
+   */
+  toggleWeakExpand() {
+    this.setData({
+      collapsedWeak: !this.data.collapsedWeak
+    })
+  },
+
+  /**
+   * 展开/收起已掌握知识点
+   */
+  toggleMasteredExpand() {
+    this.setData({
+      collapsedMastered: !this.data.collapsedMastered
     })
   },
 
@@ -989,46 +1015,35 @@ Page({
    * 显示拍照识别结果预览
    */
   showPhotoResultPreview(data) {
-    // 清理题目内容和选项的格式
-    const cleanedQuestions = (data.questions || []).map(q => {
+    // 使用统一格式工具处理题目（优先 unifiedQuestions，兼容旧 questions 格式）
+    const normalizedQuestions = normalizePhotoQuestions(data)
+
+    const cleanedQuestions = normalizedQuestions.map(q => {
       const cleanedContent = this.cleanOcrText(q.content)
 
       // 判断是否需要显示配图
       const needImage = this.determineIfNeedImage(cleanedContent, q.images || [])
 
-      // 调试日志
       console.log('题目图片显示判断:', {
         id: q.id,
         contentLength: cleanedContent?.length || 0,
-        hasFormula: /\\[\(\[]|\\[\)\]]|\$|<|&/.test(cleanedContent),
         imagesCount: (q.images || []).length,
-        needImage: needImage,
-        contentPreview: cleanedContent?.substring(0, 50)
+        needImage: needImage
       })
 
       return {
         ...q,
         content: cleanedContent,
-        options: q.options ? q.options.map((opt) => {
-          const cleanedOpt = this.cleanOcrText(opt)
-          // 只要后端返回了images数组，就显示（后端已做过过滤）
-          return cleanedOpt
-        }) : [],
-        // 添加图片坐标信息
+        options: q.options || [],
         images: q.images || [],
         needImage: needImage,
-        // V2 字段：置信度和复核标记
         confidence: q.confidence || 0,
         needsReview: q.needsReview || false,
         warnings: q.warnings || [],
-        // 保留知识点信息（用于生成诊断）
         knowledgePoints: q.knowledgePoints || []
       }
     })
 
-    // 处理原始图片和图片坐标
-    let originalImageUrl = ''
-    let imageCoordinates = data.imageCoordinates || []
 
     if (data.originalImage) {
       // 移除data:image前缀，保留base64数据
@@ -1560,29 +1575,52 @@ Page({
       ? Math.round((diagnosisResult.correctCount / diagnosisResult.totalCount) * 100)
       : 0
 
+    // 收集薄弱知识点
+    const weakPoints = (diagnosisResult.knowledgePoints || [])
+      .filter(kp => kp.masteryLevel === 'weak')
+    const partialPoints = (diagnosisResult.knowledgePoints || [])
+      .filter(kp => kp.masteryLevel === 'partial')
+    const weakNames = weakPoints.map(kp => kp.knowledgePointName)
+    const partialNames = partialPoints.map(kp => kp.knowledgePointName)
+    const totalWeak = weakPoints.length + partialPoints.length
+
     let suggestion = ''
 
-    // 根据得分生成建议
+    // 根据得分生成带引导的个性化建议
     if (score >= 90) {
-      suggestion = `太棒了！你掌握得很好！正确率达到 ${accuracy}%，${unlockedCount > 0 ? `还解锁了 ${unlockedCount} 个成就！` : ''}建议继续挑战更高难度的题目，巩固学习成果。`
+      suggestion = `太棒了！你掌握得很好！正确率达到 ${accuracy}%，${unlockedCount > 0 ? `还解锁了 ${unlockedCount} 个成就！` : ''}`
+      if (totalWeak > 0) {
+        suggestion += `\n\n不过仍有 ${totalWeak} 个知识点可以继续提升，推荐我们的「微课速学」课程，每个仅需2分钟，快速查漏补缺。`
+      } else {
+        suggestion += `\n\n建议挑战更高难度的课程，拓展知识面。我们的「进阶强化」课程体系很适合你。`
+      }
+      actionHint = '查看进阶课程 →'
     } else if (score >= 70) {
-      suggestion = `不错！你的正确率是 ${accuracy}%，${unlockedCount > 0 ? `解锁了 ${unlockedCount} 个成就。` : ''}建议重点学习薄弱知识点，多做一些练习题来提高熟练度。`
+      suggestion = `不错！你的正确率是 ${accuracy}%，${unlockedCount > 0 ? `解锁了 ${unlockedCount} 个成就。` : ''}核心问题出在 ${totalWeak} 个薄弱知识点上。`
+      if (weakNames.length > 0) {
+        suggestion += `\n\n其中「${weakNames.slice(0, 3).join('、')}」${weakNames.length > 3 ? `等 ${weakNames.length} 个` : ''}知识点需要重点突破。`
+      }
+      suggestion += `\n\n我们的课程将这些知识点拆解成了2分钟微课，每天花10分钟，一周就能攻克薄弱环节。`
+      actionHint = '查看高效学习路径 →'
     } else if (score >= 60) {
-      suggestion = `还需要努力哦！你的正确率是 ${accuracy}%。建议从基础概念开始学习，循序渐进地提高。我们的学习路径会帮助你系统学习。`
+      suggestion = `还需要努力哦！你的正确率是 ${accuracy}%。你当前有 ${totalWeak} 个知识点掌握不足。`
+      if (weakNames.length > 0) {
+        suggestion += `\n\n「${weakNames.slice(0, 3).join('、')}」${weakNames.length > 3 ? '等知识点' : ''}是提分的关键。`
+      }
+      suggestion += `\n\n我们会根据你的诊断结果，智能生成专属学习路径。从基础概念到实战练习，一步步带你吃透这些知识点。`
+      actionHint = '查看专属学习路径 →'
     } else {
-      suggestion = `别灰心！这个知识点确实有难度。建议从基础开始学起，观看微课视频，然后通过练习巩固。学习是一个过程，慢慢来！`
+      suggestion = `别灰心！你这次诊断发现了 ${totalWeak} 个需要加强的知识点。找出问题才是进步的第一步，恭喜你迈出了最重要的一步！`
+      if (weakNames.length > 0) {
+        suggestion += `\n\n「${weakNames.slice(0, 2).join('、')}」等是当前最需要补齐的短板，建议从基础课程开始系统学习。`
+      }
+      suggestion += `\n\n我们的课程专为基础薄弱的学生设计，采用「AI讲解 + 动画演示 + 随堂练习」的模式，让学习变得轻松有趣。很多学生反馈，每天15分钟，一周内就能明显感受到进步。`
+      actionHint = '从基础课程开始 →'
     }
 
-    // 根据薄弱知识点添加建议
-    if (diagnosisResult.knowledgePoints?.length > 0) {
-      const weakPointNames = diagnosisResult.knowledgePoints
-        .filter(kp => kp.masteryLevel === 'weak')
-        .map(kp => kp.knowledgePointName)
-        .join('、')
-
-      if (weakPointNames) {
-        suggestion += `\n\n薄弱知识点：${weakPointNames}`
-      }
+    // 添加学习路径引导
+    if (totalWeak > 0 && partialNames.length > 0) {
+      suggestion += `\n\n已掌握的基础：${partialNames.slice(0, 2).join('、')}等知识点有一定基础，强化训练后很快就能转化为得分点。`
     }
 
     this.setData({

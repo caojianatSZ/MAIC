@@ -41,6 +41,8 @@ import { PrismaClient } from '@prisma/client';
 import { saveWrongQuestion } from '@/lib/wrong-questions/service';
 import { createTask, updateProgress, completeTask, failTask, getProgress } from '@/lib/diagnosis/progress';
 import { fromTextInStructured, rebuildStructure, type Question } from '@/lib/structure';
+import { questionJudgmentToUnified } from '@/lib/question/adapter';
+import type { Question as UnifiedQuestion } from '@/lib/question/types';
 
 const log = createLogger('PhotoV2');
 
@@ -668,13 +670,16 @@ ${questionsMarkdown}
     log.info('拍照诊断 V2 完成', { ...summary, duration: `${duration}ms` });
 
     // 构建响应
-    const response: PhotoDiagnosisV2Response = {
+    const response = {
       mode: detectedMode,
       fullMarkdown,  // 完整的 markdown（TextIn 原始输出，如果有）
       questions: validatedQuestions,
       summary,
-      ocrValidation
-    };
+      ocrValidation,
+      unifiedQuestions: validatedQuestions.map(q =>
+        questionJudgmentToUnified(q, subject)
+      ),
+    } satisfies PhotoDiagnosisV2Response & { unifiedQuestions: UnifiedQuestion[] };
 
     // 保存完整结果到 Markdown 文件（用于后续分析）
     try {

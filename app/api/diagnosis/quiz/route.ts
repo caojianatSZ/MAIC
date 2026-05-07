@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { edukgAdapter } from '@/lib/edukg/adapter';
-import { diagnosisQuestions } from '@/lib/data/questions/quadratic-function';
+import { diagnosisQuestions, type Question as LocalQuestion } from '@/lib/data/questions/quadratic-function';
+import type { LegacyQuizQuestion } from '@/lib/question/adapter';
 
 /**
  * 获取诊断题目
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`[诊断] 获取题目: ${subject} - ${topic} - ${grade} - ${count}道`);
 
-    let selectedQuestions: any[] = [];
+    let selectedQuestions: LegacyQuizQuestion[] = [];
 
     if (useEduKG) {
       // 使用 EduKG 获取真实习题
@@ -85,7 +86,16 @@ export async function GET(request: NextRequest) {
 /**
  * 从题库中随机选择题目
  */
-function getRandomQuestions(questions: any[], count: number) {
+function getRandomQuestions(questions: LocalQuestion[], count: number): LegacyQuizQuestion[] {
   const shuffled = [...questions].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, Math.min(count, questions.length));
+  return shuffled.slice(0, Math.min(count, questions.length)).map(q => ({
+    id: q.id,
+    question: q.question,
+    options: q.options || [],
+    answer: String(q.correctAnswer),
+    explanation: q.explanation,
+    knowledgePointId: q.knowledgePoints[0] || '',
+    knowledgePoint: q.knowledgePoints[0] || '知识点',
+    difficulty: q.difficulty,
+  }));
 }

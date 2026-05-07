@@ -218,17 +218,29 @@ model Question {
   // 基本信息
   identifier  String   @unique  // dq_001, pq_001等
   subject     String   // math, english等
-  type        String   // single, multiple, text
+  type        String   // single, multiple, text (旧类型标记，保留兼容)
+  questionType String   @default("choice") // 统一类型: choice|fill_blank|essay|compound
+  choiceMode  String?  @map("choice_mode") // single|multiple (仅 type=choice 时)
+  parentId    String?  @map("parent_id")   // 自引用：复合题的子题
+  sequence    Int      @default(0)         // 子题在父题中的排序
   question    String
   options     String[] @default([])
+  stemHtml    String?  @map("stem_html")   // 题干 HTML（富文本版）
 
   // 答案
   answer      String   // 正确答案
   explanation String?
 
+  // 来源
+  source      String?                      // local|edukg|xkw|aliyun
+  sourceData  Json?    @map("source_data") // 原始数据（XKW HTML 等）
+  optionLayout Json?   @map("option_layout") // { columns: number }
+
   // 关联
   knowledgePointIds String[]  @map("knowledge_point_ids")
   questionKnowledgePoints QuestionKnowledgePoint[]
+  parent       Question? @relation("SubQuestions", fields: [parentId], references: [id])
+  children     Question[] @relation("SubQuestions")
 
   // 元数据
   difficulty  Int      @default(1)  // 1-5

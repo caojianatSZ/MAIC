@@ -3,6 +3,7 @@
 
 const { getUserId } = require('../../utils/user');
 const { getBaseUrl } = require('../../utils/config');
+const { normalizeQuestionForDisplay } = require('../../utils/question-format');
 
 Page({
   data: {
@@ -200,12 +201,16 @@ Page({
         method: 'GET',
         success: (res) => {
           if (res.data.success) {
-            const questions = res.data.questions || [];
-            // 添加默认难度
-            const processedQuestions = questions.map(q => ({
-              ...q,
-              difficulty: q.difficulty || 1
-            }));
+            // 优先使用统一格式，兼容旧格式
+            const rawQuestions = res.data.unifiedQuestions || res.data.questions || [];
+            const processedQuestions = rawQuestions.map(q => {
+              // 如果是统一格式 Question，标准化为前端渲染格式
+              if (q.type && q.stem && q.knowledgePoints) {
+                return normalizeQuestionForDisplay(q, { mode: 'practice' });
+              }
+              // 旧格式 PracticeQuestion，添加默认难度
+              return { ...q, difficulty: q.difficulty || 1 };
+            });
             this.setData({
               practiceQuestions: processedQuestions,
               loading: false

@@ -6,11 +6,13 @@
 
 import { edukgAdapter } from '@/lib/edukg/adapter';
 import { createLogger } from '@/lib/logger';
+import type { Question as UnifiedQuestion } from '@/lib/question/types';
+import { normalizeQuestionType } from '@/lib/question/types';
 
 const log = createLogger('PracticeRecommendation');
 
 /**
- * 推荐练习题
+ * 推荐练习题（旧格式，向后兼容）
  */
 export interface PracticeQuestion {
   id: string;
@@ -32,6 +34,7 @@ export interface PracticeRecommendation {
   knowledgeUri: string;
   knowledgeName: string;
   questions: PracticeQuestion[];
+  unifiedQuestions: UnifiedQuestion[];
   count: number;
 }
 
@@ -68,21 +71,45 @@ export async function recommendPracticeQuestions(
 
     log.info('获取到练习题', { count: questions.length });
 
+    const practiceQuestions: PracticeQuestion[] = questions.map(q => ({
+      id: q.id,
+      question: q.question,
+      type: q.type,
+      options: q.options,
+      answer: q.answer,
+      analysis: q.analysis,
+      subject: q.subject || subject || '',
+      grade: q.grade || '',
+      difficulty: q.difficulty,
+      source: q.source,
+    }));
+
+    const unifiedQuestions: UnifiedQuestion[] = questions.map(q => ({
+      id: q.id,
+      subject: q.subject || subject || '',
+      type: normalizeQuestionType(q.type, q.options),
+      choiceMode: 'single',
+      stem: q.question,
+      options: (q.options as string[] | undefined)?.map((opt: string, i: number) => ({
+        index: String.fromCharCode(65 + i),
+        html: opt,
+        text: opt,
+      })),
+      answer: q.answer ? { units: [{ text: q.answer }] } : undefined,
+      explanation: q.analysis
+        ? { segments: [{ name: '详解', html: q.analysis }] }
+        : undefined,
+      knowledgePoints: (q.keyPoint as string[] | undefined)?.map((kp: string) => ({ id: kp, name: kp })) || [],
+      difficulty: q.difficulty || 1,
+      grade: q.grade,
+      source: 'edukg' as const,
+    }));
+
     return {
       knowledgeUri: '',  // 由调用方填充
       knowledgeName,
-      questions: questions.map(q => ({
-        id: q.id,
-        question: q.question,
-        type: q.type,
-        options: q.options,
-        answer: q.answer,
-        analysis: q.analysis,
-        subject: q.subject || subject || '',
-        grade: q.grade || '',
-        difficulty: q.difficulty,
-        source: q.source,
-      })),
+      questions: practiceQuestions,
+      unifiedQuestions,
       count: questions.length,
     };
 
@@ -95,6 +122,7 @@ export async function recommendPracticeQuestions(
       knowledgeUri: '',
       knowledgeName,
       questions: [],
+      unifiedQuestions: [],
       count: 0,
     };
   }
