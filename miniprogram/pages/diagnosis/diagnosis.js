@@ -1044,6 +1044,9 @@ Page({
       }
     })
 
+    // 处理原始图片和图片坐标
+    let originalImageUrl = ''
+    let imageCoordinates = data.imageCoordinates || []
 
     if (data.originalImage) {
       // 移除data:image前缀，保留base64数据
