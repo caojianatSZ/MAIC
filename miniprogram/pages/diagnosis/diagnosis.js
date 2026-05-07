@@ -1388,11 +1388,12 @@ Page({
   confirmPhotoResult() {
     const questions = this.data.photoQuestions
 
-    // 转换为诊断格式
+    // 检查是否有判题结果
+    const hasJudgment = questions.some(q => q.isCorrect !== undefined && q.isCorrect !== null)
+
     const knowledgePointsMap = new Map()
 
     questions.forEach(q => {
-      // 确保knowledgePoints存在且为数组
       const knowledgePoints = q.knowledgePoints || []
       if (knowledgePoints.length === 0) {
         console.warn('题目没有知识点信息:', q.id, q.content?.substring(0, 50))
@@ -1402,16 +1403,15 @@ Page({
           knowledgePointsMap.set(kp.id, {
             knowledgePointId: kp.id,
             knowledgePointName: kp.name,
-            masteryLevel: q.isCorrect ? 'mastered' : 'weak',
+            masteryLevel: hasJudgment
+              ? (q.isCorrect ? 'mastered' : 'weak')
+              : 'partial',
             description: '',
             prerequisites: []
           })
-        } else {
-          // 如果有答案且正确，更新掌握度
-          if (q.isCorrect) {
-            const existing = knowledgePointsMap.get(kp.id)
-            existing.masteryLevel = 'mastered'
-          }
+        } else if (hasJudgment && q.isCorrect) {
+          const existing = knowledgePointsMap.get(kp.id)
+          existing.masteryLevel = 'mastered'
         }
       })
     })
@@ -1419,8 +1419,12 @@ Page({
     const knowledgePoints = Array.from(knowledgePointsMap.values())
 
     // 计算总分
-    const correctCount = questions.filter(q => q.isCorrect === true).length
-    const totalScore = Math.round((correctCount / questions.length) * 100)
+    const correctCount = hasJudgment
+      ? questions.filter(q => q.isCorrect === true).length
+      : 0
+    const totalScore = hasJudgment
+      ? Math.round((correctCount / questions.length) * 100)
+      : 0
 
     const diagnosisResult = {
       subject: 'math',
