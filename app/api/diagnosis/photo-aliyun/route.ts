@@ -746,9 +746,6 @@ export async function POST(request: NextRequest) {
         });
         return {
           ...q,
-          isCorrect: false,
-          confidence: 0,
-          needsReview: true,
           standardAnswer: '',
           examPoints: '',
           methodGuide: '',
