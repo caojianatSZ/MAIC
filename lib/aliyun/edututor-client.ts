@@ -391,6 +391,8 @@ export function convertAliyunQuestionsToOurFormat(
   }>;
   images?: Array<{ bbox: number[]; label?: string; url?: string }>;
   bbox_2d?: number[];
+  /** 学生手写答案（从阿里云 OCR 的 info.answer 提取） */
+  studentAnswer?: string;
   aliyunData?: Question;
 }> {
   // 函数入口调试日志
@@ -561,6 +563,16 @@ export function convertAliyunQuestionsToOurFormat(
       });
     }
 
+    // 提取学生手写答案（从阿里云 OCR 的 info.answer）
+    let studentAnswer: string | undefined;
+    if (info.answer && info.answer.length > 0) {
+      const rawAnswer = info.answer[0]?.text?.trim();
+      // 过滤掉空答案和占位符
+      if (rawAnswer && rawAnswer !== '()' && rawAnswer !== '（　）') {
+        studentAnswer = rawAnswer;
+      }
+    }
+
     // 提取题目bbox（使用第一个pos_list）
     const bbox_2d = (pos_list && Array.isArray(pos_list) && pos_list[0])
       ? posListToBbox2d(pos_list[0])
@@ -572,6 +584,7 @@ export function convertAliyunQuestionsToOurFormat(
       type,
       options,
       images,
+      studentAnswer,
       bbox_2d,
       aliyunData: question
     };

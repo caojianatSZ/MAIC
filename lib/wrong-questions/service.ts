@@ -40,6 +40,14 @@ export interface WrongQuestionInput {
   isCorrect: boolean;
   needsReview?: boolean;
   confidence?: number;
+  /** 来自 AnswerSSE 的标准答案 */
+  standardAnswer?: string;
+  /** 考点分析 */
+  examPoints?: string;
+  /** 方法点拨 */
+  methodGuide?: string;
+  /** 详细解析 */
+  detailedAnalysis?: string;
 }
 
 /**
@@ -93,6 +101,10 @@ export async function saveWrongQuestion(input: WrongQuestionInput): Promise<void
           knowledgePoints: input.knowledgePoints as any,
           needsReview: input.needsReview || existing.needsReview,
           confidence: input.confidence,
+          standardAnswer: input.standardAnswer,
+          examPoints: input.examPoints,
+          methodGuide: input.methodGuide,
+          detailedAnalysis: input.detailedAnalysis,
           updatedAt: new Date()
         }
       });
@@ -116,7 +128,11 @@ export async function saveWrongQuestion(input: WrongQuestionInput): Promise<void
           wrongCount: 1,
           mastered: false,
           needsReview: input.needsReview || false,
-          confidence: input.confidence
+          confidence: input.confidence,
+          standardAnswer: input.standardAnswer,
+          examPoints: input.examPoints,
+          methodGuide: input.methodGuide,
+          detailedAnalysis: input.detailedAnalysis
         }
       });
       log.info('创建错题记录', {

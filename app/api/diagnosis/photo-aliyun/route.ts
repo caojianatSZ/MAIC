@@ -21,6 +21,7 @@ import {
   convertAliyunQuestionsToOurFormat
 } from '@/lib/aliyun/edututor-client';
 import { enrichQuestionWithOptions } from '@/lib/aliyun/extract-option-images';
+import { getSolution } from '@/lib/aliyun/answersse-client';
 import { readFile, writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -666,6 +667,114 @@ export async function POST(request: NextRequest) {
       questionsWithKnowledgePoints: questionsWithKnowledgePoints.filter(q => q.knowledgePoints && q.knowledgePoints.length > 0).length
     });
 
+    // ==================== Step 7.5: AnswerSSE 判题 ====================
+    log.info('Step 7.5: AnswerSSE 判题', {
+      requestId,
+      questionCount: questionsWithKnowledgePoints.length
+    });
+
+    // 学科中文→英文映射（AnswerSSE 接口需要）
+    const SUBJECT_TO_EN: Record<string, string> = {
+      '数学': 'math', '语文': 'chinese', '英语': 'english',
+      '物理': 'physics', '化学': 'chemistry', '生物': 'biology',
+      '历史': 'history', '地理': 'geo', '政治': 'politics',
+    };
+    const subjectEn = SUBJECT_TO_EN[subject as string] || subject as string;
+
+    function extractChoiceLetter(text: string): string | null {
+      const m = text?.match(/[A-D]/i);
+      return m ? m[0].toUpperCase() : null;
+    }
+
+    async function judgeWithAnswerSSE(q: any) {
+      const optionTexts = (q.options || []).map((opt: any) =>
+        typeof opt === 'string' ? opt : opt.text || ''
+      );
+      const questionText = [q.content || '', ...optionTexts].filter(Boolean).join('\n');
+
+      try {
+        const solution = await getSolution(questionText, {
+          subject: subjectEn,
+          grade: grade as string,
+        });
+
+        const stdAnswer = (solution.standardAnswer || '').trim();
+        const stuAnswer = (q.studentAnswer || '').trim();
+        let isCorrect = false;
+        let confidence = 0;
+        let needsReview = true;
+
+        if (stuAnswer && stdAnswer) {
+          // choice: 提取选项字母对比
+          if (q.type === 'choice') {
+            const s = extractChoiceLetter(stuAnswer);
+            const t = extractChoiceLetter(stdAnswer);
+            if (s && t) {
+              isCorrect = s === t;
+              confidence = 0.9;
+              needsReview = false;
+            }
+          } else if (q.type === 'fill_blank') {
+            // fill_blank: 去空白后对比
+            const cleanStu = stuAnswer.replace(/\s+/g, '');
+            const cleanStd = stdAnswer.replace(/\s+/g, '');
+            if (cleanStu) {
+              isCorrect = cleanStu.toLowerCase() === cleanStd.toLowerCase();
+              confidence = 0.7;
+              needsReview = false;
+            }
+          } else {
+            // essay: 无法自动判题
+            needsReview = true;
+            confidence = 0;
+          }
+        }
+
+        return {
+          ...q,
+          isCorrect,
+          confidence,
+          needsReview,
+          standardAnswer: stdAnswer,
+          examPoints: solution.examPoints,
+          methodGuide: solution.methodGuide,
+          detailedAnalysis: solution.detailedAnalysis,
+        };
+      } catch (error) {
+        log.warn(`题目${q.id} AnswerSSE 判题失败`, {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        return {
+          ...q,
+          isCorrect: false,
+          confidence: 0,
+          needsReview: true,
+          standardAnswer: '',
+          examPoints: '',
+          methodGuide: '',
+          detailedAnalysis: '',
+        };
+      }
+    }
+
+    // 并发调用（每次 3 题）
+    const judgedQuestions: any[] = [];
+    for (let i = 0; i < questionsWithKnowledgePoints.length; i += 3) {
+      const batch = questionsWithKnowledgePoints.slice(i, i + 3);
+      const results = await Promise.all(batch.map(judgeWithAnswerSSE));
+      judgedQuestions.push(...results);
+      log.info('AnswerSSE 批次完成', {
+        requestId, batch: Math.floor(i / 3) + 1,
+        total: questionsWithKnowledgePoints.length
+      });
+    }
+
+    log.info('AnswerSSE 判题完成', {
+      requestId,
+      correctCount: judgedQuestions.filter((q: any) => q.isCorrect).length,
+      needsReviewCount: judgedQuestions.filter((q: any) => q.needsReview).length,
+    });
+
     // ==================== Step 8: 返回结果 ====================
     // 调试：检查返回给小程序的选项数据
     const q6 = enrichedQuestions.find(q => q.id === '6');
@@ -687,10 +796,10 @@ export async function POST(request: NextRequest) {
       status: 'success',
       mode: 'aliyun-edututor',
       markdown: (questions || []).map(q => q.content || '').join('\n\n'),
-      questions: questionsWithKnowledgePoints,
+      questions: judgedQuestions,
       originalImage: image,
       summary: {
-        total_questions: questionsWithKnowledgePoints.length,
+        total_questions: judgedQuestions.length,
         markdown_length: (questions || []).map(q => q.content || '').join('\n\n').length,
         questions_with_images: (questions || []).filter(q => q.images && q.images.length > 0).length,
         questions_with_options: (questions || []).filter(q => q.options && q.options.length > 0).length,
