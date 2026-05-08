@@ -160,65 +160,78 @@ export async function getSolution(
   });
 
   try {
+    const crypto = await import('crypto');
     const baseUrl = 'https://edututor.cn-hangzhou.aliyuncs.com';
     const urlPath = '/service/answerSSE';
     const queryParams = `workspaceId=${workspaceId}`;
     const url = `${baseUrl}${urlPath}?${queryParams}`;
-    const date = new Date().toUTCString();
-
-    let headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Date': date
-    };
-
-    // 使用签名认证或 API Key
-    if (accessKeyId && accessKeySecret) {
-      const crypto = await import('crypto');
-      const method = 'POST';
-      const accept = '*/*';
-      const contentType = 'application/json';
-      const stringToSign = `${method}\n${accept}\n\n${contentType}\n${date}\n${urlPath}?${queryParams}`;
-      const signature = crypto.createHmac('sha1', accessKeySecret)
-        .update(stringToSign)
-        .digest('base64');
-
-      headers['Authorization'] = `acs ${accessKeyId}:${signature}`;
-      headers['Accept'] = accept;
-
-      log.info('使用 RAM Access Key 签名认证');
-    } else if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-      headers['X-DashScope-DataInspection'] = 'enable';
-      log.info('使用 API Key Bearer token 认证');
-    }
 
     // 构建请求内容
     const content: Array<{ text?: string; image?: string }> = [
       { text: questionText }
     ];
-
-    // 如果有图片，添加图片内容
     if (imageUrl) {
       content.unshift({ image: imageUrl });
     }
 
     const requestBody: AnswerSSERequest = {
-      messages: [
-        {
-          role: 'user',
-          content
-        }
-      ],
-      parameters: {
-        grade: gradeNum,
-        subject: subjectParam
-      }
+      messages: [{ role: 'user', content }],
+      parameters: { grade: gradeNum, subject: subjectParam }
     };
+    const bodyStr = JSON.stringify(requestBody);
+
+    // 认证和请求头
+    let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      log.info('使用 API Key Bearer token 认证');
+    } else if (accessKeyId && accessKeySecret) {
+      // 阿里云 API Gateway V3 签名 (ACS3-HMAC-SHA256)
+      const nonce = crypto.randomUUID();
+      const bodyHash = crypto.createHash('sha256').update(bodyStr).digest('hex');
+
+      const signatureHeaders: Record<string, string> = {
+        'x-acs-action': 'answerSSE',
+        'x-acs-version': '2025-07-07',
+        'x-acs-signature-nonce': nonce,
+        'x-acs-content-sha256': bodyHash,
+        'host': 'edututor.cn-hangzhou.aliyuncs.com',
+      };
+
+      // 规范头部（排序、小写）
+      const allHeaders = { ...headers, ...signatureHeaders };
+      const sortedKeys = Object.keys(allHeaders).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      const canonicalHeaders = sortedKeys.map(k => `${k.toLowerCase()}:${allHeaders[k].trim()}`).join('\n') + '\n';
+      const signedHeaders = sortedKeys.map(k => k.toLowerCase()).join(';');
+
+      // 构建规范请求
+      const canonicalRequest = [
+        'POST',
+        urlPath,
+        queryParams,
+        canonicalHeaders,
+        signedHeaders,
+        bodyHash,
+      ].join('\n');
+
+      // 计算签名
+      const hashOfCanonical = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
+      const stringToSign = `ACS3-HMAC-SHA256\n${hashOfCanonical}`;
+      const signature = crypto.createHmac('sha256', accessKeySecret).update(stringToSign).digest('hex');
+
+      // 设置认证头
+      Object.assign(headers, signatureHeaders, {
+        'Authorization': `ACS3-HMAC-SHA256 Credential=${accessKeyId}/SignedHeaders=${signedHeaders},Signature=${signature}`
+      });
+
+      log.info('使用 RAM Access Key V3 签名认证');
+    }
 
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(requestBody)
+      body: bodyStr
     });
 
     if (!response.ok) {
