@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { apiSuccess } from '@/lib/server/api-response'
-
-const prisma = new PrismaClient()
 
 // POST /api/student/progress - 记录学习进度
 export async function POST(request: NextRequest) {
@@ -10,20 +8,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       userId,
-      recordType,
+      type,
       subject,
       knowledgePointId,
-      studyDuration,
+      timeSpent,
       score,
-      totalQuestions,
-      correctQuestions,
-      courseId
+      metadata
     } = body
 
-    if (!userId || !recordType) {
+    if (!userId || !type) {
       return NextResponse.json({
         success: false,
-        error: '缺少必要参数: userId, recordType'
+        error: '缺少必要参数: userId, type'
       }, { status: 400 })
     }
 
@@ -31,14 +27,12 @@ export async function POST(request: NextRequest) {
     const studyRecord = await prisma.studyRecord.create({
       data: {
         userId,
-        recordType,
+        type,
         subject,
         knowledgePointId,
-        studyDuration: studyDuration || 0,
+        timeSpent: timeSpent || 0,
         score,
-        totalQuestions,
-        correctQuestions,
-        courseId
+        metadata
       }
     })
 
@@ -51,15 +45,13 @@ export async function POST(request: NextRequest) {
       const studyStats = (profile.studyStats as any) || {
         totalStudyTime: 0,
         questionsCompleted: 0,
-        lessonsLearned: 0,
-        currentStreak: 0,
-        longestStreak: 0
+        lessonsLearned: 0
       }
 
-      studyStats.totalStudyTime += studyDuration || 0
-      if (recordType === 'quiz') {
-        studyStats.questionsCompleted += totalQuestions || 0
-      } else if (recordType === 'lesson') {
+      studyStats.totalStudyTime += timeSpent || 0
+      if (type === 'quiz') {
+        studyStats.questionsCompleted += 1
+      } else if (type === 'lesson') {
         studyStats.lessonsLearned += 1
       }
 
@@ -72,44 +64,48 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 如果关联知识点，更新掌握度
-    if (knowledgePointId) {
-      const existing = await prisma.knowledgePointMastery.findUnique({
+    // 如果关联知识点（eduKG 知识点 URI），更新掌握度
+    if (knowledgePointId && type === 'quiz') {
+      const existing = await prisma.knowledgeMastery.findUnique({
         where: {
-          userId_knowledgePointId: {
-            userId,
-            knowledgePointId
-          }
+          knowledgeUri: knowledgePointId
         }
       })
 
-      const newMasteryLevel = calculateMasteryLevel({
-        score,
-        correctQuestions,
-        totalQuestions,
-        existingLevel: existing?.masteryLevel,
-        practiceCount: existing?.practiceCount || 0
-      })
+      const isCorrect = score !== undefined && score >= 60
 
       if (existing) {
-        await prisma.knowledgePointMastery.update({
-          where: { id: existing.id },
+        // 更新现有记录
+        await prisma.knowledgeMastery.update({
+          where: { knowledgeUri: knowledgePointId },
           data: {
-            masteryLevel: newMasteryLevel,
-            practiceCount: existing.practiceCount + 1,
-            lastPracticeScore: score,
-            lastReviewedAt: new Date()
+            totalAttempts: existing.totalAttempts + 1,
+            correctCount: existing.correctCount + (isCorrect ? 1 : 0),
+            wrongCount: existing.wrongCount + (isCorrect ? 0 : 1),
+            masteryScore: Math.min(100, Math.round(
+              ((existing.correctCount + (isCorrect ? 1 : 0)) / (existing.totalAttempts + 1)) * 100
+            )),
+            masteryLevel: calculateMasteryLevel(
+              ((existing.correctCount + (isCorrect ? 1 : 0)) / (existing.totalAttempts + 1)) * 100
+            ),
+            lastAttemptAt: new Date(),
+            masteredAt: isCorrect && existing.totalAttempts >= 2 ? new Date() : existing.masteredAt
           }
         })
       } else {
-        await prisma.knowledgePointMastery.create({
+        // 创建新记录
+        const masteryScore = isCorrect ? 100 : 0
+        await prisma.knowledgeMastery.create({
           data: {
             userId,
-            knowledgePointId,
-            masteryLevel: newMasteryLevel,
-            practiceCount: 1,
-            lastPracticeScore: score,
-            lastReviewedAt: new Date()
+            knowledgeUri: knowledgePointId,
+            knowledgeName: knowledgePointId.split('/').pop() || 'Unknown',
+            subject: subject || 'unknown',
+            totalAttempts: 1,
+            correctCount: isCorrect ? 1 : 0,
+            wrongCount: isCorrect ? 0 : 1,
+            masteryScore,
+            masteryLevel: calculateMasteryLevel(masteryScore)
           }
         })
       }
@@ -147,11 +143,6 @@ export async function GET(request: NextRequest) {
 
     const records = await prisma.studyRecord.findMany({
       where: { userId },
-      include: {
-        knowledgePoint: {
-          select: { id: true, name: true, subject: true }
-        }
-      },
       orderBy: { createdAt: 'desc' },
       take: limit
     })
@@ -159,13 +150,12 @@ export async function GET(request: NextRequest) {
     return apiSuccess({
       records: records.map(r => ({
         id: r.id,
-        type: r.recordType,
+        type: r.type,
         subject: r.subject,
-        knowledgePoint: r.knowledgePoint,
-        studyDuration: r.studyDuration,
+        knowledgePointId: r.knowledgePointId,
+        timeSpent: r.timeSpent,
         score: r.score,
-        totalQuestions: r.totalQuestions,
-        correctQuestions: r.correctQuestions,
+        metadata: r.metadata,
         createdAt: r.createdAt.toISOString()
       }))
     })
@@ -179,33 +169,12 @@ export async function GET(request: NextRequest) {
 }
 
 // 计算掌握度等级
-function calculateMasteryLevel({
-  score,
-  correctQuestions,
-  totalQuestions,
-  existingLevel,
-  practiceCount
-}: {
-  score?: number
-  correctQuestions?: number
-  totalQuestions?: number
-  existingLevel?: string | null
-  practiceCount?: number
-}): 'MASTERED' | 'PARTIAL' | 'WEAK' {
-  // 计算正确率
-  let accuracy = 0
-  if (score !== undefined) {
-    accuracy = score / 100
-  } else if (correctQuestions !== undefined && totalQuestions && totalQuestions > 0) {
-    accuracy = correctQuestions / totalQuestions
-  }
-
-  // 基于正确率和练习次数判断掌握度
-  if (accuracy >= 0.8 && (practiceCount || 0) >= 2) {
-    return 'MASTERED'
-  } else if (accuracy >= 0.5) {
-    return 'PARTIAL'
+function calculateMasteryLevel(score: number): 'mastered' | 'partial' | 'weak' {
+  if (score >= 80) {
+    return 'mastered'
+  } else if (score >= 50) {
+    return 'partial'
   } else {
-    return 'WEAK'
+    return 'weak'
   }
 }
