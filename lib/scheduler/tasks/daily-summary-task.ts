@@ -4,10 +4,8 @@
  * 每天晚上9点发送学习日报给学生
  */
 
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { wechatSubscriptionService } from '@/lib/wechat/subscription-service'
-
-const prisma = new PrismaClient()
 
 export async function dailyStudySummaryTask() {
   console.log('[每日汇总] 开始生成学习日报...')
@@ -32,7 +30,7 @@ export async function dailyStudySummaryTask() {
       },
       _count: true,
       _sum: {
-        studyDuration: true
+        timeSpent: true
       }
     })
 
@@ -46,10 +44,10 @@ export async function dailyStudySummaryTask() {
         // 获取详细信息
         const user = await prisma.user.findUnique({
           where: { id: record.userId },
-          select: { id: true, nickname: true, wechatOpenid: true }
+          select: { id: true, nickname: true, openid: true }
         })
 
-        if (!user || !user.wechatOpenid) {
+        if (!user || !user.openid) {
           failCount++
           continue
         }
@@ -58,7 +56,7 @@ export async function dailyStudySummaryTask() {
         const lessonCount = await prisma.studyRecord.count({
           where: {
             userId: record.userId,
-            recordType: 'lesson',
+            type: 'lesson',
             createdAt: {
               gte: yesterday,
               lt: today
@@ -70,7 +68,7 @@ export async function dailyStudySummaryTask() {
         const quizRecords = await prisma.studyRecord.findMany({
           where: {
             userId: record.userId,
-            recordType: 'quiz',
+            type: 'quiz',
             createdAt: {
               gte: yesterday,
               lt: today
@@ -88,7 +86,7 @@ export async function dailyStudySummaryTask() {
           else if (avgScore >= 60) performance = '继续努力'
         }
 
-        const studyTime = record._sum.studyDuration || 0
+        const studyTime = record._sum.timeSpent || 0
 
         // 发送订阅消息
         const result = await wechatSubscriptionService.sendDailyStudyReport(
