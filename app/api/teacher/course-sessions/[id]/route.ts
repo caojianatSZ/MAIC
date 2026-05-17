@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // GET /api/teacher/course-sessions/[id] - 获取课程详情
 export async function GET(
@@ -23,14 +21,25 @@ export async function GET(
 
     // 序列化返回
     const response = {
-      ...session,
+      id: session.id,
+      title: session.title,
+      description: session.description,
+      subject: session.subject,
+      grade: session.grade,
+      topic: session.topic,
+      classType: session.classType,
+      duration: session.duration,
+      difficulty: session.difficulty,
+      knowledgePointIds: session.knowledgePointIds,
+      generationMethod: session.generationMethod,
+      generationPrompt: session.generationPrompt,
+      scenes: session.scenes,
+      sceneCount: session.sceneCount,
+      planData: session.planData,
+      isCompleted: session.isCompleted,
+      metadata: session.metadata,
       createdAt: session.createdAt.toISOString(),
-      updatedAt: session.updatedAt.toISOString(),
-      completedAt: session.completedAt?.toISOString(),
-      metadata: session.metadata as any,
-      planData: session.planData as any,
-      scenes: session.scenes as any[],
-      generationResult: session.generationResult as any
+      updatedAt: session.updatedAt.toISOString()
     }
 
     return NextResponse.json(response)
@@ -51,13 +60,13 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await request.json()
-    const { title, description, difficulty, isPublished } = body
+    const { title, description, difficulty, isCompleted } = body
 
     const updateData: any = {}
     if (title) updateData.title = title
     if (description !== undefined) updateData.description = description
     if (difficulty) updateData.difficulty = difficulty
-    if (isPublished !== undefined) updateData.isPublished = isPublished
+    if (isCompleted !== undefined) updateData.isCompleted = isCompleted
 
     const session = await prisma.courseSession.update({
       where: { id: id },
@@ -95,7 +104,7 @@ export async function DELETE(
   }
 }
 
-// POST /api/teacher/course-sessions/[id]/publish - 发布课程
+// POST /api/teacher/course-sessions/[id]/complete - 标记课程完成
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -105,16 +114,15 @@ export async function POST(
     const session = await prisma.courseSession.update({
       where: { id: id },
       data: {
-        isPublished: true,
-        publishedAt: new Date()
+        isCompleted: true
       }
     })
 
     return NextResponse.json(session)
   } catch (error) {
-    console.error('发布课程失败:', error)
+    console.error('标记课程完成失败:', error)
     return NextResponse.json(
-      { error: '发布失败' },
+      { error: '操作失败' },
       { status: 500 }
     )
   }
