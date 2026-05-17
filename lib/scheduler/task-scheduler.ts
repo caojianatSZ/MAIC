@@ -11,7 +11,7 @@ export interface ScheduledTask {
   name: string
   schedule: string // cron expression
   enabled: boolean
-  handler: () => Promise<void>
+  handler: () => Promise<any>
   lastRun?: Date
   nextRun?: Date
   description?: string

@@ -4,10 +4,8 @@
  * 在课程开始前15分钟提醒学生
  */
 
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { wechatSubscriptionService } from '@/lib/wechat/subscription-service'
-
-const prisma = new PrismaClient()
 
 const REMINDER_MINUTES_BEFORE = 15 // 提前15分钟提醒
 
@@ -29,7 +27,7 @@ export async function bookingReminderTask() {
       },
       include: {
         student: {
-          select: { id: true, nickname: true, wechatOpenid: true }
+          select: { id: true, nickname: true, openid: true }
         },
         teacher: {
           select: { id: true, nickname: true }
@@ -103,7 +101,7 @@ export async function teacherBookingReminderTask() {
       },
       include: {
         teacher: {
-          select: { id: true, nickname: true, wechatOpenid: true }
+          select: { id: true, nickname: true, openid: true }
         },
         student: {
           select: { id: true, nickname: true }
