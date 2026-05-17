@@ -95,14 +95,17 @@ export interface XkwQuestion {
   }
 }
 
-// 推题响应
+// 推题响应数据
+export interface XkwPushQuestionsData {
+  total: number
+  questions: XkwQuestion[]
+}
+
+// 推题响应（完整 API 响应）
 export interface XkwPushQuestionsResponse {
   code: number
   message: string
-  data: {
-    total: number
-    questions: XkwQuestion[]
-  }
+  data: XkwPushQuestionsData
 }
 
 // 搜题请求

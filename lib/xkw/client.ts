@@ -3,7 +3,7 @@
 
 import type {
   XkwPushQuestionsRequest,
-  XkwPushQuestionsResponse,
+  XkwPushQuestionsData,
   XkwSearchQuestionsRequest,
   XkwGetPaperRequest,
   XkwQuestion,
@@ -105,7 +105,7 @@ export class XkwClient {
       count: request.count
     }
 
-    return this.request<XkwPushQuestionsResponse>('/api/v1/push/question', params).then(
+    return this.request<XkwPushQuestionsData>('/api/v1/push/question', params).then(
       (data) => data.questions
     )
   }
@@ -121,7 +121,7 @@ export class XkwClient {
       count: request.count || 10
     }
 
-    return this.request<XkwPushQuestionsResponse>('/api/v1/search/question', params).then(
+    return this.request<XkwPushQuestionsData>('/api/v1/search/question', params).then(
       (data) => data.questions
     )
   }
