@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // 检查是否已保存
     const existing = await prisma.question.findFirst({
       where: {
-        sourceType: 'xkw',
+        source: 'xkw',
         sourceId: xkwQuestionId
       }
     })
@@ -97,9 +97,9 @@ export async function POST(request: NextRequest) {
         answer: xkwQuestion.answer,
         explanation: xkwQuestion.analysis,
         difficulty: xkwQuestion.difficulty || 3,
-        sourceType: 'xkw',
+        source: 'xkw',
         sourceId: xkwQuestion.id,
-        xkwData: xkwQuestion as any
+        sourceData: xkwQuestion as any
       }
     })
 

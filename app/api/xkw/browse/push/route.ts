@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       questions.map(async (q) => {
         const local = await prisma.question.findFirst({
           where: {
-            sourceType: 'xkw',
+            source: 'xkw',
             sourceId: q.id
           }
         })
