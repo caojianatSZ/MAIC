@@ -146,40 +146,37 @@ async function generateCourseAsync(
     console.log(`[课程生成] 开始生成课程 ${sessionId}`)
 
     // 获取 AI 调用函数
-    const aiCall: AICallFn = async (options) => {
+    const aiCall: AICallFn = async (systemPrompt, userPrompt) => {
       // 这里应该使用实际的 LLM 提供商
       // 暂时返回模拟数据
-      return {
-        content: JSON.stringify({
-          outlines: [
-            {
-              title: `导入：${params.topic}`,
-              duration: 5,
-              description: '激发兴趣，引入主题',
-              agent: 'teacher'
-            },
-            {
-              title: '知识点讲解',
-              duration: Math.floor(params.duration * 0.5),
-              description: `讲解${params.topic}的核心知识点`,
-              agent: 'teacher'
-            },
-            {
-              title: '示例练习',
-              duration: Math.floor(params.duration * 0.3),
-              description: '通过示例巩固理解',
-              agent: 'teacher'
-            },
-            {
-              title: '总结回顾',
-              duration: Math.floor(params.duration * 0.2),
-              description: '总结本节课重点',
-              agent: 'teacher'
-            }
-          ]
-        }),
-        usage: { promptTokens: 100, completionTokens: 200 }
-      }
+      return JSON.stringify({
+        outlines: [
+          {
+            title: `导入：${params.topic}`,
+            duration: 5,
+            description: '激发兴趣，引入主题',
+            agent: 'teacher'
+          },
+          {
+            title: '知识点讲解',
+            duration: Math.floor(params.duration * 0.5),
+            description: `讲解${params.topic}的核心知识点`,
+            agent: 'teacher'
+          },
+          {
+            title: '示例练习',
+            duration: Math.floor(params.duration * 0.3),
+            description: '通过示例巩固理解',
+            agent: 'teacher'
+          },
+          {
+            title: '总结回顾',
+            duration: Math.floor(params.duration * 0.2),
+            description: '总结本节课重点',
+            agent: 'teacher'
+          }
+        ]
+      })
     }
 
     // 运行生成流程
