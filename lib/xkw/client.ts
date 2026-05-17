@@ -40,7 +40,7 @@ export class XkwClient {
     const signParams = {
       ...params,
       appId: this.appId,
-      timestamp,
+      timestamp: String(timestamp),
       nonce
     }
 
