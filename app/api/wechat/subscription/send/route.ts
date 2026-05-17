@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { wechatSubscriptionService } from '@/lib/wechat/subscription-service'
-
-const prisma = new PrismaClient()
 
 // POST /api/wechat/subscription/send - 发送订阅消息
 export async function POST(request: NextRequest) {
@@ -74,7 +72,7 @@ export async function GET_REQUEST(request: NextRequest) {
       select: {
         id: true,
         nickname: true,
-        wechatOpenid: true
+        openid: true
       }
     })
 
@@ -90,8 +88,8 @@ export async function GET_REQUEST(request: NextRequest) {
       data: {
         userId: user.id,
         nickname: user.nickname,
-        hasOpenid: !!user.wechatOpenid,
-        canReceive: !!user.wechatOpenid
+        hasOpenid: !!user.openid,
+        canReceive: !!user.openid
       }
     })
   } catch (error) {
