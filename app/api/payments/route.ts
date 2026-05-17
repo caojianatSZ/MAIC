@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         partnerCommission: commission,
         platformRevenue: revenue,
         status: 'PENDING',
-        settlementStatus: 'PENDING'
+        settlementStatus: 'UNSETTLED'
       },
       include: {
         booking: {
