@@ -8,9 +8,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const lead = await prisma.trialLead.findUnique({
-      where: { id: id },
+      where: { id },
       include: {
         city: { select: { id: true, name: true } },
         cityPartner: { select: { id: true, nickname: true } },
