@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // GET /api/student/analytics?userId=xxx - 获取学生学习分析
 export async function GET(request: NextRequest) {
@@ -54,9 +52,8 @@ export async function GET(request: NextRequest) {
     })
 
     // 获取知识点掌握情况
-    const masteryRecords = await prisma.knowledgePointMastery.findMany({
-      where: { userId },
-      include: { knowledgePoint: true }
+    const masteryRecords = await prisma.knowledgeMastery.findMany({
+      where: { userId }
     })
 
     // 按科目分组统计
@@ -79,10 +76,10 @@ export async function GET(request: NextRequest) {
           masteryLevel: 'unknown'
         }
       }
-      subjectStats[subj].totalStudyTime += record.studyDuration || 0
-      if (record.recordType === 'lesson') {
+      subjectStats[subj].totalStudyTime += record.timeSpent || 0
+      if (record.type === 'lesson') {
         subjectStats[subj].lessonCount++
-      } else if (record.recordType === 'quiz') {
+      } else if (record.type === 'quiz') {
         subjectStats[subj].quizCount++
         if (record.score) {
           subjectStats[subj].avgScore =
@@ -93,25 +90,25 @@ export async function GET(request: NextRequest) {
     })
 
     // 计算总体统计
-    const totalStudyTime = studyRecords.reduce((sum, r) => sum + (r.studyDuration || 0), 0)
-    const totalLessons = studyRecords.filter(r => r.recordType === 'lesson').length
-    const totalQuizzes = studyRecords.filter(r => r.recordType === 'quiz').length
+    const totalStudyTime = studyRecords.reduce((sum, r) => sum + (r.timeSpent || 0), 0)
+    const totalLessons = studyRecords.filter(r => r.type === 'lesson').length
+    const totalQuizzes = studyRecords.filter(r => r.type === 'quiz').length
 
     // 知识点掌握分析
     const masteryAnalysis = {
-      mastered: masteryRecords.filter(m => m.masteryLevel === 'MASTERED').length,
-      partial: masteryRecords.filter(m => m.masteryLevel === 'PARTIAL').length,
-      weak: masteryRecords.filter(m => m.masteryLevel === 'WEAK').length,
+      mastered: masteryRecords.filter(m => m.masteryLevel === 'mastered').length,
+      partial: masteryRecords.filter(m => m.masteryLevel === 'partial').length,
+      weak: masteryRecords.filter(m => m.masteryLevel === 'weak').length,
       bySubject: {} as Record<string, { mastered: number; partial: number; weak: number }>
     }
 
     masteryRecords.forEach(m => {
-      const subj = m.knowledgePoint?.subject || 'unknown'
+      const subj = m.subject || 'unknown'
       if (!masteryAnalysis.bySubject[subj]) {
         masteryAnalysis.bySubject[subj] = { mastered: 0, partial: 0, weak: 0 }
       }
-      if (m.masteryLevel === 'MASTERED') masteryAnalysis.bySubject[subj].mastered++
-      else if (m.masteryLevel === 'PARTIAL') masteryAnalysis.bySubject[subj].partial++
+      if (m.masteryLevel === 'mastered') masteryAnalysis.bySubject[subj].mastered++
+      else if (m.masteryLevel === 'partial') masteryAnalysis.bySubject[subj].partial++
       else masteryAnalysis.bySubject[subj].weak++
     })
 
@@ -122,8 +119,8 @@ export async function GET(request: NextRequest) {
       if (!dailyStats[dateKey]) {
         dailyStats[dateKey] = { studyTime: 0, lessons: 0 }
       }
-      dailyStats[dateKey].studyTime += record.studyDuration || 0
-      if (record.recordType === 'lesson') {
+      dailyStats[dateKey].studyTime += record.timeSpent || 0
+      if (record.type === 'lesson') {
         dailyStats[dateKey].lessons++
       }
     })
@@ -154,7 +151,6 @@ export async function GET(request: NextRequest) {
           id: d.id,
           subject: d.subject,
           score: d.totalScore,
-          questionCount: d.questionCount,
           createdAt: d.createdAt
         }))
       }
