@@ -1,5 +1,4 @@
 // 生成唯一标识符工具
-import { createId } from '@ai-sdk/provider'
 
 const ADJECTIVES = [
   'happy', 'brave', 'calm', 'eager', 'fair', 'gentle', 'honest', 'jolly',
