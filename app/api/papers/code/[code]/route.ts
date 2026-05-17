@@ -1,7 +1,7 @@
 // 通过试卷码获取试卷（供诊断使用）
 
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 type RouteContext = {
   params: Promise<{ code: string }>

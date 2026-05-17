@@ -3,7 +3,7 @@
 
 import { NextRequest } from 'next/server'
 import { getXkwClient } from '@/lib/xkw'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {

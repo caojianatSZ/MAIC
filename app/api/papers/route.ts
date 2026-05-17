@@ -1,7 +1,7 @@
 // 试卷 CRUD API
 
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { generatePaperCode } from '@/lib/utils/identifier'
 
 /**

@@ -2,7 +2,7 @@
 
 import { NextRequest } from 'next/server'
 import { getXkwClient } from '@/lib/xkw'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { generateIdentifier } from '@/lib/utils/identifier'
 
 // 学科科目映射

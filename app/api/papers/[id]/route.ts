@@ -1,7 +1,7 @@
 // 单个试卷操作 API
 
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -113,3 +113,4 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     )
   }
 }
+

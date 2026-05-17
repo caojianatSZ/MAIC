@@ -1,7 +1,7 @@
 // 获取学生诊断历史
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/diagnosis/history?studentId=xxx&paperCode=xxx
