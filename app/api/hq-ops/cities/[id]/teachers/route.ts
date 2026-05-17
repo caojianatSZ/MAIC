@@ -6,15 +6,16 @@ const prisma = new PrismaClient()
 // GET /api/hq-ops/cities/[id]/teachers - 获取城市老师列表
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { searchParams } = new URL(request.url)
     const available = searchParams.get('available')
     const date = searchParams.get('date')
 
     const where: any = {
-      cityId: params.id,
+      cityId: id,
       role: 'TEACHER',
       isActive: true
     }

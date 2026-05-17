@@ -6,11 +6,12 @@ const prisma = new PrismaClient()
 // GET /api/payments/[id] - 获取支付详情
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const payment = await prisma.paymentRecord.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         booking: {
           include: {
@@ -56,9 +57,10 @@ export async function GET(
 // PATCH /api/payments/[id] - 更新支付状态
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { status, paymentChannel, transactionId, notes } = body
 
@@ -75,7 +77,7 @@ export async function PATCH(
     if (notes) updateData.notes = notes
 
     const payment = await prisma.paymentRecord.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData,
       include: {
         student: { select: { id: true, nickname: true } },
@@ -100,11 +102,12 @@ export async function PATCH(
 // POST /api/payments/[id]/settle - 分账结算
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const payment = await prisma.paymentRecord.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         booking: {
           include: {
@@ -138,7 +141,7 @@ export async function POST(
 
     // 更新结算状态
     const updated = await prisma.paymentRecord.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         settlementStatus: 'SETTLED',
         settledAt: new Date()

@@ -6,11 +6,12 @@ const prisma = new PrismaClient()
 // GET /api/teacher/course-sessions/[id] - 获取课程详情
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await prisma.courseSession.findUnique({
-      where: { id: params.id }
+      where: { id: id }
     })
 
     if (!session) {
@@ -45,9 +46,10 @@ export async function GET(
 // PATCH /api/teacher/course-sessions/[id] - 更新课程
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { title, description, difficulty, isPublished } = body
 
@@ -58,7 +60,7 @@ export async function PATCH(
     if (isPublished !== undefined) updateData.isPublished = isPublished
 
     const session = await prisma.courseSession.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData
     })
 
@@ -75,11 +77,12 @@ export async function PATCH(
 // DELETE /api/teacher/course-sessions/[id] - 删除课程
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     await prisma.courseSession.delete({
-      where: { id: params.id }
+      where: { id: id }
     })
 
     return NextResponse.json({ success: true })
@@ -95,11 +98,12 @@ export async function DELETE(
 // POST /api/teacher/course-sessions/[id]/publish - 发布课程
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await prisma.courseSession.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         isPublished: true,
         publishedAt: new Date()

@@ -6,9 +6,10 @@ const prisma = new PrismaClient()
 // GET /api/teachers/[id]/availability - 获取老师空闲时段
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
@@ -26,7 +27,7 @@ export async function GET(
     // 获取该时段内的所有约课
     const bookings = await prisma.booking.findMany({
       where: {
-        teacherId: params.id,
+        teacherId: id,
         scheduledAt: { gte: start, lte: end },
         status: { in: ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] }
       },
@@ -107,7 +108,7 @@ export async function GET(
 
     // 获取老师信息
     const teacher = await prisma.user.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       select: {
         id: true,
         nickname: true,

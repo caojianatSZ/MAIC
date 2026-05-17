@@ -6,11 +6,12 @@ const prisma = new PrismaClient()
 // GET /api/bookings/[id] - 获取约课详情
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const booking = await prisma.booking.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         student: {
           select: { id: true, nickname: true, phoneNumber: true }
@@ -56,9 +57,10 @@ export async function GET(
 // PATCH /api/bookings/[id] - 更新约课状态
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const {
       status,
@@ -75,7 +77,7 @@ export async function PATCH(
     // 处理 notes
     if (notes) {
       const booking = await prisma.booking.findUnique({
-        where: { id: params.id },
+        where: { id },
         select: { notes: true }
       })
 
@@ -88,7 +90,7 @@ export async function PATCH(
     }
 
     const booking = await prisma.booking.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData,
       include: {
         student: { select: { id: true, nickname: true } },
@@ -99,7 +101,7 @@ export async function PATCH(
     // 如果课程完成且学生到场，自动创建支付记录
     if (status === 'COMPLETED' && attendanceStatus === 'ATTENDED') {
       const existingPayment = await prisma.paymentRecord.findFirst({
-        where: { bookingId: params.id }
+        where: { bookingId: id }
       })
 
       if (!existingPayment) {
@@ -109,7 +111,7 @@ export async function PATCH(
         await prisma.paymentRecord.create({
           data: {
             studentId: booking.studentId,
-            bookingId: params.id,
+            bookingId: id,
             cityId: booking.cityId,
             amount: basePrice,
             teacherSalary: Math.floor(basePrice * 0.6),

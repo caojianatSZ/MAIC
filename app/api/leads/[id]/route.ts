@@ -6,11 +6,11 @@ const prisma = new PrismaClient()
 // GET /api/leads/[id] - 获取线索详情
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const lead = await prisma.trialLead.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         city: { select: { id: true, name: true } },
         cityPartner: { select: { id: true, nickname: true } },
@@ -43,8 +43,9 @@ export async function GET(
 // PATCH /api/leads/[id] - 更新线索
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params
   try {
     const body = await request.json()
     const {
@@ -59,7 +60,7 @@ export async function PATCH(
     // 如果需要分配老师，验证老师属于同一城市
     if (assignedTeacherId) {
       const lead = await prisma.trialLead.findUnique({
-        where: { id: params.id },
+        where: { id: id },
         select: { cityId: true }
       })
 
@@ -98,7 +99,7 @@ export async function PATCH(
     // 处理跟进记录
     if (notes) {
       const lead = await prisma.trialLead.findUnique({
-        where: { id: params.id },
+        where: { id: id },
         select: { notes: true }
       })
 
@@ -114,7 +115,7 @@ export async function PATCH(
     }
 
     const updatedLead = await prisma.trialLead.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData
     })
 
@@ -131,8 +132,9 @@ export async function PATCH(
 // POST /api/leads/[id]/schedule - 安排试课
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params
   try {
     const body = await request.json()
     const { scheduledTime, teacherId, classType, subject, grade } = body
@@ -146,7 +148,7 @@ export async function POST(
 
     // 获取线索信息
     const lead = await prisma.trialLead.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: { city: true }
     })
 
@@ -178,7 +180,7 @@ export async function POST(
       data: {
         studentId: lead.cityPartnerId, // 临时使用合伙人ID，需要实际学生ID
         teacherId,
-        trialLeadId: params.id,
+        trialLeadId: id,
         cityId: lead.cityId,
         cityPartnerId: lead.cityPartnerId,
         classType: classType || 'ONE_V1',
@@ -191,7 +193,7 @@ export async function POST(
 
     // 更新线索状态
     await prisma.trialLead.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         status: 'SCHEDULED',
         scheduledTime: new Date(scheduledTime),
