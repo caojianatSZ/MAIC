@@ -162,10 +162,10 @@ class WechatSubscriptionService {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { wechatOpenid: true }
+        select: { openid: true }
       })
 
-      return user?.wechatOpenid || null
+      return user?.openid || null
     } catch (error) {
       console.error('[微信] 获取用户 openid 失败:', error)
       return null
