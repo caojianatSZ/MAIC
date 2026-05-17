@@ -6,7 +6,7 @@
 
 import { parseCron, CRON_PRESETS, type ParsedCron } from './cron-parser'
 
-export interface ScheduledTask {
+interface ScheduledTask {
   id: string
   name: string
   schedule: string // cron expression
