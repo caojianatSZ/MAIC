@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // GET /api/student/recommendations?userId=xxx&subject=math - 获取学习推荐
 export async function GET(request: NextRequest) {
@@ -19,38 +17,35 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取学生薄弱知识点
-    const weakPoints = await prisma.knowledgePointMastery.findMany({
+    const weakPoints = await prisma.knowledgeMastery.findMany({
       where: {
         userId,
-        masteryLevel: 'WEAK',
-        ...(subject && { knowledgePoint: { subject } })
+        masteryLevel: 'weak',
+        ...(subject && { subject })
       },
-      include: { knowledgePoint: true },
-      orderBy: { lastReviewedAt: 'asc' },
+      orderBy: { lastAttemptAt: 'asc' },
       take: limit * 2
     })
 
     // 获取需要巩固的知识点（部分掌握）
-    const partialPoints = await prisma.knowledgePointMastery.findMany({
+    const partialPoints = await prisma.knowledgeMastery.findMany({
       where: {
         userId,
-        masteryLevel: 'PARTIAL',
-        ...(subject && { knowledgePoint: { subject } })
+        masteryLevel: 'partial',
+        ...(subject && { subject })
       },
-      include: { knowledgePoint: true },
-      orderBy: { practiceCount: 'asc' },
+      orderBy: { totalAttempts: 'asc' },
       take: limit
     })
 
     // 获取已掌握但可能需要复习的知识点
-    const masteredPoints = await prisma.knowledgePointMastery.findMany({
+    const masteredPoints = await prisma.knowledgeMastery.findMany({
       where: {
         userId,
-        masteryLevel: 'MASTERED',
-        ...(subject && { knowledgePoint: { subject } })
+        masteryLevel: 'mastered',
+        ...(subject && { subject })
       },
-      include: { knowledgePoint: true },
-      orderBy: { lastReviewedAt: 'asc' },
+      orderBy: { lastAttemptAt: 'asc' },
       take: Math.ceil(limit / 2)
     })
 
@@ -58,53 +53,56 @@ export async function GET(request: NextRequest) {
     const recommendations = [
       // 优先推荐薄弱知识点
       ...weakPoints.slice(0, limit).map(m => ({
-        type: 'weak',
-        priority: 'high',
+        type: 'weak' as const,
+        priority: 'high' as const,
         knowledgePoint: {
-          id: m.knowledgePoint.id,
-          name: m.knowledgePoint.name,
-          subject: m.knowledgePoint.subject,
-          grade: m.knowledgePoint.grade
+          uri: m.knowledgeUri,
+          name: m.knowledgeName,
+          subject: m.subject,
+          grade: m.grade
         },
         reason: '需要重点学习',
         masteryInfo: {
-          level: 'weak',
-          practiceCount: m.practiceCount,
-          lastReviewed: m.lastReviewedAt
+          level: 'weak' as const,
+          attempts: m.totalAttempts,
+          score: m.masteryScore,
+          lastAttempt: m.lastAttemptAt
         }
       })),
       // 其次推荐需要巩固的
       ...partialPoints.slice(0, Math.ceil(limit / 2)).map(m => ({
-        type: 'practice',
-        priority: 'medium',
+        type: 'practice' as const,
+        priority: 'medium' as const,
         knowledgePoint: {
-          id: m.knowledgePoint.id,
-          name: m.knowledgePoint.name,
-          subject: m.knowledgePoint.subject,
-          grade: m.knowledgePoint.grade
+          uri: m.knowledgeUri,
+          name: m.knowledgeName,
+          subject: m.subject,
+          grade: m.grade
         },
         reason: '需要巩固练习',
         masteryInfo: {
-          level: 'partial',
-          practiceCount: m.practiceCount,
-          lastReviewed: m.lastReviewedAt
+          level: 'partial' as const,
+          attempts: m.totalAttempts,
+          score: m.masteryScore,
+          lastAttempt: m.lastAttemptAt
         }
       })),
       // 最后推荐复习已掌握的
       ...masteredPoints.slice(0, Math.ceil(limit / 3)).map(m => ({
-        type: 'review',
-        priority: 'low',
+        type: 'review' as const,
+        priority: 'low' as const,
         knowledgePoint: {
-          id: m.knowledgePoint.id,
-          name: m.knowledgePoint.name,
-          subject: m.knowledgePoint.subject,
-          grade: m.knowledgePoint.grade
+          uri: m.knowledgeUri,
+          name: m.knowledgeName,
+          subject: m.subject,
+          grade: m.grade
         },
         reason: '定时复习防止遗忘',
         masteryInfo: {
-          level: 'mastered',
-          practiceCount: m.practiceCount,
-          lastReviewed: m.lastReviewedAt
+          level: 'mastered' as const,
+          attempts: m.totalAttempts,
+          score: m.masteryScore,
+          lastAttempt: m.lastAttemptAt
         }
       }))
     ].slice(0, limit)
