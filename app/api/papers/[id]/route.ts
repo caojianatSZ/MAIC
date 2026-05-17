@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         creator: {
           select: {
             id: true,
-            name: true
+            nickname: true
           }
         }
       }
