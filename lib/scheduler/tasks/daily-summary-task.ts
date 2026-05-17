@@ -154,10 +154,13 @@ export async function dailyLeadSummaryTask() {
 
     for (const partner of partners) {
       try {
+        // 跳过没有城市的合伙人
+        if (!partner.city) continue
+
         // 统计该城市的新线索
         const newLeads = await prisma.trialLead.count({
           where: {
-            cityId: partner.cityId,
+            cityId: partner.city.id,
             createdAt: {
               gte: yesterday,
               lt: today
@@ -168,7 +171,7 @@ export async function dailyLeadSummaryTask() {
         // 统计转化的线索
         const convertedLeads = await prisma.trialLead.count({
           where: {
-            cityId: partner.cityId,
+            cityId: partner.city.id,
             status: 'CONVERTED',
             convertedAt: {
               gte: yesterday,
@@ -180,7 +183,7 @@ export async function dailyLeadSummaryTask() {
         // 统计今天的试课
         const todayBookings = await prisma.booking.count({
           where: {
-            cityId: partner.cityId,
+            cityId: partner.city.id,
             scheduledAt: {
               gte: yesterday,
               lt: today
