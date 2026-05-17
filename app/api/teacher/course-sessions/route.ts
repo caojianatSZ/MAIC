@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-import { runGenerationPipeline, CreateAICallFn } from '@/lib/generation/generation-pipeline'
+import { prisma } from '@/lib/prisma'
+import { runGenerationPipeline, type AICallFn } from '@/lib/generation/generation-pipeline'
 
 const prisma = new PrismaClient()
 
@@ -148,7 +148,7 @@ async function generateCourseAsync(
     console.log(`[课程生成] 开始生成课程 ${sessionId}`)
 
     // 获取 AI 调用函数
-    const createAICall: CreateAICallFn = async (options) => {
+    const aiCall: AICallFn = async (options) => {
       // 这里应该使用实际的 LLM 提供商
       // 暂时返回模拟数据
       return {
@@ -192,7 +192,7 @@ async function generateCourseAsync(
       duration: params.duration,
       difficulty: params.difficulty,
       classType: params.classType,
-      createAICall,
+      aiCall,
       callbacks: {
         onOutlineGenerated: async (outlines) => {
           console.log(`[课程生成] 大纲生成完成: ${outlines.length} 个场景`)
@@ -210,8 +210,7 @@ async function generateCourseAsync(
         scenes: result.scenes || [],
         sceneCount: result.scenes?.length || 0,
         isCompleted: true,
-        completedAt: new Date(),
-        generationResult: {
+        metadata: {
           success: true,
           sceneCount: result.scenes?.length || 0,
           totalDuration: params.duration
@@ -227,7 +226,7 @@ async function generateCourseAsync(
     await prisma.courseSession.update({
       where: { id: sessionId },
       data: {
-        generationResult: {
+        metadata: {
           success: false,
           error: error instanceof Error ? error.message : '未知错误'
         }
