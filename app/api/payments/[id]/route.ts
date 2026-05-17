@@ -141,10 +141,9 @@ export async function POST(
 
     // 更新结算状态
     const updated = await prisma.paymentRecord.update({
-      where: { id: id },
+      where: { id },
       data: {
-        settlementStatus: 'SETTLED',
-        settledAt: new Date()
+        settlementStatus: 'SETTLED'
       },
       include: {
         booking: {
