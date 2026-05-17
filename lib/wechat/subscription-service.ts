@@ -4,9 +4,7 @@
  * 用于发送小程序订阅消息
  */
 
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export interface WechatSubscriptionMessage {
   touser: string // 用户 openid
@@ -115,7 +113,7 @@ class WechatSubscriptionService {
       this.accessToken = data.access_token
       this.tokenExpiresAt = new Date(Date.now() + (data.expires_in - 300) * 1000) // 提前5分钟过期
 
-      return this.accessToken
+      return this.accessToken!
     } catch (error) {
       console.error('[微信] 获取 access_token 失败:', error)
       throw error
