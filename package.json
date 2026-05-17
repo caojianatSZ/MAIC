@@ -14,10 +14,16 @@
     "lint": "eslint",
     "check": "prettier . --check",
     "format": "prettier . --write",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed:ops": "tsx prisma/seeds/operations.seed.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.23",
@@ -117,6 +123,7 @@
     "@types/react-dom": "^19",
     "@types/tinycolor2": "^1.4.6",
     "@types/uuid": "^11.0.0",
+    "@vitest/ui": "^4.1.5",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.1.2",
@@ -130,6 +137,7 @@
     "tslib": "^2.8.0",
     "tsx": "^4.21.0",
     "typescript": "^5",
+    "vitest": "^4.1.5",
     "vue-to-react": "^1.0.0"
   },
   "pnpm": {

@@ -18,7 +18,8 @@
     "pages/wrong-questions/wrong-questions",
     "pages/wrong-consolidated/wrong-consolidated",
     "pages/practice-recommend/practice-recommend",
-    "pages/review-detail/review-detail"
+    "pages/review-detail/review-detail",
+    "pages/paper-create/paper-create"
   ],
   "window": {
     "backgroundTextStyle": "light",

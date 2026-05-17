@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 
 /**
  * 提交诊断答案并分析
@@ -7,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * 请求体:
  * {
  *   "quizId": string,
+ *   "paperCode": string,  // 可选，试卷码
+ *   "studentId": string,  // 学生ID
  *   "questions": [
  *     {
  *       "id": string,
@@ -23,10 +26,12 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { quizId, questions } = body;
+    const { quizId, paperCode, studentId, questions } = body;
 
     console.log('[诊断分析] 收到数据:', {
       quizId,
+      paperCode,
+      studentId,
       questionsCount: questions?.length || 0
     });
 
@@ -38,6 +43,31 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // 如果提供了试卷码，验证并获取试卷
+    let paper = null;
+    if (paperCode) {
+      paper = await prisma.testPaper.findFirst({
+        where: {
+          code: paperCode.toUpperCase()
+        },
+        include: {
+          questions: {
+            include: {
+              question: true
+            },
+            orderBy: { order: 'asc' }
+          }
+        }
+      });
+
+      if (!paper) {
+        return NextResponse.json({
+          success: false,
+          error: '试卷不存在'
+        }, { status: 404 });
+      }
+    }
+
     // 分析答案
     let correctCount = 0;
     const knowledgePointScores: Record<string, {
@@ -45,12 +75,24 @@ export async function POST(request: NextRequest) {
       total: number;
       name: string;
     }> = {};
+    const questionDetails: any[] = [];
 
-    questions.forEach((q: any) => {
+    questions.forEach((q: any, index: number) => {
       const isCorrect = q.userAnswer === q.answer;
       if (isCorrect) {
         correctCount++;
       }
+
+      // 记录每题详情
+      questionDetails.push({
+        questionId: q.id,
+        questionNumber: index + 1,
+        isCorrect,
+        userAnswer: q.userAnswer,
+        correctAnswer: q.answer,
+        knowledgePointId: q.knowledgePointId,
+        knowledgePoint: q.knowledgePoint
+      });
 
       const kpId = q.knowledgePointId;
       if (!knowledgePointScores[kpId]) {
@@ -82,10 +124,10 @@ export async function POST(request: NextRequest) {
       return {
         knowledgePointId: kpId,
         knowledgePointName: scores.name,
-        level: 0,  // 暂时设为0，可以根据需要调整
+        level: 0,
         masteryLevel,
-        description: '',  // 可以从题库或EduKG获取
-        prerequisites: [],  // 可以从EduKG获取前置依赖
+        description: '',
+        prerequisites: [],
         accuracy: Math.round(accuracy * 100),
         correctCount: scores.correct,
         totalCount: scores.total
@@ -93,6 +135,7 @@ export async function POST(request: NextRequest) {
     });
 
     const totalScore = Math.round((correctCount / questions.length) * 100);
+    const totalPoints = questions.length * 10; // 假设每题10分
 
     const analysis = {
       subject: 'math',
@@ -103,16 +146,48 @@ export async function POST(request: NextRequest) {
       recommendations: generateRecommendations(knowledgePointAnalysis)
     };
 
+    // 保存诊断结果（如果有学生ID）
+    if (studentId) {
+      try {
+        await prisma.diagnosisResult.create({
+          data: {
+            paperId: paper?.id,
+            studentId,
+            score: totalScore,
+            totalPoints,
+            details: {
+              questions: questionDetails,
+              knowledgePoints: knowledgePointAnalysis,
+              recommendations: analysis.recommendations
+            }
+          }
+        });
+
+        console.log('[诊断分析] 已保存诊断结果');
+      } catch (error) {
+        console.error('[诊断分析] 保存结果失败:', error);
+        // 不影响主流程，继续返回分析结果
+      }
+    }
+
     console.log('[诊断分析] 完成分析:', {
       totalScore,
       correctCount,
       totalCount: questions.length,
-      knowledgePointsCount: knowledgePointAnalysis.length
+      knowledgePointsCount: knowledgePointAnalysis.length,
+      paperCode: paper?.code
     });
 
     return NextResponse.json({
       success: true,
-      data: analysis
+      data: {
+        ...analysis,
+        paper: paper ? {
+          id: paper.id,
+          title: paper.title,
+          code: paper.code
+        } : null
+      }
     });
   } catch (error) {
     console.error('分析诊断答案失败:', error);

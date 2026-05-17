@@ -1,0 +1,185 @@
+<!-- 组卷页面 -->
+<view class="paper-create">
+  <!-- 试卷基本信息 -->
+  <view class="paper-info">
+    <view class="form-item">
+      <text class="label">试卷标题</text>
+      <input
+        class="input"
+        placeholder="请输入试卷标题"
+        value="{{paperTitle}}"
+        bindinput="onTitleInput"
+      />
+    </view>
+  </view>
+
+  <!-- 已选题目统计 -->
+  <view class="selected-bar" wx:if="{{selectedCount > 0}}">
+    <text class="count">已选 {{selectedCount}} 题</text>
+    <text class="view-btn" bindtap="toggleSelectedList">查看</text>
+  </view>
+
+  <!-- 来源选择 -->
+  <view class="source-tabs">
+    <view
+      class="tab {{source === 'xkw' ? 'active' : ''}}"
+      bindtap="switchSource"
+      data-source="xkw"
+    >
+      <text>学科网</text>
+    </view>
+    <view
+      class="tab {{source === 'local' ? 'active' : ''}}"
+      bindtap="switchSource"
+      data-source="local"
+    >
+      <text>我的题库</text>
+    </view>
+  </view>
+
+  <!-- 学科网浏览 -->
+  <view class="xkw-browse" wx:if="{{source === 'xkw'}}">
+    <!-- 筛选条件 -->
+    <view class="filters">
+      <view class="filter-row">
+        <text class="filter-label">学科</text>
+        <picker
+          class="picker"
+          range="{{subjects}}"
+          range-key="name"
+          value="{{subjectIndex}}"
+          bindchange="onSubjectChange"
+        >
+          <view class="picker-value">{{subjects[subjectIndex].name}}</view>
+        </picker>
+      </view>
+
+      <view class="filter-row">
+        <text class="filter-label">年级</text>
+        <picker
+          class="picker"
+          range="{{grades}}"
+          range-key="name"
+          value="{{gradeIndex}}"
+          bindchange="onGradeChange"
+        >
+          <view class="picker-value">{{grades[gradeIndex].name}}</view>
+        </picker>
+      </view>
+
+      <view class="filter-row">
+        <text class="filter-label">题型</text>
+        <picker
+          class="picker"
+          range="{{questionTypes}}"
+          range-key="name"
+          value="{{typeIndex}}"
+          bindchange="onTypeChange"
+        >
+          <view class="picker-value">{{typeIndex >= 0 ? questionTypes[typeIndex].name : '全部'}}</view>
+        </picker>
+      </view>
+
+      <button class="search-btn" bindtap="loadQuestions">浏览题目</button>
+    </view>
+
+    <!-- 题目列表 -->
+    <view class="question-list">
+      <view class="empty" wx:if="{{questions.length === 0 && !loading}}">
+        <text>请选择筛选条件后浏览题目</text>
+      </view>
+
+      <view
+        class="question-item"
+        wx:for="{{questions}}"
+        wx:key="id"
+      >
+        <view class="question-content">
+          <text class="index">{{index + 1}}.</text>
+          <text class="text">{{item.content}}</text>
+        </view>
+
+        <view class="question-meta">
+          <text class="difficulty">难度: {{item.difficulty || 3}}</text>
+          <text class="local-tag" wx:if="{{item.isLocal}}">已保存</text>
+        </view>
+
+        <button
+          class="select-btn {{item.selected ? 'selected' : ''}}"
+          bindtap="selectQuestion"
+          data-question="{{item}}"
+          disabled="{{item.selected}}"
+        >
+          {{item.selected ? '已添加' : '添加'}}
+        </button>
+      </view>
+
+      <view class="loading" wx:if="{{loading}}">
+        <text>加载中...</text>
+      </view>
+
+      <view class="no-more" wx:if="{{!hasMore && questions.length > 0}}">
+        <text>没有更多了</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 我的题库 -->
+  <view class="local-browse" wx:if="{{source === 'local'}}">
+    <view class="empty" wx:if="{{localQuestions.length === 0}}">
+      <text>暂无本地题目</text>
+      <text class="hint">从学科网选择题目后会自动保存</text>
+    </view>
+
+    <view
+      class="question-item"
+      wx:for="{{localQuestions}}"
+      wx:key="id"
+    >
+      <view class="question-content">
+        <text class="text">{{item.question}}</text>
+      </view>
+
+      <view class="question-meta">
+        <text class="type">{{item.subject}}</text>
+        <text class="use-count">使用 {{item.useCount || 0}} 次</text>
+      </view>
+
+      <button
+        class="select-btn {{item.selected ? 'selected' : ''}}"
+        bindtap="selectLocalQuestion"
+        data-question="{{item}}"
+        disabled="{{item.selected}}"
+      >
+        {{item.selected ? '已添加' : '添加'}}
+      </button>
+    </view>
+  </view>
+
+  <!-- 已选题目弹窗 -->
+  <view class="selected-modal" wx:if="{{showSelectedList}}">
+    <view class="modal-mask" bindtap="toggleSelectedList"></view>
+    <view class="modal-content">
+      <view class="modal-header">
+        <text class="title">已选题目 ({{selectedCount}})</text>
+        <text class="close" bindtap="toggleSelectedList">关闭</text>
+      </view>
+
+      <scroll-view class="modal-body" scroll-y>
+        <view
+          class="selected-item"
+          wx:for="{{selectedQuestions}}"
+          wx:key="id"
+        >
+          <text class="text">{{index + 1}}. {{item.content || item.question}}</text>
+          <text class="remove" bindtap="removeQuestion" data-index="{{index}}">移除</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="footer">
+    <button class="save-btn" bindtap="savePaper">保存试卷</button>
+  </view>
+</view>

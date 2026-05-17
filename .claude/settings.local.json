@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Read(//Users/caojian/Projects/OpenMAIC/**)",
       "mcp__plugin_claude-mem_mcp-search__smart_search",
       "mcp__plugin_claude-mem_mcp-search__smart_outline",
       "Bash(wc:*)",
@@ -91,7 +92,16 @@
       "Bash(/tmp/test-layout.sh)",
       "Bash(/tmp/test-v5-api.sh)",
       "Bash(/tmp/test-aliyun-api.sh)",
-      "Bash(rsync -avz /Users/caojian/Projects/OpenMAIC/lib/aliyun/edututor-client.ts hongzhi:/opt/openmaic/lib/aliyun/edututor-client.ts)"
+      "Bash(rsync -avz /Users/caojian/Projects/OpenMAIC/lib/aliyun/edututor-client.ts hongzhi:/opt/openmaic/lib/aliyun/edututor-client.ts)",
+      "Bash(gh api *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(node_modules/.bin/tsc *)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(claude doctor *)",
+      "Bash(claude update *)",
+      "Bash(http_proxy=http://127.0.0.1:7890 https_proxy=http://127.0.0.1:7890 curl -sI --connect-timeout 10 \"https://github.com\")",
+      "Bash(https_proxy=http://127.0.0.1:7890 curl -sI --connect-timeout 10 \"https://github.com/anthropics/claude-code/releases/latest\")",
+      "Bash(https_proxy=http://127.0.0.1:7890 curl -s \"https://api.github.com/repos/anthropics/claude-code/releases/tags/v2.1.142\")"
     ]
   }
 }

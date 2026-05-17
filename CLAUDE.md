@@ -416,6 +416,12 @@ curl -X POST http://localhost:3000/api/achievements/check \
 - 减少 setData 调用次数，批量更新状态
 - 使用可选链操作符简化空值检查
 
+## 设计系统
+始终在任何视觉或 UI 决策之前阅读 DESIGN.md。
+所有字体选择、颜色、间距和美学方向都在其中定义。
+未经用户明确批准不得偏离。
+在 QA 模式下，标记任何与 DESIGN.md 不匹配的代码。
+
 ## 文档资源
 
 - **成就系统总结**: `docs/ACHIEVEMENT_SYSTEM_SUMMARY.md`

@@ -11,6 +11,77 @@ datasource db {
 }
 
 // ============================================
+// 枚举定义
+// ============================================
+
+// 用户角色
+enum UserRole {
+  STUDENT        // 学生
+  TEACHER        // 老师（纯教学）
+  PARENT         // 家长
+  CITY_PARTNER   // 城市合伙人（获客+运营）
+  HQ_OPS         // 总部运营
+  ADMIN          // 系统管理员
+}
+
+// 城市状态
+enum CityStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// 试课线索状态
+enum TrialStatus {
+  NEW            // 新线索
+  CONTACTED      // 已联系
+  SCHEDULED      // 已安排试课
+  COMPLETED      // 试课完成
+  CONVERTED      // 已转化（付费）
+  LOST           // 流失
+}
+
+// 约课状态
+enum BookingStatus {
+  PENDING        // 待确认
+  CONFIRMED      // 已确认
+  IN_PROGRESS    // 进行中
+  COMPLETED      // 已完成
+  CANCELLED      // 已取消
+  NO_SHOW        // 未到场
+}
+
+// 班级类型
+enum ClassType {
+  ONE_V1         // 1对1
+  ONE_V2         // 1对2
+  ONE_V3         // 1对3
+  ONE_V4         // 1对4
+  ONE_VN         // 1对N
+}
+
+// 支付状态
+enum PaymentStatus {
+  PENDING        // 待支付
+  PAID           // 已支付
+  REFUNDED       // 已退款
+  FAILED         // 支付失败
+}
+
+// 出勤状态
+enum AttendanceStatus {
+  ATTENDED       // 出勤
+  ABSENT         // 缺勤
+  CANCELLED      // 取消
+}
+
+// 分账状态
+enum SettlementStatus {
+  UNSETTLED      // 未结算
+  SETTLED        // 已结算
+  DISPUTED       // 有争议
+}
+
+// ============================================
 // 用户模块
 // ============================================
 
@@ -22,6 +93,13 @@ model User {
   avatarUrl     String?        @map("avatar_url")  // 头像URL
   phoneNumber   String?        @map("phone_number")  // 手机号
   email         String?        // 邮箱
+
+  // 用户角色
+  role          UserRole       @default(STUDENT)
+
+  // 城市关联（运营角色）- 用户所属城市（作为老师/学生）
+  cityId        String?        @map("city_id")
+  city          City?          @relation("CityUsers", fields: [cityId], references: [id])
 
   // 登录信息
   lastLoginAt   DateTime?      @map("last_login_at")
@@ -47,6 +125,20 @@ model User {
   paperCorrectionRecords PaperCorrectionRecord[]
   wrongQuestions WrongQuestion[]
   knowledgeMasteries KnowledgeMastery[]
+
+  // 试卷组卷模块关联
+  createdQuestions Question[] @relation("QuestionCreator")
+  createdPapers TestPaper[] @relation("TestPaperCreator")
+  diagnosisResults DiagnosisResult[] @relation("DiagnosisResultStudent")
+
+  // 运营平台关联
+  partnerOfCity      City?            @relation("CityPartner")  // 作为城市合伙人管理的城市
+  leadsAsPartner     TrialLead[]      @relation("CityPartnerLeads")
+  bookingsAsPartner  Booking[]        @relation("BookingCityPartner")
+  assignedLeads      TrialLead[]      @relation("AssignedTeacher")
+  teacherBookings    Booking[]        @relation("BookingTeacher")
+  studentBookings    Booking[]        @relation("BookingStudent")
+  payments           PaymentRecord[]  @relation("PaymentStudent")
 
   @@map("users")
 }
@@ -232,15 +324,23 @@ model Question {
   explanation String?
 
   // 来源
-  source      String?                      // local|edukg|xkw|aliyun
+  source      String?                      // local|edukg|xkw|aliyun|custom
   sourceData  Json?    @map("source_data") // 原始数据（XKW HTML 等）
+  sourceId    String?   @map("source_id")  // 学科网题目ID（用于去重）
   optionLayout Json?   @map("option_layout") // { columns: number }
+
+  // 创建者
+  creatorId   String?  @map("creator_id")
+  creator     User?    @relation("QuestionCreator", fields: [creatorId], references: [id])
+  useCount    Int      @default(0) @map("use_count")
+  correctRate Float?   @map("correct_rate")
 
   // 关联
   knowledgePointIds String[]  @map("knowledge_point_ids")
   questionKnowledgePoints QuestionKnowledgePoint[]
   parent       Question? @relation("SubQuestions", fields: [parentId], references: [id])
   children     Question[] @relation("SubQuestions")
+  paperQuestions TestPaperQuestion[]
 
   // 元数据
   difficulty  Int      @default(1)  // 1-5
@@ -624,4 +724,335 @@ model WrongQuestion {
   @@index([userId, primaryKnowledgeUri])  // 按知识点查询
   @@index([userId, masteryLevel])  // 按掌握等级查询
   @@map("wrong_questions")
+}
+
+// ============================================
+// 试卷组卷模块
+// ============================================
+
+// 试卷
+model TestPaper {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  code        String   @unique  // 试卷唯一标识（6位试卷码）
+
+  // 来源类型
+  sourceType  String   @default("custom")  // custom | xkw_paper | mixed
+  sourceId    String?  @map("source_id")  // 学科网试卷ID
+
+  // 创建者
+  creatorId   String   @map("creator_id")
+  creator     User     @relation("TestPaperCreator", fields: [creatorId], references: [id])
+
+  // 关联
+  questions   TestPaperQuestion[]
+  diagnoses   DiagnosisResult[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([code])
+  @@index([creatorId])
+  @@index([sourceType, sourceId])
+  @@map("test_papers")
+}
+
+// 试卷-题目关联
+model TestPaperQuestion {
+  id         String   @id @default(cuid())
+
+  paperId    String   @map("paper_id")
+  paper      TestPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  questionId String   @map("question_id")
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  points     Int      @default(1)  // 分值
+  order      Int      // 题目顺序
+
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([paperId, questionId])
+  @@index([paperId])
+  @@index([questionId])
+  @@map("test_paper_questions")
+}
+
+// 诊断结果（关联试卷）
+model DiagnosisResult {
+  id          String   @id @default(cuid())
+
+  // 关联试卷
+  paperId     String?  @map("paper_id")
+  paper       TestPaper? @relation(fields: [paperId], references: [id])
+
+  // 学生
+  studentId   String   @map("student_id")
+  student     User     @relation("DiagnosisResultStudent", fields: [studentId], references: [id])
+
+  // 结果
+  score       Int      // 总分
+  totalPoints Int      @map("total_points")  // 满分
+  details     Json     // 每题详情
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([studentId, createdAt])
+  @@index([paperId])
+  @@map("diagnosis_results")
+}
+
+// 学科网 API 调用日志
+model XkwApiLog {
+  id          String   @id @default(cuid())
+
+  endpoint    String   // push_question | search | get_paper | topschool | thematic
+  request     Json     // 请求参数
+  response    Json?    // 响应数据
+  status      String   // success | error
+  errorMessage String?  @map("error_message")
+
+  // 成本追踪
+  cost        Int      @default(0)  // 调用成本（分）
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([endpoint, status])
+  @@index([createdAt])
+  @@map("xkw_api_logs")
+}
+
+// ============================================
+// 运营平台模块（v4 设计）
+// ============================================
+
+// 城市（用于多城市运营和数据隔离）
+model City {
+  id            String   @id @default(cuid())
+  name          String   @unique  // 城市名（如"西安"）
+  status        CityStatus @default(ACTIVE)
+
+  // 关联城市合伙人（一对一，一个城市一个合伙人）
+  partnerId     String?  @unique @map("partner_id")
+  partner       User?    @relation("CityPartner", fields: [partnerId], references: [id])
+
+  // 该城市的用户（老师、学生等）
+  users         User[]   @relation("CityUsers")
+
+  // 关联数据
+  trialLeads    TrialLead[]
+  bookings      Booking[]
+  payments      PaymentRecord[]
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("cities")
+}
+
+// 试课线索
+model TrialLead {
+  id            String   @id @default(cuid())
+
+  // 学生信息
+  studentName   String   @map("student_name")
+  parentName    String?  @map("parent_name")
+  phoneNumber   String   @map("phone_number")
+  grade         String?  // 年级
+
+  // 城市和归属
+  cityId        String   @map("city_id")
+  city          City     @relation(fields: [cityId], references: [id])
+
+  // 线索归属城市合伙人（原 teacherId 改为 cityPartnerId）
+  cityPartnerId String   @map("city_partner_id")
+  cityPartner   User     @relation("CityPartnerLeads", fields: [cityPartnerId], references: [id])
+
+  // 试课后分配的老师
+  assignedTeacherId String?  @map("assigned_teacher_id")
+  assignedTeacher   User?    @relation("AssignedTeacher", fields: [assignedTeacherId], references: [id])
+
+  // 状态
+  status        TrialStatus @default(NEW)
+
+  // 试课信息
+  scheduledTime DateTime?  @map("scheduled_time")  // 计划试课时间
+  trialBookings Booking[]  @relation("TrialBooking")
+
+  // 来源渠道
+  sourceChannel String?    @map("source_channel")  // 线上投放、地推、转介绍等
+  sourceNotes   String?    @map("source_notes")
+
+  // 跟进记录
+  notes         Json?     // 跟进记录 [{time, content, author}]
+
+  // 转化信息
+  convertedAt   DateTime? @map("converted_at")
+  lostReason    String?   @map("lost_reason")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([cityId, status])
+  @@index([cityPartnerId, status])
+  @@index([status])
+  @@map("trial_leads")
+}
+
+// 约课记录
+model Booking {
+  id            String   @id @default(cuid())
+
+  // 关联学生（用户）
+  studentId     String   @map("student_id")
+  student       User     @relation("BookingStudent", fields: [studentId], references: [id])
+
+  // 关联老师
+  teacherId     String   @map("teacher_id")
+  teacher       User     @relation("BookingTeacher", fields: [teacherId], references: [id])
+
+  // 关联试课线索（如果是试课）
+  trialLeadId   String?  @map("trial_lead_id")
+  trialLead     TrialLead? @relation("TrialBooking", fields: [trialLeadId], references: [id])
+
+  // 城市信息
+  cityId        String   @map("city_id")
+  city          City     @relation(fields: [cityId], references: [id])
+
+  // 城市合伙人（获客来源）
+  cityPartnerId String   @map("city_partner_id")
+  cityPartner   User     @relation("BookingCityPartner", fields: [cityPartnerId], references: [id])
+
+  // 课程信息
+  classType     ClassType @map("class_type")
+  subject       String   // math, english等
+  grade         String?  // 年级
+
+  // 时间安排
+  scheduledAt   DateTime @map("scheduled_at")
+  duration      Int      @default(60)  // 课时长度（分钟）
+
+  // 课程内容（AI生成）
+  courseId      String?  @map("course_id")  // 关联 CourseSession
+  course        CourseSession? @relation(fields: [courseId], references: [id])
+
+  // 状态
+  status        BookingStatus @default(PENDING)
+
+  // 出勤记录
+  attendanceStatus AttendanceStatus? @map("attendance_status")
+
+  // 课堂记录
+  classroomId   String?  @map("classroom_id")  // 关联 AI 生成的 Classroom
+  notes         Json?    // 课堂记录、反馈等
+
+  // 关联支付记录
+  payments      PaymentRecord[] @relation("BookingPayments")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([studentId, status])
+  @@index([teacherId, scheduledAt])
+  @@index([cityId, status])
+  @@index([cityPartnerId, status])
+  @@map("bookings")
+}
+
+// 支付记录（含分账信息）
+model PaymentRecord {
+  id            String   @id @default(cuid())
+
+  // 关联学生
+  studentId     String   @map("student_id")
+  student       User     @relation("PaymentStudent", fields: [studentId], references: [id])
+
+  // 关联约课
+  bookingId     String   @map("booking_id")
+  booking       Booking  @relation("BookingPayments", fields: [bookingId], references: [id])
+
+  // 城市信息
+  cityId        String   @map("city_id")
+  city          City     @relation(fields: [cityId], references: [id])
+
+  // 金额（分）
+  amount        Int      // 总金额（分）
+  paidAmount    Int?     @map("paid_amount")  // 实付金额
+
+  // 分账信息
+  teacherSalary     Int?  @map("teacher_salary")  // 老师课酬（分）
+  partnerCommission Int?  @map("partner_commission")  // 合伙人分成（分）
+  platformRevenue   Int?  @map("platform_revenue")  // 平台收入（分）
+
+  // 分账状态
+  settlementStatus SettlementStatus? @map("settlement_status")
+
+  // 支付状态
+  status        PaymentStatus @default(PENDING)
+
+  // 支付渠道信息
+  paymentChannel String?  @map("payment_channel")  // wechat, alipay等
+  transactionId String?  @map("transaction_id")   // 第三方交易ID
+
+  // 备注
+  notes         String?
+
+  paidAt        DateTime?  @map("paid_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  @@index([studentId, status])
+  @@index([bookingId])
+  @@index([cityId, status])
+  @@index([settlementStatus])
+  @@map("payment_records")
+}
+
+// AI 课程生成会话（v2 设计）
+model CourseSession {
+  id            String   @id @default(cuid())
+
+  // 基本信息
+  title         String
+  description   String?
+  subject       String   // math, english等
+  grade         String?  // 年级
+  topic         String   // 课程主题
+
+  // 生成参数
+  classType     ClassType @map("class_type")
+  duration      Int      @default(60)  // 目标时长（分钟）
+  difficulty    Int      @default(2)  // 1-5
+
+  // 关联知识点
+  knowledgePointIds String[] @map("knowledge_point_ids")
+
+  // 生成方式
+  generationMethod String   @map("generation_method")  // ai_generated, manually_created
+  generationPrompt String?  @map("generation_prompt")  // 用户输入的提示
+
+  // 课程内容（AI生成的场景）
+  scenes         Json     // 场景数组
+  sceneCount     Int      @map("scene_count")
+
+  // 课时规划
+  planData       Json?    @map("plan_data")  // 教案结构、重点难点等
+
+  // 生成状态
+  isCompleted    Boolean  @default(false) @map("is_completed")
+
+  // 元数据
+  metadata       Json?
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // 关联
+  bookings      Booking[]
+
+  @@index([subject, grade])
+  @@index([createdAt])
+  @@map("course_sessions")
 }
