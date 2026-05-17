@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { runGenerationPipeline, type AICallFn } from '@/lib/generation/generation-pipeline'
 
-const prisma = new PrismaClient()
-
 // POST /api/teacher/course-sessions - 创建并生成课程
 export async function POST(request: NextRequest) {
   try {
