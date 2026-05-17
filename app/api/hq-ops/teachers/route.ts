@@ -21,11 +21,11 @@ export async function GET(request: NextRequest) {
         city: {
           select: { id: true, name: true }
         },
-        bookings: {
+        teacherBookings: {
           select: {
             id: true,
             status: true,
-            payment: {
+            payments: {
               select: {
                 amount: true,
                 platformRevenue: true
@@ -41,21 +41,21 @@ export async function GET(request: NextRequest) {
 
     // 计算统计数据
     const teachersWithStats = teachers.map(teacher => {
-      const completedBookings = teacher.bookings.filter(b => b.status === 'COMPLETED')
-      const totalRevenue = completedBookings.reduce((sum, b) => sum + (b.payment?.amount || 0), 0)
+      const completedBookings = teacher.teacherBookings.filter(b => b.status === 'COMPLETED')
+      const totalRevenue = completedBookings.reduce((sum, b) => sum + (b.payments?.[0]?.amount || 0), 0)
       const avgRating = 4.5 // 简化处理，实际应从评价表计算
 
       return {
         id: teacher.id,
-        name: teacher.name,
-        phone: teacher.phone,
+        name: teacher.nickname || teacher.name,
+        phone: teacher.phoneNumber,
         city: teacher.city,
         stats: {
-          totalBookings: teacher.bookings.length,
+          totalBookings: teacher.teacherBookings.length,
           completedBookings: completedBookings.length,
           totalRevenue,
           avgRating,
-          subject: teacher.subject || '未指定'
+          subject: '未指定'
         }
       }
     })
