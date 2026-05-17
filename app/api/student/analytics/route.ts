@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
           totalLessons,
           totalQuizzes,
           activeDays: Object.keys(dailyStats).length,
-          avgDailyStudyTime: activeDays > 0 ? totalStudyTime / activeDays : 0
+          avgDailyStudyTime: Object.keys(dailyStats).length > 0 ? totalStudyTime / Object.keys(dailyStats).length : 0
         },
         subjectStats,
         masteryAnalysis,
