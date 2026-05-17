@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
 
       return {
         id: teacher.id,
-        name: teacher.nickname || teacher.name,
-        phone: teacher.phoneNumber,
+        name: teacher.nickname || '未命名',
+        phone: teacher.phoneNumber || '',
         city: teacher.city,
         stats: {
           totalBookings: teacher.teacherBookings.length,
