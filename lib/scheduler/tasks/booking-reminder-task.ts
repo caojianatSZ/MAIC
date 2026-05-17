@@ -52,13 +52,13 @@ export async function bookingReminderTask() {
           {
             datetime: booking.scheduledAt,
             courseName: `${booking.subject} - ${courseName}`,
-            teacherName: booking.teacher.nickname
+            teacherName: booking.teacher.nickname || '老师'
           }
         )
 
         if (result) {
           successCount++
-          console.log(`[课前提醒] 成功: ${booking.student.nickname} - ${courseName}`)
+          console.log(`[课前提醒] 成功: ${booking.student.nickname || booking.student.id} - ${courseName}`)
         } else {
           failCount++
         }
