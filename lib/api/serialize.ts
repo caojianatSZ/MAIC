@@ -1,7 +1,8 @@
 import { Prisma } from '@prisma/client'
+import { NextResponse } from 'next/server'
 
 /**
- * 序列化 Prisma 对象，处理 Date、Decimal 等类型
+ * 序列化 Prisma 对象，处理 Date、Decimal、BigInt 等类型
  */
 export function serialize(data: any): any {
   if (data === null || data === undefined) {
@@ -16,7 +17,7 @@ export function serialize(data: any): any {
     return data.toNumber()
   }
 
-  if (data instanceof Prisma.BigInt) {
+  if (typeof data === 'bigint') {
     return data.toString()
   }
 
