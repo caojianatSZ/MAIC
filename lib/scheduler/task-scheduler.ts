@@ -277,6 +277,5 @@ class EnhancedTaskScheduler {
 // 创建全局调度器实例
 const globalScheduler = new EnhancedTaskScheduler()
 
-export { globalScheduler }
+export { globalScheduler, CRON_PRESETS }
 export type { ScheduledTask }
-export { CRON_PRESETS }
