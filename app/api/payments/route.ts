@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       status: p.status,
       settlementStatus: p.settlementStatus,
       createdAt: p.createdAt.toISOString(),
-      settledAt: p.settledAt?.toISOString(),
+      paidAt: p.paidAt?.toISOString(),
       teacherSalary: p.teacherSalary,
       partnerCommission: p.partnerCommission,
       platformRevenue: p.platformRevenue,
