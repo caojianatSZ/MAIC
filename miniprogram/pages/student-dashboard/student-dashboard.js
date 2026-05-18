@@ -72,15 +72,28 @@ Page({
           if (res.data.success) {
             const data = res.data.data;
 
-            this.setData({
-              stats: data.stats || {},
-              knowledgeMastery: data.knowledgeMastery || {},
-              weakPoints: data.weakPoints || [],
-              recentRecords: data.recentRecords || [],
-              recentAchievements: data.recentAchievements || [],
-              isEmpty: !data.stats || data.stats.studyMinutes === 0,
-              loading: false
-            });
+            // 检查是否真正没有任何数据
+            const hasAnyData = (data.stats && data.stats.studyMinutes > 0) ||
+                               (data.knowledgeMastery && data.knowledgeMastery.totalPoints > 0) ||
+                               (data.weakPoints && data.weakPoints.length > 0) ||
+                               (data.recentRecords && data.recentRecords.length > 0) ||
+                               (data.recentAchievements && data.recentAchievements.length > 0);
+
+            // 如果没有任何数据，使用 mock 数据进行演示
+            if (!hasAnyData) {
+              console.log('暂无学习数据，使用演示数据');
+              this.loadMockData();
+            } else {
+              this.setData({
+                stats: data.stats || {},
+                knowledgeMastery: data.knowledgeMastery || {},
+                weakPoints: data.weakPoints || [],
+                recentRecords: data.recentRecords || [],
+                recentAchievements: data.recentAchievements || [],
+                isEmpty: false,
+                loading: false
+              });
+            }
           } else {
             throw new Error(res.data.error || '加载失败');
           }
