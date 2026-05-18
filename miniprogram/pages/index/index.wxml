@@ -46,6 +46,38 @@
       </view>
     </view>
 
+    <!-- 学习概览入口 -->
+    <view class="dashboard-entry-card" bindtap="onGoDashboard">
+      <view class="entry-header">
+        <view class="entry-title-section">
+          <text class="entry-icon">📊</text>
+          <view class="entry-text">
+            <text class="entry-title">学习仪表盘</text>
+            <text class="entry-desc">查看学习进度和薄弱知识点</text>
+          </view>
+        </view>
+        <view class="entry-arrow">
+          <text class="arrow-icon">›</text>
+        </view>
+      </view>
+      <view class="entry-stats">
+        <view class="stat-item">
+          <text class="stat-label">本周学习</text>
+          <text class="stat-value">{{dashboardStats.weeklyMinutes || 0}}分钟</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-label">掌握知识点</text>
+          <text class="stat-value">{{dashboardStats.masteredPoints || 0}}个</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-label">待巩固</text>
+          <text class="stat-value weak">{{dashboardStats.weakPoints || 0}}个</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 输入区域 -->
     <view class="card" wx:if="{{showInput}}">
       <view class="input-header">

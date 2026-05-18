@@ -703,3 +703,77 @@
   color: var(--primary-color);
   font-weight: 500;
 }
+
+/* 仪表盘入口横幅 */
+.dashboard-banner {
+  margin: 24rpx 32rpx;
+  background: linear-gradient(135deg, #1E5B8A 0%, #2D7BB3 100%);
+  border-radius: 24rpx;
+  overflow: hidden;
+  position: relative;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+}
+
+.banner-icon {
+  font-size: 64rpx;
+  margin-right: 24rpx;
+}
+
+.banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.banner-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.banner-desc {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.banner-action {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 24rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 40rpx;
+}
+
+.banner-btn {
+  font-size: 26rpx;
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+.banner-arrow {
+  font-size: 32rpx;
+  color: #FFFFFF;
+}
+
+.banner-close {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-icon {
+  font-size: 32rpx;
+  color: rgba(255, 255, 255, 0.6);
+}

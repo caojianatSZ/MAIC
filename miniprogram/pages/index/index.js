@@ -4,7 +4,12 @@ const app = getApp()
 Page({
   data: {
     questionText: '',
-    showInput: false
+    showInput: false,
+    dashboardStats: {
+      weeklyMinutes: 0,
+      masteredPoints: 0,
+      weakPoints: 0
+    }
   },
 
   onLoad(options) {
@@ -47,6 +52,15 @@ Page({
   onManualInput() {
     this.setData({
       showInput: true
+    })
+  },
+
+  /**
+   * 跳转到学习仪表盘
+   */
+  onGoDashboard() {
+    wx.navigateTo({
+      url: '/pages/student-dashboard/student-dashboard'
     })
   },
 

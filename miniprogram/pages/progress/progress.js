@@ -52,6 +52,9 @@ Page({
     // 知识图谱展示模式
     knowledgeViewMode: 'grid', // 'grid' 或 'graph'
 
+    // 显示仪表盘横幅
+    showBanner: true
+
     // 成就
     achievements: [
       {
@@ -279,6 +282,22 @@ Page({
     wx.navigateTo({
       url: `/pages/player/player?shareToken=${token}`
     })
+  },
+
+  /**
+   * 跳转到新仪表盘
+   */
+  onGoDashboard() {
+    wx.navigateTo({
+      url: '/pages/student-dashboard/student-dashboard'
+    });
+  },
+
+  /**
+   * 关闭横幅
+   */
+  onCloseBanner() {
+    this.setData({ showBanner: false });
   },
 
   /**
