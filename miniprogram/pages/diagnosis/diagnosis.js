@@ -550,14 +550,14 @@ Page({
     return new Promise((resolve, reject) => {
       console.log('开始读取文件:', filePath)
 
-      // 先检查文件是否存在
-      wx.getFileSystemManager().access({
-        path: filePath,
-        success: () => {
-          console.log('文件存在，开始读取')
-          // 文件存在，读取内容
+      // 直接使用 getImageInfo 获取正确的文件路径（兼容所有环境）
+      wx.getImageInfo({
+        src: filePath,
+        success: (imgInfo) => {
+          console.log('获取图片信息成功，真实路径:', imgInfo.path)
+          // 使用获取到的路径读取文件
           wx.getFileSystemManager().readFile({
-            filePath,
+            filePath: imgInfo.path,
             encoding: 'base64',
             success: (res) => {
               console.log('文件读取成功，base64长度:', res.data?.length)
@@ -570,31 +570,8 @@ Page({
           })
         },
         fail: (err) => {
-          console.error('文件不存在:', err)
-          // 尝试使用图片缓存
-          wx.getImageInfo({
-            src: filePath,
-            success: (imgInfo) => {
-              console.log('获取图片信息成功:', imgInfo.path)
-              // 使用获取到的路径再尝试读取
-              wx.getFileSystemManager().readFile({
-                filePath: imgInfo.path,
-                encoding: 'base64',
-                success: (res) => {
-                  console.log('通过图片信息读取成功，base64长度:', res.data?.length)
-                  resolve('data:image/jpeg;base64,' + res.data)
-                },
-                fail: (err2) => {
-                  console.error('通过图片信息读取也失败:', err2)
-                  reject(new Error('图片读取失败'))
-                }
-              })
-            },
-            fail: (err2) => {
-              console.error('获取图片信息失败:', err2)
-              reject(new Error('图片处理失败'))
-            }
-          })
+          console.error('获取图片信息失败:', err)
+          reject(new Error('图片处理失败'))
         }
       })
     })
@@ -662,45 +639,101 @@ Page({
     console.log('文件路径:', filePath)
 
     return new Promise((resolve, reject) => {
-      // V6 API同步返回结果
-      wx.getFileSystemManager().readFile({
-        filePath,
-        encoding: 'base64',
-        success: (res) => {
-          const base64Image = `data:image/jpeg;base64,${res.data}`
+      // 检测是否为 macOS DevTools 的 http://tmp/ 格式
+      const isDevToolsFormat = filePath.startsWith('http://tmp/')
 
-          wx.request({
-            url,
-            method: 'POST',
-            data: {
-              image: base64Image,
-              subject: '数学',
-              grade: '初三'
-            },
-            header: {
-              'content-type': 'application/json'
-            },
-            timeout: 60000, // 60秒超时
-            success: (response) => {
-              console.log('V6 API响应:', response)
-
-              if (response.statusCode === 200 && response.data.status === 'success') {
-                resolve(response.data)
-              } else {
-                reject(new Error(response.data.error || 'V6识别失败'))
-              }
-            },
-            fail: (err) => {
-              console.error('V6 API调用失败:', err)
-              reject(err)
+      if (isDevToolsFormat) {
+        console.log('检测到 DevTools 格式，使用 wx.request 获取图片')
+        // DevTools 环境下的特殊处理
+        wx.request({
+          url: filePath,
+          method: 'GET',
+          responseType: 'arraybuffer',
+          success: (res) => {
+            if (res.statusCode === 200 && res.data) {
+              // 将 ArrayBuffer 转换为 base64
+              const base64Image = this.arrayBufferToBase64(res.data)
+              this.sendDiagnosisRequest(url, base64Image, resolve, reject)
+            } else {
+              reject(new Error('获取图片失败'))
             }
-          })
-        },
-        fail: (err) => {
-          console.error('读取文件失败:', err)
-          reject(err)
+          },
+          fail: (err) => {
+            console.error('wx.request 获取图片失败:', err)
+            reject(new Error('获取图片失败，请在真机上测试'))
+          }
+        })
+      } else {
+        // 真实设备：使用 getImageInfo + readFile
+        wx.getImageInfo({
+          src: filePath,
+          success: (imgInfo) => {
+            console.log('获取图片信息成功，真实路径:', imgInfo.path)
+
+            wx.getFileSystemManager().readFile({
+              filePath: imgInfo.path,
+              encoding: 'base64',
+              success: (res) => {
+                const base64Image = `data:image/jpeg;base64,${res.data}`
+                this.sendDiagnosisRequest(url, base64Image, resolve, reject)
+              },
+              fail: (err) => {
+                console.error('读取文件失败:', err)
+                reject(err)
+              }
+            })
+          },
+          fail: (err) => {
+            console.error('获取图片信息失败:', err)
+            reject(err)
+          }
+        })
+      }
+    })
+  },
+
+  /**
+   * ArrayBuffer 转 Base64
+   */
+  arrayBufferToBase64(buffer) {
+    let binary = ''
+    const bytes = new Uint8Array(buffer)
+    const len = bytes.byteLength
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    return wx.arrayBufferToBase64(binary)
+  },
+
+  /**
+   * 发送诊断请求
+   */
+  sendDiagnosisRequest(url, base64Image, resolve, reject) {
+    wx.request({
+      url,
+      method: 'POST',
+      data: {
+        image: base64Image,
+        subject: '数学',
+        grade: '初三'
+      },
+      header: {
+        'content-type': 'application/json'
+      },
+      timeout: 60000, // 60秒超时
+      success: (response) => {
+        console.log('V6 API响应:', response)
+
+        if (response.statusCode === 200 && response.data.status === 'success') {
+          resolve(response.data)
+        } else {
+          reject(new Error(response.data.error || 'V6识别失败'))
         }
-      })
+      },
+      fail: (err) => {
+        console.error('V6 API调用失败:', err)
+        reject(err)
+      }
     })
   },
 
@@ -715,41 +748,53 @@ Page({
     console.log('文件路径:', filePath)
 
     return new Promise((resolve, reject) => {
-      // V5 API同步返回结果，使用wx.request上传base64
-      wx.getFileSystemManager().readFile({
-        filePath,
-        encoding: 'base64',
-        success: (res) => {
-          const base64Image = `data:image/jpeg;base64,${res.data}`
+      // 先使用 getImageInfo 获取正确的文件路径
+      wx.getImageInfo({
+        src: filePath,
+        success: (imgInfo) => {
+          console.log('获取图片信息成功，真实路径:', imgInfo.path)
 
-          wx.request({
-            url,
-            method: 'POST',
-            data: {
-              image: base64Image,
-              subject: '数学',
-              grade: '初三'
-            },
-            header: {
-              'content-type': 'application/json'
-            },
-            timeout: 60000, // 60秒超时
-            success: (response) => {
-              console.log('V5 API响应:', response)
-              if (response.statusCode === 200) {
-                resolve(response.data)
-              } else {
-                reject(new Error(`API错误: ${response.statusCode}`))
-              }
+          // 使用获取到的真实路径读取文件
+          wx.getFileSystemManager().readFile({
+            filePath: imgInfo.path,
+            encoding: 'base64',
+            success: (res) => {
+              const base64Image = `data:image/jpeg;base64,${res.data}`
+
+              wx.request({
+                url,
+                method: 'POST',
+                data: {
+                  image: base64Image,
+                  subject: '数学',
+                  grade: '初三'
+                },
+                header: {
+                  'content-type': 'application/json'
+                },
+                timeout: 60000, // 60秒超时
+                success: (response) => {
+                  console.log('V5 API响应:', response)
+                  if (response.statusCode === 200) {
+                    resolve(response.data)
+                  } else {
+                    reject(new Error(`API错误: ${response.statusCode}`))
+                  }
+                },
+                fail: (err) => {
+                  console.error('V5 API调用失败:', err)
+                  reject(err)
+                }
+              })
             },
             fail: (err) => {
-              console.error('V5 API调用失败:', err)
+              console.error('读取文件失败:', err)
               reject(err)
             }
           })
         },
         fail: (err) => {
-          console.error('读取文件失败:', err)
+          console.error('获取图片信息失败:', err)
           reject(err)
         }
       })
