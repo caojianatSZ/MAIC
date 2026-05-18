@@ -171,8 +171,21 @@
     <!-- 功能菜单 -->
     <view class="card">
       <view class="menu-list">
-        <view class="menu-item" bindtap="onViewProgress">
+        <view class="menu-item" bindtap="onViewDashboard">
           <view class="menu-icon">📊</view>
+          <view class="menu-content">
+            <text class="menu-title">学习仪表盘</text>
+            <text class="menu-desc">全面了解学习状况</text>
+          </view>
+          <view class="menu-arrow">
+            <text class="arrow-icon">›</text>
+          </view>
+        </view>
+
+        <view class="menu-divider"></view>
+
+        <view class="menu-item" bindtap="onViewProgress">
+          <view class="menu-icon">📈</view>
           <view class="menu-content">
             <text class="menu-title">学习进度</text>
             <text class="menu-desc">查看详细的学习数据</text>
@@ -201,7 +214,7 @@
         <view class="menu-divider"></view>
 
         <view class="menu-item" bindtap="onViewReports">
-          <view class="menu-icon">📈</view>
+          <view class="menu-icon">📋</view>
           <view class="menu-content">
             <text class="menu-title">学习报告</text>
             <text class="menu-desc">每周学习总结</text>

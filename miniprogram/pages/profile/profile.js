@@ -511,6 +511,16 @@ Page({
   },
 
   /**
+   * 查看学习仪表盘
+   */
+  onViewDashboard() {
+    const childId = this.data.currentChild.id || 'demo_user_id'
+    wx.navigateTo({
+      url: '/pages/student-dashboard/student-dashboard?userId=' + childId
+    })
+  },
+
+  /**
    * 查看错题本（知识点汇总）
    */
   onViewWrongQuestions() {
@@ -523,9 +533,9 @@ Page({
    * 查看学习报告
    */
   onViewReports() {
-    wx.showToast({
-      title: '学习报告功能开发中',
-      icon: 'none'
+    const childId = this.data.currentChild.id || 'demo_user_id'
+    wx.navigateTo({
+      url: '/pages/learning-report/learning-report?userId=' + childId
     })
   }
 })
