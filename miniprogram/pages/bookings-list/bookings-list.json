@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "约课管理",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {}
+}

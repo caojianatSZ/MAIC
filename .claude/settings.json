@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {"type": "command", "command": "prettier . --write"}
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write .env*",
+        "hooks": [
+          {"type": "command", "command": "echo '⚠️ 正在编辑 .env 文件'"}
+        ]
+      }
+    ]
+  }
+}

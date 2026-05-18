@@ -1,0 +1,115 @@
+/* 创建试课线索样式 */
+.container {
+  min-height: 100vh;
+  background-color: #F9FAFB;
+  padding-bottom: 32rpx;
+}
+
+.form-section {
+  background-color: #FFFFFF;
+  margin: 24rpx 32rpx;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  box-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.08);
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 32rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 2rpx solid #F3F4F6;
+}
+
+.form-item {
+  margin-bottom: 32rpx;
+}
+
+.form-item:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  font-size: 28rpx;
+  color: #374151;
+  margin-bottom: 16rpx;
+  font-weight: 500;
+}
+
+.form-label.required::after {
+  content: '*';
+  color: #EF4444;
+  margin-left: 4rpx;
+}
+
+.form-input {
+  min-height: 80rpx;
+  background-color: #F9FAFB;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #111827;
+  display: flex;
+  align-items: center;
+}
+
+.form-input.picker {
+  justify-content: space-between;
+}
+
+.form-input.picker::after {
+  content: '';
+  width: 24rpx;
+  height: 24rpx;
+  border-right: 3rpx solid #9CA3AF;
+  border-bottom: 3rpx solid #9CA3AF;
+  transform: rotate(45deg);
+  margin-left: 8rpx;
+}
+
+.form-textarea {
+  min-height: 160rpx;
+  background-color: #F9FAFB;
+  border-radius: 16rpx;
+  padding: 16rpx 24rpx;
+  font-size: 28rpx;
+  color: #111827;
+  line-height: 1.6;
+}
+
+.submit-section {
+  padding: 0 32rpx;
+  margin-top: 48rpx;
+}
+
+.btn-primary {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+  color: #FFFFFF;
+  border-radius: 48rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  text-align: center;
+  border: none;
+  box-shadow: 0 8rpx 24rpx rgba(59, 130, 246, 0.4);
+  margin-bottom: 24rpx;
+}
+
+.btn-primary.disabled {
+  opacity: 0.5;
+}
+
+.btn-secondary {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: transparent;
+  color: #6B7280;
+  border: 2rpx solid #E5E7EB;
+  border-radius: 48rpx;
+  font-size: 28rpx;
+  text-align: center;
+}

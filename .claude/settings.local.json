@@ -103,5 +103,10 @@
       "Bash(https_proxy=http://127.0.0.1:7890 curl -sI --connect-timeout 10 \"https://github.com/anthropics/claude-code/releases/latest\")",
       "Bash(https_proxy=http://127.0.0.1:7890 curl -s \"https://api.github.com/repos/anthropics/claude-code/releases/tags/v2.1.142\")"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "github",
+    "postgres",
+    "filesystem"
+  ]
 }

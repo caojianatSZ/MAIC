@@ -1,0 +1,98 @@
+/* 取消约课样式 */
+.container {
+  min-height: 100vh;
+  background-color: #F9FAFB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+}
+
+.cancel-form {
+  width: 100%;
+  background-color: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 48rpx 32rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.1);
+}
+
+.form-title {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #111827;
+  text-align: center;
+  margin-bottom: 16rpx;
+}
+
+.form-desc {
+  font-size: 26rpx;
+  color: #6B7280;
+  text-align: center;
+  margin-bottom: 48rpx;
+}
+
+.reason-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #F3F4F6;
+}
+
+.reason-item:last-of-type {
+  border-bottom: none;
+}
+
+.reason-item radio {
+  margin-right: 16rpx;
+}
+
+.reason-text {
+  font-size: 28rpx;
+  color: #374151;
+}
+
+.custom-reason {
+  margin-top: 24rpx;
+}
+
+.reason-input {
+  min-height: 120rpx;
+  background-color: #F9FAFB;
+  border-radius: 16rpx;
+  padding: 16rpx 24rpx;
+  font-size: 28rpx;
+}
+
+.btn-section {
+  margin-top: 48rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.btn-primary {
+  height: 88rpx;
+  line-height: 88rpx;
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  color: #FFFFFF;
+  border-radius: 48rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  text-align: center;
+  border: none;
+}
+
+.btn-primary.disabled {
+  opacity: 0.5;
+}
+
+.btn-secondary {
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #F3F4F6;
+  color: #6B7280;
+  border-radius: 48rpx;
+  font-size: 28rpx;
+  text-align: center;
+  border: none;
+}

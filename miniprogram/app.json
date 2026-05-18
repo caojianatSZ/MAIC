@@ -1,5 +1,8 @@
 {
   "pages": [
+    "pages/student-dashboard/student-dashboard",
+    "pages/learning-report/learning-report",
+    "pages/teacher-dashboard/teacher-dashboard",
     "pages/demo-home/demo-home",
     "pages/demo-input/demo-input",
     "pages/demo-generating/demo-generating",
@@ -19,7 +22,20 @@
     "pages/wrong-consolidated/wrong-consolidated",
     "pages/practice-recommend/practice-recommend",
     "pages/review-detail/review-detail",
-    "pages/paper-create/paper-create"
+    "pages/paper-create/paper-create",
+    "pages/trial-leads-list/trial-leads-list",
+    "pages/trial-lead-create/trial-lead-create",
+    "pages/trial-lead-detail/trial-lead-detail",
+    "pages/trial-lead-convert/trial-lead-convert",
+    "pages/bookings-list/bookings-list",
+    "pages/booking-create/booking-create",
+    "pages/booking-detail/booking-detail",
+    "pages/booking-cancel/booking-cancel",
+    "pages/booking-complete/booking-complete",
+    "pages/teacher-slots/teacher-slots",
+    "pages/student-select/student-select",
+    "pages/note-add/note-add",
+    "pages/notifications/notifications"
   ],
   "window": {
     "backgroundTextStyle": "light",

@@ -1,0 +1,101 @@
+<!-- 创建约课 -->
+<view class="container">
+  <form bindsubmit="onSubmit">
+    <!-- 选择学生 -->
+    <view class="form-section">
+      <view class="section-title">选择学生</view>
+      <view class="student-selector" bindtap="onSelectStudent">
+        <image wx:if="{{selectedStudent}}" class="student-avatar" src="{{selectedStudent.avatar || '/images/default-avatar.png'}}" mode="aspectFill" />
+        <image wx:else class="student-avatar placeholder" src="/images/icon-add-student.png" mode="aspectFit" />
+        <view class="student-info">
+          <view class="student-name">{{selectedStudent ? selectedStudent.nickname : '选择学生'}}</view>
+          <view wx:if="{{selectedStudent}}" class="student-phone">{{selectedStudent.phoneNumber}}</view>
+        </view>
+        <image class="arrow-icon" src="/images/icon-arrow-right.png" mode="aspectFit" />
+      </view>
+    </view>
+
+    <!-- 课程信息 -->
+    <view class="form-section">
+      <view class="section-title">课程信息</view>
+
+      <view class="form-item">
+        <view class="form-label required">学科</view>
+        <picker mode="selector" range="{{subjects}}" value="{{subjectIndex}}" bindchange="onSubjectChange">
+          <view class="form-input picker">{{form.subject || '请选择学科'}}</view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label required">年级</view>
+        <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="onGradeChange">
+          <view class="form-input picker">{{form.grade || '请选择年级'}}</view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">课程主题</view>
+        <input class="form-input" name="topic" placeholder="请输入课程主题（选填）" value="{{form.topic}}" bindinput="onInputChange" data-field="topic" />
+      </view>
+    </view>
+
+    <!-- 班型设置 -->
+    <view class="form-section">
+      <view class="section-title">班型设置</view>
+
+      <view class="class-type-grid">
+        <view
+          wx:for="{{classTypes}}"
+          wx:key="value"
+          class="class-type-card {{form.classType === item.value ? 'active' : ''}}"
+          bindtap="onClassTypeSelect"
+          data-type="{{item.value}}"
+        >
+          <view class="type-label">{{item.label}}</view>
+          <view class="type-desc">{{item.desc}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 时间选择 -->
+    <view class="form-section">
+      <view class="section-title">上课时间</view>
+
+      <view class="form-item">
+        <view class="form-label required">日期</view>
+        <picker mode="date" value="{{form.date}}" start="{{minDate}}" bindchange="onDateChange">
+          <view class="form-input picker">{{form.date || '请选择日期'}}</view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label required">时间</view>
+        <picker mode="time" value="{{form.time}}" bindchange="onTimeChange">
+          <view class="form-input picker">{{form.time || '请选择时间'}}</view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">课时时长</view>
+        <view class="duration-options">
+          <view
+            wx:for="{{durations}}"
+            wx:key="*this"
+            class="duration-option {{form.duration === item ? 'active' : ''}}"
+            bindtap="onDurationSelect"
+            data-duration="{{item}}"
+          >
+            {{item}}分钟
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 提交 -->
+    <view class="submit-section">
+      <button class="btn-primary" formType="submit" disabled="{{submitting}}">
+        {{submitting ? '提交中...' : '创建约课'}}
+      </button>
+    </view>
+  </form>
+</view>

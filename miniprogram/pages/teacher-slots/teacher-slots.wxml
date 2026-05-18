@@ -1,0 +1,117 @@
+<!-- 教师时间段设置 -->
+<view class="container">
+  <!-- 顶部说明 -->
+  <view class="tips-card">
+    <image class="tips-icon" src="/images/icon-tips.png" mode="aspectFit" />
+    <view class="tips-text">设置您的可授课时间，学生将根据这些时间段预约课程</view>
+  </view>
+
+  <!-- 周选择 -->
+  <view class="week-selector">
+    <scroll-view scroll-x class="week-scroll">
+      <view class="week-item {{currentDay === item.value ? 'active' : ''}}"
+            wx:for="{{weekDays}}"
+            wx:key="value"
+            bindtap="onDaySelect"
+            data-day="{{item.value}}">
+        <view class="week-label">{{item.label}}</view>
+        <view class="week-date">{{item.date}}</view>
+        <view wx:if="{{item.hasSlots}}" class="slot-indicator"></view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 时间段列表 -->
+  <view class="slots-section">
+    <view class="section-header">
+      <view class="section-title">{{currentDayLabel}}的时间段</view>
+      <view class="add-btn" bindtap="onAddSlot">
+        <image src="/images/icon-add.png" mode="aspectFit" />
+        添加
+      </view>
+    </view>
+
+    <view class="slots-list">
+      <view class="slot-card" wx:for="{{currentSlots}}" wx:key="id">
+        <view class="slot-time">
+          <view class="time-start">{{item.startTime}}</view>
+          <view class="time-separator">—</view>
+          <view class="time-end">{{item.endTime}}</view>
+        </view>
+
+        <view class="slot-meta">
+          <view class="class-types">
+            <text wx:for="{{item.classTypes}}" wx:key="*this" class="class-type-tag">{{item}}</text>
+          </view>
+        </view>
+
+        <view class="slot-actions">
+          <view class="action-btn" bindtap="onEditSlot" data-slot="{{item}}">编辑</view>
+          <view class="action-btn danger" bindtap="onDeleteSlot" data-id="{{item.id}}">删除</view>
+        </view>
+      </view>
+
+      <!-- 空状态 -->
+      <view wx:if="{{currentSlots.length === 0}}" class="empty-slots">
+        <image class="empty-icon" src="/images/empty-slots.png" mode="aspectFit" />
+        <view class="empty-text">暂无时间段</view>
+        <view class="empty-hint">点击上方"添加"按钮设置可授课时间</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快捷操作 -->
+  <view class="quick-actions">
+    <view class="quick-btn" bindtap="onCopyWeek">
+      <image src="/images/icon-copy.png" mode="aspectFit" />
+      <text>复制到其他周</text>
+    </view>
+    <view class="quick-btn" bindtap="onClearAll">
+      <image src="/images/icon-clear.png" mode="aspectFit" />
+      <text>清空本周</text>
+    </view>
+  </view>
+</view>
+
+<!-- 添加/编辑时间段弹窗 -->
+<view class="modal {{showSlotModal ? 'show' : ''}}" catchtap="onCloseModal">
+  <view class="modal-content" catchtap="stopPropagation">
+    <view class="modal-header">
+      <view class="modal-title">{{editingSlot ? '编辑时间段' : '添加时间段'}}</view>
+      <view class="modal-close" bindtap="onCloseModal">
+        <image src="/images/icon-close.png" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="modal-body">
+      <view class="form-item">
+        <view class="form-label">开始时间</view>
+        <picker mode="time" value="{{slotForm.startTime}}" bindchange="onStartTimeChange">
+          <view class="time-picker">{{slotForm.startTime || '请选择'}}</view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">结束时间</view>
+        <picker mode="time" value="{{slotForm.endTime}}" bindchange="onEndTimeChange">
+          <view class="time-picker">{{slotForm.endTime || '请选择'}}</view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">可授班型</view>
+        <view class="class-type-checkboxes">
+          <label class="checkbox-item" wx:for="{{classTypes}}" wx:key="value">
+            <checkbox value="{{item.value}}" checked="{{slotForm.classTypes.indexOf(item.value) > -1}}" bindtap="onClassTypeToggle" data-value="{{item.value}}" />
+            <text>{{item.label}}</text>
+          </label>
+        </view>
+      </view>
+    </view>
+
+    <view class="modal-footer">
+      <button class="modal-btn cancel" bindtap="onCloseModal">取消</button>
+      <button class="modal-btn confirm" bindtap="onSaveSlot">保存</button>
+    </view>
+  </view>
+</view>

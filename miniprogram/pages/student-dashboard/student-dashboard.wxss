@@ -1,0 +1,418 @@
+/* pages/student-dashboard/student-dashboard.wxss */
+
+/* Design System Colors */
+page {
+  background-color: #F8FAFC;
+}
+
+.dashboard {
+  min-height: 100vh;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Loading */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120px 0;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #E2E8F0;
+  border-top-color: #1E5B8A;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  margin-top: 16px;
+  color: #94A3B8;
+  font-size: 14px;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 32px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1E293B;
+  margin-bottom: 8px;
+}
+
+.empty-desc {
+  font-size: 14px;
+  color: #64748B;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.empty-button {
+  background-color: #1E5B8A;
+  color: white;
+  border-radius: 8px;
+  padding: 12px 32px;
+  font-size: 16px;
+}
+
+/* Section */
+.section {
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0F172A;
+}
+
+.section-link {
+  font-size: 14px;
+  color: #1E5B8A;
+}
+
+/* Period Selector */
+.period-selector {
+  display: flex;
+  background-color: #F1F5F9;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.period-option {
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #64748B;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.period-option.active {
+  background-color: #FFFFFF;
+  color: #1E5B8A;
+  font-weight: 500;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px;
+  background-color: #F8FAFC;
+  border-radius: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1E5B8A;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #64748B;
+  text-align: center;
+}
+
+/* Mastery Section */
+.mastery-overview {
+  margin-bottom: 16px;
+}
+
+.mastery-bar {
+  height: 8px;
+  background-color: #E2E8F0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.mastery-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22C55E, #16A34A);
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
+}
+
+.mastery-text {
+  font-size: 12px;
+  color: #64748B;
+}
+
+/* Subject List */
+.subject-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.subject-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subject-name {
+  width: 40px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.subject-bar {
+  flex: 1;
+  height: 6px;
+  background-color: #E2E8F0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.subject-fill {
+  height: 100%;
+  background-color: #1E5B8A;
+  border-radius: 3px;
+}
+
+.subject-rate {
+  width: 36px;
+  font-size: 12px;
+  color: #64748B;
+  text-align: right;
+}
+
+/* Weak Points */
+.weak-empty {
+  padding: 24px;
+  text-align: center;
+}
+
+.weak-empty-text {
+  font-size: 14px;
+  color: #22C55E;
+}
+
+.weak-points-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.weak-point-card {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background-color: #FEF2F2;
+  border-left: 3px solid #EF4444;
+  border-radius: 8px;
+}
+
+.weak-point-card.partial {
+  background-color: #FEFBEB;
+  border-left-color: #F59E0B;
+}
+
+.weak-point-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.weak-point-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.weak-point-badge.mastery-weak {
+  background-color: #FEE2E2;
+  color: #DC2626;
+}
+
+.weak-point-badge.mastery-partial {
+  background-color: #FEF3C7;
+  color: #D97706;
+}
+
+.weak-point-accuracy {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.weak-point-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1E293B;
+  margin-bottom: 4px;
+}
+
+.weak-point-hint {
+  font-size: 12px;
+  color: #64748B;
+}
+
+/* Records */
+.records-empty {
+  padding: 24px;
+  text-align: center;
+}
+
+.records-empty-text {
+  font-size: 14px;
+  color: #94A3B8;
+}
+
+.records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.record-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background-color: #F8FAFC;
+  border-radius: 8px;
+  gap: 12px;
+}
+
+.record-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #E2E8F0;
+  border-radius: 50%;
+  color: #94A3B8;
+  font-size: 14px;
+}
+
+.record-icon.success {
+  background-color: #DCFCE7;
+  color: #22C55E;
+}
+
+.record-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.record-title {
+  font-size: 14px;
+  color: #1E293B;
+  margin-bottom: 2px;
+}
+
+.record-meta {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.record-accuracy {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748B;
+}
+
+.record-accuracy.high {
+  color: #22C55E;
+}
+
+/* Achievements */
+.achievements-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.achievement-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #FEF3C7;
+  border-radius: 20px;
+}
+
+.achievement-icon {
+  font-size: 16px;
+}
+
+.achievement-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #92400E;
+}
+
+.achievement-time {
+  font-size: 11px;
+  color: #B45309;
+}
+
+/* Report Section */
+.report-section {
+  padding: 0;
+  background-color: transparent;
+}
+
+.report-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #1E5B8A;
+  color: white;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.report-button-icon {
+  font-size: 20px;
+}
+
+.report-button-text {
+  color: white;
+}

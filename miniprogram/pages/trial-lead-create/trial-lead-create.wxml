@@ -1,0 +1,120 @@
+<!-- 创建试课线索 -->
+<view class="container">
+  <form bindsubmit="onSubmit">
+    <!-- 学生信息 -->
+    <view class="form-section">
+      <view class="section-title">学生信息</view>
+
+      <view class="form-item">
+        <view class="form-label required">学生姓名</view>
+        <input
+          class="form-input"
+          name="studentName"
+          placeholder="请输入学生姓名"
+          value="{{form.studentName}}"
+          bindinput="onInputChange"
+          data-field="studentName"
+        />
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">年级</view>
+        <picker
+          mode="selector"
+          range="{{grades}}"
+          value="{{gradeIndex}}"
+          bindchange="onGradeChange"
+        >
+          <view class="form-input picker">
+            {{form.grade || '请选择年级'}}
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- 家长信息 -->
+    <view class="form-section">
+      <view class="section-title">家长信息</view>
+
+      <view class="form-item">
+        <view class="form-label">家长姓名</view>
+        <input
+          class="form-input"
+          name="parentName"
+          placeholder="请输入家长姓名"
+          value="{{form.parentName}}"
+          bindinput="onInputChange"
+          data-field="parentName"
+        />
+      </view>
+
+      <view class="form-item">
+        <view class="form-label required">联系电话</view>
+        <input
+          class="form-input"
+          type="number"
+          name="phoneNumber"
+          placeholder="请输入手机号码"
+          maxlength="11"
+          value="{{form.phoneNumber}}"
+          bindinput="onInputChange"
+          data-field="phoneNumber"
+        />
+      </view>
+    </view>
+
+    <!-- 试课信息 -->
+    <view class="form-section">
+      <view class="section-title">试课信息</view>
+
+      <view class="form-item">
+        <view class="form-label">意向试课时间</view>
+        <picker
+          mode="date"
+          value="{{form.scheduledTime}}"
+          start="{{minDate}}"
+          bindchange="onDateChange"
+        >
+          <view class="form-input picker">
+            {{form.scheduledTime || '请选择日期'}}
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">来源渠道</view>
+        <picker
+          mode="selector"
+          range="{{sources}}"
+          value="{{sourceIndex}}"
+          bindchange="onSourceChange"
+        >
+          <view class="form-input picker">
+            {{form.sourceChannel || '请选择来源'}}
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">备注</view>
+        <textarea
+          class="form-textarea"
+          name="sourceNotes"
+          placeholder="请输入备注信息（选填）"
+          maxlength="200"
+          value="{{form.sourceNotes}}"
+          bindinput="onInputChange"
+          data-field="sourceNotes"
+        />
+      </view>
+    </view>
+
+    <!-- 提交按钮 -->
+    <view class="submit-section">
+      <button class="btn-primary" formType="submit" disabled="{{submitting}}">
+        {{submitting ? '提交中...' : '创建线索'}}
+      </button>
+      <button class="btn-secondary" bindtap="onCancel">取消</button>
+    </view>
+  </form>
+</view>

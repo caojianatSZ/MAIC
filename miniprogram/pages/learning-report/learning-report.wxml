@@ -1,0 +1,173 @@
+<!--pages/learning-report/learning-report.wxml-->
+<view class="report-page">
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 报告内容 -->
+  <view wx:else class="report-content">
+    <!-- 顶部栏 -->
+    <view class="header">
+      <view class="header-left" bindtap="onGoBack">
+        <text class="back-icon">←</text>
+        <text class="header-title">学习报告</text>
+      </view>
+      <view class="header-right">
+        <view class="period-selector">
+          <text
+            wx:for="{{periodOptions}}"
+            wx:key="key"
+            class="period-option {{currentPeriod === item.key ? 'active' : ''}}"
+            data-period="{{item.key}}"
+            bindtap="onPeriodChange"
+          >{{item.label}}</text>
+        </view>
+        <text class="share-btn" bindtap="onShareReport">分享</text>
+      </view>
+    </view>
+
+    <!-- 本周总结 -->
+    <view class="section summary-section">
+      <text class="section-title">本周总结</text>
+
+      <view class="summary-cards">
+        <view class="summary-card">
+          <text class="summary-label">学习时长</text>
+          <view class="summary-value-row">
+            <text class="summary-value">{{reportData.summary.studyMinutes || 0}}</text>
+            <text class="summary-unit">分钟</text>
+          </view>
+          <text wx:if="{{reportData.summary.studyMinutesChange > 0}}" class="summary-change positive">
+            ↑比上周+{{reportData.summary.studyMinutesChange}}%
+          </text>
+        </view>
+
+        <view class="summary-card">
+          <text class="summary-label">完成课程</text>
+          <view class="summary-value-row">
+            <text class="summary-value">{{reportData.summary.completedLessons || 0}}</text>
+            <text class="summary-unit">节</text>
+          </view>
+        </view>
+
+        <view class="summary-card">
+          <text class="summary-label">正确率</text>
+          <view class="summary-value-row">
+            <text class="summary-value">{{reportData.summary.accuracy || 0}}</text>
+            <text class="summary-unit">%</text>
+          </view>
+          <text wx:if="{{reportData.summary.accuracyChange > 0}}" class="summary-change positive">
+            ↑{{reportData.summary.accuracyChange}}%
+          </text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 知识点掌握趋势 - 简化为列表展示 -->
+    <view class="section trend-section">
+      <text class="section-title">知识点掌握趋势</text>
+
+      <view class="trend-list">
+        <view
+          wx:for="{{reportData.trendData}}"
+          wx:key="date"
+          class="trend-item"
+        >
+          <text class="trend-date">{{item.date}}</text>
+          <view class="trend-bars">
+            <view class="trend-bar-container">
+              <text class="trend-bar-label">掌握</text>
+              <view class="trend-bar-bg">
+                <view class="trend-bar-fill mastery" style="width: {{item.mastery}}%"></view>
+              </view>
+              <text class="trend-bar-value">{{item.mastery}}%</text>
+            </view>
+            <view class="trend-bar-container">
+              <text class="trend-bar-label">正确</text>
+              <view class="trend-bar-bg">
+                <view class="trend-bar-fill accuracy" style="width: {{item.accuracy}}%"></view>
+              </view>
+              <text class="trend-bar-value">{{item.accuracy}}%</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="chart-legend">
+        <view class="legend-item">
+          <view class="legend-dot mastery"></view>
+          <text class="legend-text">掌握度</text>
+        </view>
+        <view class="legend-item">
+          <view class="legend-dot accuracy"></view>
+          <text class="legend-text">正确率</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 薄弱知识点分析 -->
+    <view wx:if="{{reportData.weakPoints.length > 0}}" class="section weak-section">
+      <text class="section-title">薄弱知识点分析</text>
+
+      <view class="weak-list">
+        <view
+          wx:for="{{reportData.weakPoints}}"
+          wx:key="name"
+          class="weak-card {{item.masteryLevel}}"
+          data-name="{{item.name}}"
+          data-subject="{{item.subject}}"
+          bindtap="onWeakPointTap"
+        >
+          <view class="weak-header">
+            <text class="weak-name">{{item.name}}</text>
+            <view class="weak-badge {{item.masteryLevel}}">
+              <text>{{item.masteryLevel === 'weak' ? '薄弱' : '部分掌握'}}</text>
+            </view>
+          </view>
+          <text wx:if="{{item.wrongCount}}" class="weak-hint">已错 {{item.wrongCount}} 次</text>
+          <view class="weak-suggestion">
+            <text class="suggestion-label">建议：</text>
+            <text class="suggestion-text">{{item.suggestion}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 学习建议 -->
+    <view wx:if="{{reportData.suggestions.length > 0}}" class="section suggestions-section">
+      <text class="section-title">学习建议</text>
+
+      <view class="suggestions-list">
+        <view
+          wx:for="{{reportData.suggestions}}"
+          wx:key="*this"
+          class="suggestion-item"
+        >
+          <text class="suggestion-bullet">•</text>
+          <text class="suggestion-content">{{item}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 下周学习计划 -->
+    <view wx:if="{{reportData.nextPlan.length > 0}}" class="section plan-section">
+      <text class="section-title">下周学习计划</text>
+
+      <view class="plan-list">
+        <view
+          wx:for="{{reportData.nextPlan}}"
+          wx:key="task"
+          class="plan-item {{item.priority}}"
+        >
+          <view class="plan-checkbox"></view>
+          <text class="plan-task">{{item.task}}</text>
+          <view class="plan-priority {{item.priority}}">
+            <text>{{item.priority === 'high' ? '重要' : '一般'}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

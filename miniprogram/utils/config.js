@@ -21,7 +21,23 @@ function getApiUrl(path) {
   return `${baseUrl}/api/${path}`
 }
 
+/**
+ * 格式化日期
+ * @param {string|Date} date 日期
+ * @returns {string} 格式化后的日期字符串
+ */
+function formatDate(date) {
+  const d = date instanceof Date ? date : new Date(date)
+  const year = d.getFullYear()
+  const month = (d.getMonth() + 1).toString().padStart(2, '0')
+  const day = d.getDate().toString().padStart(2, '0')
+  const hours = d.getHours().toString().padStart(2, '0')
+  const minutes = d.getMinutes().toString().padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
 module.exports = {
   getBaseUrl,
-  getApiUrl
+  getApiUrl,
+  formatDate
 }

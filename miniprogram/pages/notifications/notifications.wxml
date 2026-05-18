@@ -1,0 +1,52 @@
+<!-- 通知列表 -->
+<view class="container">
+  <!-- 通知分类 -->
+  <view class="category-tabs">
+    <view
+      wx:for="{{categories}}"
+      wx:key="key"
+      class="category-tab {{currentCategory === item.key ? 'active' : ''}}"
+      bindtap="onCategoryChange"
+      data-category="{{item.key}}"
+    >
+      {{item.label}}
+      <view wx:if="{{item.count > 0}}" class="badge">{{item.count}}</view>
+    </view>
+  </view>
+
+  <!-- 通知列表 -->
+  <view class="notification-list">
+    <view
+      class="notification-item {{item.read ? 'read' : ''}}"
+      wx:for="{{notifications}}"
+      wx:key="id"
+      bindtap="onNotificationTap"
+      data-id="{{item.id}}"
+      data-type="{{item.type}}"
+      data-data="{{item.data}}"
+    >
+      <view class="notification-icon" style="background-color: {{item.color}};">
+        <image src="{{item.icon}}" mode="aspectFit" />
+      </view>
+
+      <view class="notification-content">
+        <view class="notification-title">{{item.title}}</view>
+        <view class="notification-desc">{{item.description}}</view>
+        <view class="notification-time">{{item.time}}</view>
+      </view>
+
+      <view wx:if="{{!item.read}}" class="unread-dot"></view>
+    </view>
+
+    <!-- 空状态 -->
+    <view wx:if="{{notifications.length === 0 && !loading}}" class="empty-state">
+      <image class="empty-icon" src="/images/empty-notifications.png" mode="aspectFit" />
+      <view class="empty-text">暂无通知</view>
+    </view>
+  </view>
+</view>
+
+<!-- 加载状态 -->
+<view wx:if="{{loading}}" class="loading">
+  <view class="loading-spinner"></view>
+</view>

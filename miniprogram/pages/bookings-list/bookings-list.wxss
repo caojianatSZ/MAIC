@@ -1,0 +1,371 @@
+/* 约课列表样式 */
+.container {
+  min-height: 100vh;
+  background-color: #F9FAFB;
+  padding-bottom: 120rpx;
+}
+
+/* 筛选栏 */
+.filter-bar {
+  background-color: #FFFFFF;
+  padding: 24rpx 32rpx;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 24rpx;
+  overflow-x: scroll;
+  white-space: nowrap;
+}
+
+.filter-tab {
+  position: relative;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #6B7280;
+  transition: all 0.3s ease;
+}
+
+.filter-tab.active {
+  color: #3B82F6;
+  font-weight: 600;
+}
+
+.filter-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4rpx;
+  background-color: #3B82F6;
+  border-radius: 2rpx;
+}
+
+/* 视图切换 */
+.view-switch {
+  display: flex;
+  background-color: #FFFFFF;
+  padding: 16rpx 32rpx;
+  margin-bottom: 24rpx;
+  gap: 16rpx;
+}
+
+.switch-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64rpx;
+  background-color: #F3F4F6;
+  border-radius: 32rpx;
+  font-size: 28rpx;
+  color: #6B7280;
+  transition: all 0.3s ease;
+}
+
+.switch-btn.active {
+  background-color: #3B82F6;
+  color: #FFFFFF;
+}
+
+.switch-btn image {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 8rpx;
+}
+
+/* 约课列表 */
+.booking-list {
+  padding: 0 32rpx 24rpx;
+}
+
+.booking-card {
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.08);
+  position: relative;
+}
+
+.booking-status {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.booking-status.status-PENDING {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #F59E0B;
+}
+
+.booking-status.status-CONFIRMED {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3B82F6;
+}
+
+.booking-status.status-COMPLETED {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10B981;
+}
+
+.booking-status.status-CANCELLED {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
+}
+
+.booking-time {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding-right: 100rpx;
+}
+
+.time-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+}
+
+.booking-time text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.booking-student {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.student-avatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  margin-right: 16rpx;
+}
+
+.student-info {
+  flex: 1;
+}
+
+.student-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 4rpx;
+}
+
+.class-info {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.booking-meta {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.class-type {
+  padding: 6rpx 16rpx;
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3B82F6;
+  font-size: 24rpx;
+  border-radius: 16rpx;
+}
+
+.duration {
+  font-size: 24rpx;
+  color: #9CA3AF;
+}
+
+.booking-actions {
+  display: flex;
+  gap: 16rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #F3F4F6;
+}
+
+.action-btn {
+  flex: 1;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  border-radius: 32rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  border: none;
+  padding: 0;
+}
+
+.action-btn.confirm {
+  background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+  color: #FFFFFF;
+}
+
+.action-btn.cancel {
+  background-color: #F3F4F6;
+  color: #6B7280;
+}
+
+.action-btn.complete {
+  background-color: #10B981;
+  color: #FFFFFF;
+}
+
+/* 日历视图 */
+.calendar-view {
+  background-color: #FFFFFF;
+  margin: 0 32rpx 24rpx;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  box-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.08);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.header-btn {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-btn image {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.header-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8rpx;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 24rpx;
+  color: #9CA3AF;
+  padding: 16rpx 0;
+}
+
+.day-cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #111827;
+}
+
+.day-cell.today {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3B82F6;
+  font-weight: 600;
+}
+
+.day-cell.other-month {
+  color: #D1D5DB;
+}
+
+.day-cell.has-booking {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.day-number {
+  font-size: 28rpx;
+}
+
+.booking-count {
+  position: absolute;
+  bottom: 4rpx;
+  min-width: 20rpx;
+  height: 20rpx;
+  line-height: 20rpx;
+  text-align: center;
+  background-color: #3B82F6;
+  color: #FFFFFF;
+  font-size: 16rpx;
+  padding: 0 6rpx;
+  border-radius: 10rpx;
+}
+
+/* 选中日期约课 */
+.selected-date-bookings {
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid #F3F4F6;
+}
+
+.date-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 16rpx;
+}
+
+.mini-booking {
+  display: flex;
+  align-items: center;
+  padding: 16rpx;
+  background-color: #F9FAFB;
+  border-radius: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.mini-time {
+  width: 120rpx;
+  font-size: 26rpx;
+  color: #3B82F6;
+  font-weight: 500;
+}
+
+.mini-student {
+  flex: 1;
+  font-size: 26rpx;
+  color: #374151;
+}
+
+/* 悬浮按钮 */
+.fab-add {
+  position: fixed;
+  right: 32rpx;
+  bottom: 120rpx;
+  width: 112rpx;
+  height: 112rpx;
+  background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+  border-radius: 50%;
+  box-shadow: 0 8rpx 24rpx rgba(59, 130, 246, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.fab-icon {
+  width: 48rpx;
+  height: 48rpx;
+}

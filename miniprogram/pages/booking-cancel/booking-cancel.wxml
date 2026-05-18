@@ -1,0 +1,30 @@
+<!-- 取消约课 -->
+<view class="container">
+  <view class="cancel-form">
+    <view class="form-title">取消预约</view>
+    <view class="form-desc">请选择取消原因</view>
+
+    <radio-group name="reason" bindchange="onReasonChange">
+      <label class="reason-item" wx:for="{{reasons}}" wx:key="value">
+        <radio value="{{item.value}}" checked="{{selectedReason === item.value}}" />
+        <text class="reason-text">{{item.label}}</text>
+      </label>
+    </radio-group>
+
+    <view class="custom-reason" wx:if="{{showCustomInput}}">
+      <textarea
+        class="reason-input"
+        placeholder="请输入取消原因"
+        maxlength="200"
+        bindinput="onInputChange"
+      />
+    </view>
+
+    <view class="btn-section">
+      <button class="btn-primary" bindtap="onConfirm" disabled="{{!selectedReason}}">
+        确认取消
+      </button>
+      <button class="btn-secondary" bindtap="onCancel">返回</button>
+    </view>
+  </view>
+</view>

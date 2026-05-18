@@ -1,0 +1,81 @@
+<!-- 约课详情 -->
+<view class="container" wx:if="{{!loading && booking}}">
+  <!-- 状态头部 -->
+  <view class="status-header status-{{booking.status}}">
+    <view class="status-info">
+      <view class="status-text">{{statusLabels[booking.status]}}</view>
+      <view class="status-desc">{{booking.scheduledAt}}</view>
+    </view>
+  </view>
+
+  <!-- 学生信息 -->
+  <view class="info-section">
+    <view class="section-title">学生信息</view>
+    <view class="student-card" bindtap="onStudentTap">
+      <image class="student-avatar" src="{{booking.student.avatar || '/images/default-avatar.png'}}" mode="aspectFill" />
+      <view class="student-info">
+        <view class="student-name">{{booking.student.nickname}}</view>
+        <view class="student-phone">{{booking.student.phoneNumber}}</view>
+      </view>
+      <image class="arrow-icon" src="/images/icon-arrow-right.png" mode="aspectFit" />
+    </view>
+  </view>
+
+  <!-- 课程信息 -->
+  <view class="info-section">
+    <view class="section-title">课程信息</view>
+
+    <view class="info-row">
+      <view class="info-label">学科</view>
+      <view class="info-value">{{booking.subject}}</view>
+    </view>
+
+    <view class="info-row">
+      <view class="info-label">年级</view>
+      <view class="info-value">{{booking.grade || '未设置'}}</view>
+    </view>
+
+    <view wx:if="{{booking.topic}}" class="info-row">
+      <view class="info-label">主题</view>
+      <view class="info-value">{{booking.topic}}</view>
+    </view>
+
+    <view class="info-row">
+      <view class="info-label">班型</view>
+      <view class="info-value">{{booking.classTypeLabel}}</view>
+    </view>
+
+    <view class="info-row">
+      <view class="info-label">时长</view>
+      <view class="info-value">{{booking.duration}}分钟</view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-section">
+    <block wx:if="{{booking.status === 'PENDING'}}">
+      <button class="action-btn primary" bindtap="onConfirm">确认预约</button>
+      <button class="action-btn secondary" bindtap="onCancel">取消预约</button>
+    </block>
+
+    <block wx:elif="{{booking.status === 'CONFIRMED'}}">
+      <button class="action-btn primary" bindtap="onStart">开始上课</button>
+      <button class="action-btn secondary" bindtap="onCancel">取消预约</button>
+    </block>
+
+    <block wx:elif="{{booking.status === 'COMPLETED'}}">
+      <button class="action-btn secondary" bindtap="onViewReport">查看报告</button>
+    </block>
+  </view>
+
+  <!-- 备注 -->
+  <view class="info-section" wx:if="{{booking.notes}}">
+    <view class="section-title">备注</view>
+    <view class="notes-content">{{booking.notes}}</view>
+  </view>
+</view>
+
+<!-- 加载状态 -->
+<view wx:if="{{loading}}" class="loading">
+  <view class="loading-spinner"></view>
+</view>

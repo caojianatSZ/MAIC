@@ -1,0 +1,79 @@
+<!-- 完成约课 -->
+<view class="container">
+  <form bindsubmit="onSubmit">
+    <view class="form-section">
+      <view class="section-title">出勤记录</view>
+
+      <radio-group name="attendance">
+        <label class="attendance-option">
+          <radio value="PRESENT" checked />
+          <view class="option-card">
+            <image src="/images/icon-check.png" mode="aspectFit" />
+            <view class="option-label">正常出勤</view>
+          </view>
+        </label>
+
+        <label class="attendance-option">
+          <radio value="LATE" />
+          <view class="option-card">
+            <image src="/images/icon-clock.png" mode="aspectFit" />
+            <view class="option-label">迟到</view>
+          </view>
+        </label>
+
+        <label class="attendance-option">
+          <radio value="ABSENT" />
+          <view class="option-card">
+            <image src="/images/icon-close.png" mode="aspectFit" />
+            <view class="option-label">缺勤</view>
+          </view>
+        </label>
+      </radio-group>
+    </view>
+
+    <view class="form-section">
+      <view class="section-title">课堂记录</view>
+
+      <view class="form-item">
+        <view class="form-label">课堂表现</view>
+        <view class="rating-options">
+          <view
+            wx:for="{{ratings}}"
+            wx:key="value"
+            class="rating-tag {{performance === item.value ? 'active' : ''}}"
+            bindtap="onRatingSelect"
+            data-value="{{item.value}}"
+          >
+            {{item.label}}
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">教学内容</view>
+        <textarea
+          class="form-textarea"
+          name="content"
+          placeholder="记录本节课的教学内容"
+          maxlength="500"
+        />
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">课后作业</view>
+        <textarea
+          class="form-textarea"
+          name="homework"
+          placeholder="布置的课后作业（选填）"
+          maxlength="300"
+        />
+      </view>
+    </view>
+
+    <view class="submit-section">
+      <button class="btn-primary" formType="submit" disabled="{{submitting}}">
+        {{submitting ? '提交中...' : '完成课程'}}
+      </button>
+    </view>
+  </form>
+</view>

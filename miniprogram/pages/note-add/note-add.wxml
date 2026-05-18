@@ -1,0 +1,42 @@
+<!-- 添加备注 -->
+<view class="container">
+  <form bindsubmit="onSubmit">
+    <view class="form-section">
+      <view class="form-item">
+        <view class="form-label">备注内容</view>
+        <textarea
+          class="form-textarea"
+          name="content"
+          placeholder="请输入跟进备注"
+          maxlength="500"
+          value="{{content}}"
+          bindinput="onInputChange"
+          auto-focus
+        />
+        <view class="char-count">{{content.length}}/500</view>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">快捷备注</view>
+        <view class="quick-notes">
+          <view
+            wx:for="{{quickNotes}}"
+            wx:key="*this"
+            class="quick-note-tag"
+            catchtap="onQuickNote"
+            data-note="{{item}}"
+          >
+            {{item}}
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="submit-section">
+      <button class="btn-primary" formType="submit" disabled="{{submitting || !content}}">
+        {{submitting ? '保存中...' : '保存备注'}}
+      </button>
+      <button class="btn-secondary" bindtap="onCancel">取消</button>
+    </view>
+  </form>
+</view>

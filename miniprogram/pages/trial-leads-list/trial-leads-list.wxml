@@ -1,0 +1,121 @@
+<!-- 试课线索列表 -->
+<view class="container">
+  <!-- 顶部筛选 -->
+  <view class="filter-bar">
+    <view class="filter-tabs">
+      <view
+        wx:for="{{statusTabs}}"
+        wx:key="key"
+        class="filter-tab {{currentStatus === item.key ? 'active' : ''}}"
+        bindtap="onStatusChange"
+        data-status="{{item.key}}"
+      >
+        {{item.label}}
+        <view wx:if="{{item.count > 0}}" class="tab-count">{{item.count}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input">
+      <image class="search-icon" src="/images/icon-search.png" mode="aspectFit" />
+      <input
+        type="text"
+        placeholder="搜索学生姓名或手机号"
+        value="{{searchKeyword}}"
+        bindinput="onSearchInput"
+        confirm-type="search"
+        bindconfirm="onSearch"
+      />
+      <image wx:if="{{searchKeyword}}" class="clear-icon" src="/images/icon-close.png" mode="aspectFit" catchtap="onClearSearch" />
+    </view>
+  </view>
+
+  <!-- 线索列表 -->
+  <view class="lead-list">
+    <view
+      wx:for="{{leads}}"
+      wx:key="id"
+      class="lead-card"
+      bindtap="onLeadTap"
+      data-id="{{item.id}}"
+    >
+      <!-- 状态标签 -->
+      <view class="lead-status status-{{item.status}}">
+        {{statusLabels[item.status]}}
+      </view>
+
+      <!-- 学生信息 -->
+      <view class="lead-header">
+        <view class="student-name">{{item.studentName}}</view>
+        <view class="lead-time">{{item.createdAt}}</view>
+      </view>
+
+      <!-- 家长信息 -->
+      <view wx:if="{{item.parentName}}" class="lead-info">
+        <text class="info-label">家长:</text>
+        <text>{{item.parentName}}</text>
+      </view>
+
+      <!-- 联系方式 -->
+      <view class="lead-info">
+        <text class="info-label">电话:</text>
+        <text class="phone-text">{{item.phoneNumber}}</text>
+        <image class="call-icon" src="/images/icon-phone.png" catchtap="onCall" data-phone="{{item.phoneNumber}}" />
+      </view>
+
+      <!-- 试课信息 -->
+      <view wx:if="{{item.scheduledTime}}" class="lead-info">
+        <text class="info-label">试课:</text>
+        <text>{{item.scheduledTime}}</text>
+      </view>
+
+      <!-- 来源渠道 -->
+      <view wx:if="{{item.sourceChannel}}" class="lead-source">
+        <text class="source-tag">{{item.sourceChannel}}</text>
+      </view>
+
+      <!-- 操作按钮 -->
+      <view class="lead-actions">
+        <block wx:if="{{item.status === 'NEW'}}">
+          <button class="action-btn primary" catchtap="onContact" data-id="{{item.id}}">已联系</button>
+          <button class="action-btn secondary" catchtap="onBookTrial" data-id="{{item.id}}">预约试课</button>
+        </block>
+        <block wx:elif="{{item.status === 'CONTACTED'}}">
+          <button class="action-btn primary" catchtap="onBookTrial" data-id="{{item.id}}">预约试课</button>
+        </block>
+        <block wx:elif="{{item.status === 'SCHEDULED'}}">
+          <button class="action-btn secondary" catchtap="onCompleteTrial" data-id="{{item.id}}">完成试课</button>
+        </block>
+        <block wx:elif="{{item.status === 'COMPLETED'}}">
+          <button class="action-btn success" catchtap="onConvert" data-id="{{item.id}}">已转化</button>
+          <button class="action-btn danger" catchtap="onMarkLost" data-id="{{item.id}}">已流失</button>
+        </block>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view wx:if="{{leads.length === 0 && !loading}}" class="empty-state">
+      <image class="empty-icon" src="/images/empty-leads.png" mode="aspectFit" />
+      <view class="empty-text">暂无非线索</view>
+      <view class="empty-hint">点击下方按钮添加新线索</view>
+    </view>
+
+    <!-- 加载更多 -->
+    <view wx:if="{{hasMore && leads.length > 0}}" class="load-more" bindtap="onLoadMore">
+      <view wx:if="{{loadingMore}}" class="loading-spinner"></view>
+      <text wx:else>加载更多</text>
+    </view>
+  </view>
+</view>
+
+<!-- 加载状态 -->
+<view wx:if="{{loading && leads.length === 0}}" class="loading">
+  <view class="loading-spinner"></view>
+</view>
+
+<!-- 悬浮添加按钮 -->
+<view class="fab-add" bindtap="onAddLead">
+  <image class="fab-icon" src="/images/icon-add.png" mode="aspectFit" />
+</view>

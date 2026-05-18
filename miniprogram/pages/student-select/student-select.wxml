@@ -1,0 +1,48 @@
+<!-- 选择学生 -->
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input">
+      <image class="search-icon" src="/images/icon-search.png" mode="aspectFit" />
+      <input
+        type="text"
+        placeholder="搜索学生姓名"
+        value="{{keyword}}"
+        bindinput="onSearchInput"
+      />
+      <image wx:if="{{keyword}}" class="clear-icon" src="/images/icon-close.png" mode="aspectFit" catchtap="onClearSearch" />
+    </view>
+  </view>
+
+  <!-- 学生列表 -->
+  <view class="student-list">
+    <view
+      class="student-item"
+      wx:for="{{students}}"
+      wx:key="id"
+      bindtap="onSelectStudent"
+      data-student="{{item}}"
+    >
+      <image class="student-avatar" src="{{item.avatar || '/images/default-avatar.png'}}" mode="aspectFill" />
+      <view class="student-info">
+        <view class="student-name">{{item.nickname}}</view>
+        <view class="student-meta">
+          <text>{{item.grade || '未设置年级'}}</text>
+          <text wx:if="{{item.phoneNumber}}">{{item.phoneNumber}}</text>
+        </view>
+      </view>
+      <image class="check-icon" src="/images/icon-check.png" mode="aspectFit" />
+    </view>
+
+    <!-- 空状态 -->
+    <view wx:if="{{students.length === 0 && !loading}}" class="empty-state">
+      <image class="empty-icon" src="/images/empty-students.png" mode="aspectFit" />
+      <view class="empty-text">未找到学生</view>
+    </view>
+  </view>
+</view>
+
+<!-- 加载状态 -->
+<view wx:if="{{loading}}" class="loading">
+  <view class="loading-spinner"></view>
+</view>

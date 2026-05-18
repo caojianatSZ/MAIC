@@ -1,0 +1,169 @@
+<!-- 老师仪表盘 -->
+<view class="container" wx:if="{{!loading}}">
+  <!-- 顶部问候 -->
+  <view class="header-section">
+    <view class="greeting">
+      <image class="avatar" src="{{userInfo.avatar || '/images/default-avatar.png'}}" mode="aspectFill" />
+      <view class="greeting-text">
+        <view class="greeting-title">你好，{{userInfo.nickname}}</view>
+        <view class="greeting-date">{{currentDate}} {{currentWeekday}}</view>
+      </view>
+    </view>
+    <view class="notification-btn" bindtap="onNotifications">
+      <image src="/images/icon-bell.png" mode="aspectFit" />
+      <view wx:if="{{unreadCount > 0}}" class="badge">{{unreadCount}}</view>
+    </view>
+  </view>
+
+  <!-- 今日数据卡片 -->
+  <view class="stats-grid">
+    <view class="stat-card">
+      <view class="stat-icon" style="background-color: rgba(59, 130, 246, 0.1);">
+        <image src="/images/icon-calendar.png" mode="aspectFit" />
+      </view>
+      <view class="stat-info">
+        <view class="stat-value">{{todayStats.bookings}}</view>
+        <view class="stat-label">今日课程</view>
+      </view>
+    </view>
+
+    <view class="stat-card">
+      <view class="stat-icon" style="background-color: rgba(16, 185, 129, 0.1);">
+        <image src="/images/icon-check.png" mode="aspectFit" />
+      </view>
+      <view class="stat-info">
+        <view class="stat-value">{{todayStats.completed}}</view>
+        <view class="stat-label">已完成</view>
+      </view>
+    </view>
+
+    <view class="stat-card">
+      <view class="stat-icon" style="background-color: rgba(245, 158, 11, 0.1);">
+        <image src="/images-icon-clock.png" mode="aspectFit" />
+      </view>
+      <view class="stat-info">
+        <view class="stat-value">{{todayStats.pending}}</view>
+        <view class="stat-label">待确认</view>
+      </view>
+    </view>
+
+    <view class="stat-card">
+      <view class="stat-icon" style="background-color: rgba(239, 68, 68, 0.1);">
+        <image src="/images/icon-alert.png" mode="aspectFit" />
+      </view>
+      <view class="stat-info">
+        <view class="stat-value">{{todayStats.overdue}}</view>
+        <view class="stat-label">待收款</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 今日课程 -->
+  <view class="section" wx:if="{{todayBookings.length > 0}}">
+    <view class="section-header">
+      <view class="section-title">今日课程</view>
+      <view class="section-more" bindtap="onViewAllBookings">
+        <text>查看全部</text>
+        <image src="/images/icon-arrow-right.png" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="booking-list">
+      <view
+        class="booking-item"
+        wx:for="{{todayBookings}}"
+        wx:key="id"
+        bindtap="onBookingTap"
+        data-id="{{item.id}}"
+      >
+        <view class="booking-time">
+          <view class="time-text">{{item.time}}</view>
+          <view class="time-duration">{{item.duration}}分钟</view>
+        </view>
+
+        <view class="booking-divider"></view>
+
+        <view class="booking-student">
+          <image class="student-avatar" src="{{item.student.avatar || '/images/default-avatar.png'}}" mode="aspectFill" />
+          <view class="student-info">
+            <view class="student-name">{{item.student.nickname}}</view>
+            <view class="class-info">{{item.subject}} · {{item.classType}}</view>
+          </view>
+        </view>
+
+        <view class="booking-status {{item.status}}">
+          {{item.statusLabel}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 待办事项 -->
+  <view class="section" wx:if="{{todos.length > 0}}">
+    <view class="section-header">
+      <view class="section-title">待办事项</view>
+      <view class="todo-count">{{todos.length}}</view>
+    </view>
+
+    <view class="todo-list">
+      <view
+        class="todo-item"
+        wx:for="{{todos}}"
+        wx:key="id"
+        bindtap="onTodoTap"
+        data-type="{{item.type}}"
+        data-id="{{item.id}}"
+      >
+        <view class="todo-icon" style="background-color: {{item.color}};">
+          <image src="{{item.icon}}" mode="aspectFit" />
+        </view>
+        <view class="todo-info">
+          <view class="todo-title">{{item.title}}</view>
+          <view class="todo-desc">{{item.description}}</view>
+        </view>
+        <view class="todo-time">{{item.time}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 统计概览 -->
+  <view class="section">
+    <view class="section-header">
+      <view class="section-title">本周统计</view>
+    </view>
+
+    <view class="overview-grid">
+      <view class="overview-item">
+        <view class="overview-label">试课转化率</view>
+        <view class="overview-value">{{weekStats.conversionRate}}%</view>
+        <view class="overview-trend {{weekStats.conversionTrend >= 0 ? 'up' : 'down'}}">
+          <image src="/images/icon-trend-{{weekStats.conversionTrend >= 0 ? 'up' : 'down'}}.png" mode="aspectFit" />
+          <text>{{Math.abs(weekStats.conversionTrend)}}%</text>
+        </view>
+      </view>
+
+      <view class="overview-item">
+        <view class="overview-label">累计课时</view>
+        <view class="overview-value">{{weekStats.totalHours}}</view>
+        <view class="overview-trend up">
+          <image src="/images/icon-trend-up.png" mode="aspectFit" />
+          <text>{{weekStats.hoursTrend}}%</text>
+        </view>
+      </view>
+
+      <view class="overview-item">
+        <view class="overview-label">新增线索</view>
+        <view class="overview-value">{{weekStats.newLeads}}</view>
+        <view class="overview-trend {{weekStats.leadsTrend >= 0 ? 'up' : 'down'}}">
+          <image src="/images/icon-trend-{{weekStats.leadsTrend >= 0 ? 'up' : 'down'}}.png" mode="aspectFit" />
+          <text>{{Math.abs(weekStats.leadsTrend)}}%</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 加载状态 -->
+<view wx:if="{{loading}}" class="loading">
+  <view class="loading-spinner"></view>
+</view>

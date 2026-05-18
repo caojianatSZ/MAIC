@@ -1,0 +1,174 @@
+<!--pages/student-dashboard/student-dashboard.wxml-->
+<view class="dashboard">
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{isEmpty}}" class="empty-state">
+    <view class="empty-icon">📊</view>
+    <text class="empty-title">暂无学习数据</text>
+    <text class="empty-desc">开始第一次诊断，获取个性化学习建议</text>
+    <button class="empty-button" bindtap="onStartDiagnosis">开始诊断</button>
+  </view>
+
+  <!-- 仪表盘内容 -->
+  <view wx:else class="dashboard-content">
+    <!-- 学习概览 -->
+    <view class="section overview-section">
+      <view class="section-header">
+        <text class="section-title">学习概览</text>
+        <view class="period-selector">
+          <text
+            wx:for="{{periodOptions}}"
+            wx:key="key"
+            class="period-option {{period === item.key ? 'active' : ''}}"
+            data-period="{{item.key}}"
+            bindtap="onPeriodChange"
+          >{{item.label}}</text>
+        </view>
+      </view>
+
+      <view class="stats-grid">
+        <view class="stat-card">
+          <text class="stat-value">{{stats.studyMinutes}}</text>
+          <text class="stat-label">学习时长(分)</text>
+        </view>
+        <view class="stat-card">
+          <text class="stat-value">{{stats.accuracy}}%</text>
+          <text class="stat-label">正确率</text>
+        </view>
+        <view class="stat-card">
+          <text class="stat-value">{{stats.masteredPoints}}</text>
+          <text class="stat-label">掌握知识点</text>
+        </view>
+        <view class="stat-card">
+          <text class="stat-value">{{stats.streakDays}}</text>
+          <text class="stat-label">连续学习(天)</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 知识点掌握度 -->
+    <view class="section mastery-section">
+      <view class="section-header">
+        <text class="section-title">知识点掌握度</text>
+        <text class="section-link" bindtap="onViewKnowledgeDetail">查看详情 ></text>
+      </view>
+
+      <view class="mastery-overview">
+        <view class="mastery-bar">
+          <view class="mastery-fill" style="width: {{knowledgeMastery.masteryRate}}%"></view>
+        </view>
+        <text class="mastery-text">{{knowledgeMastery.masteredPoints}}/{{knowledgeMastery.totalPoints}} 掌握 ({{knowledgeMastery.masteryRate}}%)</text>
+      </view>
+
+      <view class="subject-list">
+        <view
+          wx:for="{{knowledgeMastery.bySubject}}"
+          wx:key="subject"
+          class="subject-item"
+        >
+          <text class="subject-name">{{item.subject}}</text>
+          <view class="subject-bar">
+            <view class="subject-fill" style="width: {{item.rate}}%"></view>
+          </view>
+          <text class="subject-rate">{{item.rate}}%</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 待巩固知识点 -->
+    <view class="section weak-points-section">
+      <view class="section-header">
+        <text class="section-title">待巩固知识点</text>
+        <text class="section-link" bindtap="onStartPractice">开始练习 ></text>
+      </view>
+
+      <view wx:if="{{weakPoints.length === 0}}" class="weak-empty">
+        <text class="weak-empty-text">🎉 太棒了！没有薄弱知识点</text>
+      </view>
+
+      <view wx:else class="weak-points-list">
+        <view
+          wx:for="{{weakPoints}}"
+          wx:key="uri"
+          class="weak-point-card {{item.masteryLevel}}"
+          data-uri="{{item.uri}}"
+          data-name="{{item.name}}"
+          data-subject="{{item.subject}}"
+          bindtap="onWeakPointTap"
+        >
+          <view class="weak-point-header">
+            <view class="weak-point-badge mastery-{{item.masteryLevel}}">
+              <text>{{item.masteryLevel === 'weak' ? '薄弱' : '部分掌握'}}</text>
+            </view>
+            <text class="weak-point-accuracy">正确率 {{item.accuracy}}%</text>
+          </view>
+          <text class="weak-point-name">{{item.name}}</text>
+          <text wx:if="{{item.wrongCount > 0}}" class="weak-point-hint">已错 {{item.wrongCount}} 次</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 近期学习记录 -->
+    <view class="section records-section">
+      <view class="section-header">
+        <text class="section-title">近期学习记录</text>
+      </view>
+
+      <view wx:if="{{recentRecords.length === 0}}" class="records-empty">
+        <text class="records-empty-text">暂无学习记录</text>
+      </view>
+
+      <view wx:else class="records-list">
+        <view
+          wx:for="{{recentRecords}}"
+          wx:key="id"
+          class="record-item"
+          data-id="{{item.id}}"
+          bindtap="onViewRecord"
+        >
+          <view class="record-icon {{item.accuracy >= 80 ? 'success' : ''}}">
+            <text>{{item.accuracy >= 80 ? '✓' : '○'}}</text>
+          </view>
+          <view class="record-content">
+            <text class="record-title">{{item.title}}</text>
+            <text class="record-meta">{{item.completedAt}} · {{item.duration}}分钟</text>
+          </view>
+          <text class="record-accuracy {{item.accuracy >= 80 ? 'high' : ''}}">{{item.accuracy}}%</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 最新成就 -->
+    <view wx:if="{{recentAchievements.length > 0}}" class="section achievements-section">
+      <view class="section-header">
+        <text class="section-title">最新成就</text>
+        <text class="section-link" bindtap="onViewAllAchievements">查看全部 ></text>
+      </view>
+
+      <view class="achievements-list">
+        <view
+          wx:for="{{recentAchievements}}"
+          wx:key="id"
+          class="achievement-item"
+        >
+          <text class="achievement-icon">{{item.icon}}</text>
+          <text class="achievement-name">{{item.name}}</text>
+          <text class="achievement-time">{{item.unlockedAt}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 学习报告入口 -->
+    <view class="section report-section">
+      <button class="report-button" bindtap="onViewReport">
+        <text class="report-button-icon">📊</text>
+        <text class="report-button-text">查看学习报告</text>
+      </button>
+    </view>
+  </view>
+</view>

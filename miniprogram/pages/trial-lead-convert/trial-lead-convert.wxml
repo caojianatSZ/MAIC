@@ -1,0 +1,97 @@
+<!-- 试课线索转化 -->
+<view class="container" wx:if="{{!loading && lead}}">
+  <!-- 线索信息 -->
+  <view class="lead-summary">
+    <image class="avatar" src="/images/default-avatar.png" mode="aspectFill" />
+    <view class="summary-info">
+      <view class="student-name">{{lead.studentName}}</view>
+      <view class="contact-info">{{lead.phoneNumber}}</view>
+    </view>
+  </view>
+
+  <!-- 转化表单 -->
+  <form bindsubmit="onConvert">
+    <view class="form-section">
+      <view class="section-title">转化信息</view>
+
+      <!-- 转化类型 -->
+      <view class="form-item">
+        <view class="form-label required">转化类型</view>
+        <radio-group name="convertType" bindchange="onConvertTypeChange">
+          <label class="radio-item" wx:for="{{convertTypes}}" wx:key="value">
+            <radio value="{{item.value}}" checked="{{convertType === item.value}}" />
+            <text>{{item.label}}</text>
+          </label>
+        </radio-group>
+      </view>
+
+      <!-- 套餐选择 -->
+      <view class="form-item">
+        <view class="form-label required">选择套餐</view>
+        <view class="package-options">
+          <view
+            wx:for="{{packages}}"
+            wx:key="id"
+            class="package-card {{packageId === item.id ? 'active' : ''}}"
+            bindtap="onPackageSelect"
+            data-id="{{item.id}}"
+          >
+            <view class="package-name">{{item.name}}</view>
+            <view class="package-price">¥{{item.price}}</view>
+            <view class="package-desc">{{item.description}}</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 支付方式 -->
+      <view class="form-item">
+        <view class="form-label required">支付方式</view>
+        <radio-group name="paymentMethod">
+          <label class="radio-item" wx:for="{{paymentMethods}}" wx:key="value">
+            <radio value="{{item.value}}" checked="{{paymentMethod === item.value}}" />
+            <text>{{item.label}}</text>
+          </label>
+        </radio-group>
+      </view>
+
+      <!-- 支付状态 -->
+      <view class="form-item">
+        <view class="form-label required">支付状态</view>
+        <radio-group name="paymentStatus">
+          <label class="radio-item">
+            <radio value="PAID" checked />
+            <text>已支付</text>
+          </label>
+          <label class="radio-item">
+            <radio value="PENDING" />
+            <text>待支付</text>
+          </label>
+        </radio-group>
+      </view>
+
+      <!-- 备注 -->
+      <view class="form-item">
+        <view class="form-label">备注</view>
+        <textarea
+          class="form-textarea"
+          name="notes"
+          placeholder="请输入备注信息（选填）"
+          maxlength="200"
+        />
+      </view>
+    </view>
+
+    <!-- 提交按钮 -->
+    <view class="submit-section">
+      <button class="btn-primary" formType="submit" disabled="{{submitting}}">
+        {{submitting ? '提交中...' : '确认转化'}}
+      </button>
+      <button class="btn-secondary" bindtap="onCancel">取消</button>
+    </view>
+  </form>
+</view>
+
+<!-- 加载状态 -->
+<view wx:if="{{loading}}" class="loading">
+  <view class="loading-spinner"></view>
+</view>
