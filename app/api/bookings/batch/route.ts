@@ -119,8 +119,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       created: createdBookings.length,
       conflicts: conflicts.length,
-      bookings: createdBookings,
-      conflicts
+      bookings: createdBookings
     }, { status: 201 });
   } catch (error) {
     console.error('批量创建预约失败:', error);
