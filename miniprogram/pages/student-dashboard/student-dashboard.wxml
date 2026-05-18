@@ -49,6 +49,18 @@
           <text class="stat-label">连续学习(天)</text>
         </view>
       </view>
+
+      <!-- 诊断入口 -->
+      <view class="diagnosis-entry" bindtap="onStartDiagnosis">
+        <view class="diagnosis-icon">🎯</view>
+        <view class="diagnosis-content">
+          <text class="diagnosis-title">开始新诊断</text>
+          <text class="diagnosis-desc">检测知识掌握情况，获取学习建议</text>
+        </view>
+        <view class="diagnosis-arrow">
+          <text class="arrow-icon">›</text>
+        </view>
+      </view>
     </view>
 
     <!-- 知识点掌握度 -->
