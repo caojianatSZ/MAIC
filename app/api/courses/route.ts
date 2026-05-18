@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { createLogger } from '@/lib/logger';
 
 const prisma = new PrismaClient();
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         generationPrompt: topic,
         scenes: lessonPlan || [],
         sceneCount: 0,
-        planData: quizQuestions ? { quizQuestions } : null,
+        planData: quizQuestions ? { quizQuestions } : Prisma.JsonNull,
         isCompleted: true,
         metadata: {
           createdBy: teacherId,
