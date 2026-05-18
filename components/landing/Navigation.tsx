@@ -12,7 +12,7 @@ export function Navigation() {
       <div className="flex items-center justify-between h-16">
         <Link
           href="/"
-          className="font-black text-xl text-primary no-underline"
+          className="font-black text-2xl text-primary no-underline"
           style={{ letterSpacing: '-0.02em' }}
         >
           学迹

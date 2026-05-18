@@ -56,18 +56,13 @@ body {
 
 /* Sections */
 section {
-  padding: 96px 0;
+  padding: 128px 0;
 }
 
 @media (max-width: 768px) {
   section {
     padding: 64px 0;
   }
-}
-
-/* Hero section - no extra padding since section has padding */
-.hero {
-  padding: 0;
 }
 
 /* Button */
