@@ -249,5 +249,14 @@ Page({
     wx.navigateTo({
       url: '/pages/learning-report/learning-report'
     });
+  },
+
+  /**
+   * 开始诊断
+   */
+  onStartDiagnosis() {
+    wx.navigateTo({
+      url: '/pages/diagnosis/diagnosis'
+    });
   }
 });
