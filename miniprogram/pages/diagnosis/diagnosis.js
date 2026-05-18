@@ -1642,6 +1642,7 @@ Page({
     const totalWeak = weakPoints.length + partialPoints.length
 
     let suggestion = ''
+    let actionHint = ''
 
     // 根据得分生成带引导的个性化建议
     if (score >= 90) {
