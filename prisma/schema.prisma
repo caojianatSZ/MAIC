@@ -139,6 +139,7 @@ model User {
   teacherBookings    Booking[]        @relation("BookingTeacher")
   studentBookings    Booking[]        @relation("BookingStudent")
   payments           PaymentRecord[]  @relation("PaymentStudent")
+  teacherSlots       TeacherSlot[]   @relation("TeacherSlots")
 
   @@map("users")
 }
@@ -1008,6 +1009,32 @@ model PaymentRecord {
   @@index([cityId, status])
   @@index([settlementStatus])
   @@map("payment_records")
+}
+
+// 老师可用时间段
+model TeacherSlot {
+  id            String   @id @default(cuid())
+
+  // 关联老师（用户）
+  teacherId     String   @map("teacher_id")
+  teacher       User     @relation("TeacherSlots", fields: [teacherId], references: [id])
+
+  // 时间段
+  startTime     DateTime @map("start_time")  // 开始时间
+  endTime       DateTime @map("end_time")    // 结束时间
+
+  // 重复设置
+  recurringType String?  // DAILY, WEEKLY, BIWEEKLY, null（不重复）
+
+  // 状态
+  isAvailable   Boolean  @default(true) @map("is_available")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([teacherId, startTime])
+  @@index([startTime])
+  @@map("teacher_slots")
 }
 
 // AI 课程生成会话（v2 设计）
