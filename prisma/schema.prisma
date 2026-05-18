@@ -949,6 +949,9 @@ model Booking {
   classroomId   String?  @map("classroom_id")  // 关联 AI 生成的 Classroom
   notes         Json?    // 课堂记录、反馈等
 
+  // 诊断结果（课前/课后诊断）
+  diagnosisResultId String?  @map("diagnosis_result_id")
+
   // 关联支付记录
   payments      PaymentRecord[] @relation("BookingPayments")
 
